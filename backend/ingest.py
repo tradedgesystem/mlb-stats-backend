@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pybaseball import batting_stats
 
-YEAR = 2023
+YEAR = 2025
 TABLE_NAME = "batting_stats"
 
 
