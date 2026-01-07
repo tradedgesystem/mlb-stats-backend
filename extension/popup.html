@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MLB Stats</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        padding: 12px;
+        min-width: 320px;
+        font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+        background: #f7f3ea;
+        color: #1a1a1a;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff1cc;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #ffe4a1;
+      }
+
+      pre {
+        margin: 12px 0 0;
+        padding: 10px;
+        min-height: 140px;
+        border: 1px dashed #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="load">Load Players</button>
+    <pre id="output"></pre>
+    <script src="popup.js"></script>
+  </body>
+</html>
