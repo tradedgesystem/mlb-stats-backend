@@ -18,6 +18,23 @@
         color: #1a1a1a;
       }
 
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        letter-spacing: 0.02em;
+      }
+
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fffdf6;
+        font-size: 13px;
+      }
+
       button {
         width: 100%;
         padding: 10px 12px;
@@ -46,6 +63,12 @@
     </style>
   </head>
   <body>
+    <label for="year">Season</label>
+    <select id="year">
+      <option value="2024">2024</option>
+      <option value="2025" selected>2025</option>
+      <option value="2026">2026</option>
+    </select>
     <button id="load">Load Players</button>
     <pre id="output"></pre>
     <script src="popup.js"></script>

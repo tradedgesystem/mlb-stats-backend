@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -71,13 +72,23 @@ def main() -> None:
     log_missing_and_sparse(df)
 
     db_path = Path(__file__).with_name("stats.db")
-    with sqlite3.connect(db_path) as conn:
-        df.to_sql(TABLE_NAME, conn, if_exists="replace", index=False)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_batting_stats_season "
-            "ON batting_stats(season)"
-        )
-        conn.commit()
+    tmp_path = db_path.with_name("stats_tmp.db")
+    if tmp_path.exists():
+        tmp_path.unlink()
+
+    try:
+        with sqlite3.connect(tmp_path) as conn:
+            df.to_sql(TABLE_NAME, conn, if_exists="replace", index=False)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_batting_stats_season "
+                "ON batting_stats(season)"
+            )
+            conn.commit()
+        os.replace(tmp_path, db_path)
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
 
     print(f"Inserted {len(df)} rows into {db_path}")
 

@@ -4,10 +4,21 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 DB_PATH = Path(__file__).with_name("stats.db")
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ],
+    allow_origin_regex=r"chrome-extension://.*",
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)  # Local dev only.
 
 
 @app.get("/players")
