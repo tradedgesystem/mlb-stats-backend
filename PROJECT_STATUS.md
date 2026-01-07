@@ -66,19 +66,16 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
   Returns aligned stat rows for the requested IDs.
 - Extension UI:
   - Search players by name.
-  - Add 2-5 players to compare.
+  - Add 1-5 players to a selection list.
   - Compare button renders JSON in the popup.
+  - View Player renders a single player's JSON.
 
 ## Remaining Work
 
 ### 4) Individual player view
 
-- Add a dedicated player details view in the extension UI.
-- Decide on a single-player endpoint or reuse `/compare` for one ID.
-  ```
-  GET /player?year=YYYY&player_id=ID
-  ```
-  (or allow 1 ID in `/compare`)
+- Added `/player?year=YYYY&player_id=ID`.
+- Extension supports selecting 1 player and viewing stats.
 
 ### 5) Ingestion expansion (controlled)
 

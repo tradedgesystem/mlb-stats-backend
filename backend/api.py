@@ -87,3 +87,21 @@ def compare_players(
     rows_by_id = {row["player_id"]: row for row in rows}
     ordered = [dict(rows_by_id[player_id]) for player_id in ids if player_id in rows_by_id]
     return ordered
+
+
+@app.get("/player")
+def get_player(
+    year: int = Query(..., ge=1800, le=2100),
+    player_id: int = Query(..., ge=1),
+) -> dict:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM batting_stats WHERE season = ? AND player_id = ?",
+            (year, player_id),
+        ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    return dict(row)

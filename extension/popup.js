@@ -4,6 +4,7 @@ const searchButton = document.getElementById("search-btn");
 const clearButton = document.getElementById("clear-btn");
 const resultsEl = document.getElementById("results");
 const selectedEl = document.getElementById("selected");
+const viewButton = document.getElementById("view-btn");
 const compareButton = document.getElementById("compare-btn");
 const output = document.getElementById("output");
 
@@ -106,6 +107,28 @@ compareButton.addEventListener("click", async () => {
       `http://127.0.0.1:8000/compare?year=${encodeURIComponent(
         year
       )}&player_ids=${encodeURIComponent(ids)}`
+    );
+    const data = await response.json();
+    console.log(data);
+    output.textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+viewButton.addEventListener("click", async () => {
+  try {
+    const year = yearSelect.value;
+    if (selectedPlayers.length !== 1) {
+      output.textContent = "Select 1 player to view.";
+      return;
+    }
+
+    const playerId = selectedPlayers[0].player_id;
+    const response = await fetch(
+      `http://127.0.0.1:8000/player?year=${encodeURIComponent(
+        year
+      )}&player_id=${encodeURIComponent(playerId)}`
     );
     const data = await response.json();
     console.log(data);
