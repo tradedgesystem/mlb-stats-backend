@@ -68,6 +68,10 @@ def main() -> None:
 
     if "season" not in df.columns:
         df["season"] = YEAR
+    if "idfg" not in df.columns:
+        raise ValueError("Missing expected idfg column for player IDs.")
+    if "player_id" not in df.columns:
+        df["player_id"] = df["idfg"]
 
     log_missing_and_sparse(df)
 

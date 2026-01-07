@@ -35,6 +35,26 @@
         font-size: 13px;
       }
 
+      input {
+        width: 100%;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 13px;
+      }
+
+      .row {
+        display: flex;
+        gap: 6px;
+      }
+
+      .row button {
+        width: auto;
+        flex: 1;
+      }
+
       button {
         width: 100%;
         padding: 10px 12px;
@@ -60,6 +80,21 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
+
+      .list {
+        margin: 8px 0;
+        padding: 8px;
+        border: 1px dashed #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+      }
+
+      .list button {
+        margin-left: 6px;
+        padding: 2px 6px;
+        font-size: 11px;
+      }
     </style>
   </head>
   <body>
@@ -69,7 +104,16 @@
       <option value="2025" selected>2025</option>
       <option value="2026">2026</option>
     </select>
-    <button id="load">Load Players</button>
+    <label for="search">Search</label>
+    <input id="search" type="text" placeholder="Type a player name" />
+    <div class="row">
+      <button id="search-btn">Search</button>
+      <button id="clear-btn">Clear</button>
+    </div>
+    <div id="results" class="list"></div>
+    <label>Selected (2-5)</label>
+    <div id="selected" class="list"></div>
+    <button id="compare-btn">Compare</button>
     <pre id="output"></pre>
     <script src="popup.js"></script>
   </body>
