@@ -9,6 +9,7 @@ const compareButton = document.getElementById("compare-btn");
 const statsEl = document.getElementById("stats");
 const output = document.getElementById("output");
 const metaEl = document.getElementById("snapshot-meta");
+const warningEl = document.getElementById("snapshot-warning");
 
 const selectedPlayers = [];
 let statsConfig = [];
@@ -54,6 +55,9 @@ const updateMeta = () => {
   }
   if (!activeMeta) {
     metaEl.textContent = "Data updated: unavailable";
+    if (warningEl) {
+      warningEl.textContent = "";
+    }
     return;
   }
   const timestamp = activeMeta.generated_at;
@@ -62,6 +66,74 @@ const updateMeta = () => {
     ? date.toLocaleString()
     : "unavailable";
   metaEl.textContent = `Data updated: ${readable}`;
+
+  if (warningEl) {
+    if (!date || Number.isNaN(date.getTime())) {
+      warningEl.textContent = "Snapshot freshness unknown.";
+      return;
+    }
+    const ageHours = (Date.now() - date.getTime()) / 36e5;
+    if (ageHours > 36) {
+      const ageDays = Math.floor(ageHours / 24);
+      warningEl.textContent = `Snapshot is ${ageDays} day(s) old.`;
+    } else {
+      warningEl.textContent = "";
+    }
+  }
+};
+
+const renderMessage = (message) => {
+  output.textContent = message;
+};
+
+const renderTable = (rows, statKeys) => {
+  output.textContent = "";
+  if (!rows.length) {
+    renderMessage("No data to display.");
+    return;
+  }
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+
+  const baseHeaders = ["Name", "Team", "Season"];
+  baseHeaders.forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+
+  statKeys.forEach((key) => {
+    const config = statsByKey.get(key);
+    const th = document.createElement("th");
+    th.textContent = config?.label || key;
+    headRow.appendChild(th);
+  });
+
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    [row.name, row.team, row.season].forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = value ?? "-";
+      tr.appendChild(td);
+    });
+
+    statKeys.forEach((key) => {
+      const config = statsByKey.get(key);
+      const value = formatValue(row[key], config?.format);
+      const td = document.createElement("td");
+      td.textContent = value ?? "-";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  output.appendChild(table);
 };
 
 const renderResults = (players) => {
@@ -233,12 +305,12 @@ clearButton.addEventListener("click", () => {
 compareButton.addEventListener("click", async () => {
   try {
     if (selectedPlayers.length < 2 || selectedPlayers.length > 5) {
-      output.textContent = "Select 2-5 players to compare.";
+      renderMessage("Select 2-5 players to compare.");
       return;
     }
     const statKeys = getSelectedKeys();
     if (!statKeys.length) {
-      output.textContent = "Select at least one stat.";
+      renderMessage("Select at least one stat.");
       return;
     }
 
@@ -248,21 +320,7 @@ compareButton.addEventListener("click", async () => {
       )
       .filter(Boolean);
     console.log(rows);
-    const filtered = rows.map((row) => {
-      const result = {
-        player_id: row.player_id,
-        name: row.name,
-        team: row.team,
-        season: row.season,
-      };
-      statKeys.forEach((key) => {
-        const config = statsByKey.get(key);
-        const value = row[key];
-        result[key] = formatValue(value ?? null, config?.format);
-      });
-      return result;
-    });
-    output.textContent = JSON.stringify(filtered, null, 2);
+    renderTable(rows, statKeys);
   } catch (error) {
     console.log(error);
   }
@@ -271,12 +329,12 @@ compareButton.addEventListener("click", async () => {
 viewButton.addEventListener("click", async () => {
   try {
     if (selectedPlayers.length !== 1) {
-      output.textContent = "Select 1 player to view.";
+      renderMessage("Select 1 player to view.");
       return;
     }
     const statKeys = getSelectedKeys();
     if (!statKeys.length) {
-      output.textContent = "Select at least one stat.";
+      renderMessage("Select at least one stat.");
       return;
     }
 
@@ -284,21 +342,10 @@ viewButton.addEventListener("click", async () => {
     const data = activePlayers.find((row) => row.player_id === playerId);
     console.log(data);
     if (!data) {
-      output.textContent = "Player not found in snapshot.";
+      renderMessage("Player not found in snapshot.");
       return;
     }
-    const filtered = {
-      player_id: data.player_id,
-      name: data.name,
-      team: data.team,
-      season: data.season,
-    };
-    statKeys.forEach((key) => {
-      const config = statsByKey.get(key);
-      const value = data[key];
-      filtered[key] = formatValue(value ?? null, config?.format);
-    });
-    output.textContent = JSON.stringify(filtered, null, 2);
+    renderTable([data], statKeys);
   } catch (error) {
     console.log(error);
   }

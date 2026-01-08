@@ -24,6 +24,12 @@
         color: #3b3b3b;
       }
 
+      .warning {
+        margin: 2px 0 10px;
+        font-size: 11px;
+        color: #8a3b12;
+      }
+
       label {
         display: block;
         margin-bottom: 6px;
@@ -75,7 +81,7 @@
         background: #ffe4a1;
       }
 
-      pre {
+      .output {
         margin: 12px 0 0;
         padding: 10px;
         min-height: 140px;
@@ -83,8 +89,26 @@
         border-radius: 6px;
         background: #fff;
         font-size: 12px;
-        white-space: pre-wrap;
-        word-break: break-word;
+        white-space: normal;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #e0e0e0;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
       }
 
       .list {
@@ -144,6 +168,7 @@
       <option value="2026">2026</option>
     </select>
     <div id="snapshot-meta" class="meta"></div>
+    <div id="snapshot-warning" class="warning"></div>
     <label for="search">Search</label>
     <input id="search" type="text" placeholder="Type a player name" />
     <div class="row">
@@ -159,7 +184,7 @@
     </div>
     <label>Stats to show</label>
     <div id="stats" class="stats"></div>
-    <pre id="output"></pre>
+    <div id="output" class="output"></div>
     <script src="popup.js"></script>
   </body>
 </html>
