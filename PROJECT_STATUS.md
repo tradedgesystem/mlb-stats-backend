@@ -462,6 +462,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Stats glossary now flags stats that need new data and disables unavailable picks.
 - Extension falls back to local API data if snapshot fetch fails.
 - Extension prefers bundled 2025 snapshots before CDN to use the current backfill.
+- Compare view bolds the best value per stat.
 
 ### 5) Derived stats + snapshot export
 

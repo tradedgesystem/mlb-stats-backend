@@ -405,6 +405,12 @@ const renderTeamsList = () => {
   });
 };
 
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
 const renderAsciiTable = (rows, statKeys, target) => {
   if (!target) {
     return;
@@ -422,19 +428,51 @@ const renderAsciiTable = (rows, statKeys, target) => {
     headers.push(config?.label || key);
   });
 
-  const rowsData = rows.map((row) => {
-    const base = [row.name, row.team, row.season];
-    const stats = statKeys.map((key) => {
-      const config = statsByKey.get(key);
-      return formatValue(row[key], config?.format);
+  const bestByKey = new Map();
+  if (rows.length > 1) {
+    statKeys.forEach((key) => {
+      let best = null;
+      rows.forEach((row) => {
+        const value = row[key];
+        if (typeof value === "number" && !Number.isNaN(value)) {
+          if (best === null || value > best) {
+            best = value;
+          }
+        }
+      });
+      if (best !== null) {
+        bestByKey.set(key, best);
+      }
     });
-    return base.concat(stats).map((value) =>
+  }
+
+  const rowsData = rows.map((row) => {
+    const base = [row.name, row.team, row.season].map((value) =>
       value === null || value === undefined ? "-" : String(value)
     );
+    const stats = statKeys.map((key) => {
+      const config = statsByKey.get(key);
+      const raw = row[key];
+      const formatted = formatValue(raw, config?.format);
+      return {
+        text: formatted === null || formatted === undefined ? "-" : String(formatted),
+        isBest:
+          bestByKey.has(key) &&
+          typeof raw === "number" &&
+          !Number.isNaN(raw) &&
+          raw === bestByKey.get(key),
+      };
+    });
+    return { base, stats };
   });
 
   const widths = headers.map((header, index) => {
-    const cellWidths = rowsData.map((row) => row[index].length);
+    const cellWidths = rowsData.map((row) => {
+      if (index < 3) {
+        return row.base[index].length;
+      }
+      return row.stats[index - 3].text.length;
+    });
     return Math.max(header.length, ...cellWidths);
   });
 
@@ -444,11 +482,19 @@ const renderAsciiTable = (rows, statKeys, target) => {
     "| " +
     headers.map((header, i) => pad(header, widths[i])).join(" | ") +
     " |";
-  const bodyLines = rowsData.map(
-    (row) => "| " + row.map((cell, i) => pad(cell, widths[i])).join(" | ") + " |"
-  );
+  const bodyLines = rowsData.map((row) => {
+    const cells = [];
+    row.base.forEach((cell, i) => {
+      cells.push(pad(escapeHtml(cell), widths[i]));
+    });
+    row.stats.forEach((cell, index) => {
+      const text = pad(escapeHtml(cell.text), widths[index + 3]);
+      cells.push(cell.isBest ? `<strong>${text}</strong>` : text);
+    });
+    return "| " + cells.join(" | ") + " |";
+  });
 
-  target.textContent = [line, headerLine, line, ...bodyLines, line].join("\n");
+  target.innerHTML = [line, headerLine, line, ...bodyLines, line].join("\n");
 };
 
 const slugify = (value) =>
