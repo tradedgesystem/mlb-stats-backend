@@ -74,6 +74,10 @@ let activeTeam = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const LOCAL_API_BASE = "http://127.0.0.1:8000";
+const LOCAL_SNAPSHOT_BASE =
+  typeof chrome !== "undefined" && chrome.runtime?.getURL
+    ? chrome.runtime.getURL("snapshots")
+    : "";
 const MAX_STATS = 10;
 const MAX_SAVED_PLAYERS = 10;
 const MAX_COMPARE_PLAYERS = 5;
@@ -622,20 +626,47 @@ const loadSnapshot = async (year) => {
   }
 
   try {
-    const response = await fetch(`${SNAPSHOT_BASE_URL}/players_${year}.json`);
-    if (!response.ok) {
-      throw new Error(`Snapshot fetch failed: ${response.status}`);
+    const remoteUrl = `${SNAPSHOT_BASE_URL}/players_${year}.json`;
+    const localUrl = LOCAL_SNAPSHOT_BASE
+      ? `${LOCAL_SNAPSHOT_BASE}/players_${year}.json`
+      : null;
+    const preferLocal = Number(year) === 2025 && localUrl;
+    const urls = preferLocal
+      ? [
+          { url: localUrl, source: "bundled snapshot" },
+          { url: remoteUrl, source: "cdn snapshot" },
+        ]
+      : [
+          { url: remoteUrl, source: "cdn snapshot" },
+          { url: localUrl, source: "bundled snapshot" },
+        ].filter((entry) => entry.url);
+
+    let loaded = false;
+    for (const entry of urls) {
+      try {
+        const response = await fetch(entry.url);
+        if (!response.ok) {
+          throw new Error(`Snapshot fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const players = Array.isArray(data) ? data : data.players || [];
+        const meta = Array.isArray(data) ? null : data.meta || null;
+        if (meta) {
+          meta.source = entry.source;
+        }
+        snapshotsByYear.set(year, { players, meta });
+        activePlayers = players;
+        activeMetaByMode.hitters = meta;
+        activeTeam = null;
+        loaded = true;
+        break;
+      } catch (innerError) {
+        console.log(innerError);
+      }
     }
-    const data = await response.json();
-    const players = Array.isArray(data) ? data : data.players || [];
-    const meta = Array.isArray(data) ? null : data.meta || null;
-    if (meta && !meta.source) {
-      meta.source = "snapshot";
+    if (!loaded) {
+      throw new Error("Snapshot fetch failed");
     }
-    snapshotsByYear.set(year, { players, meta });
-    activePlayers = players;
-    activeMetaByMode.hitters = meta;
-    activeTeam = null;
   } catch (error) {
     console.log(error);
     try {
@@ -677,19 +708,46 @@ const loadPitcherSnapshot = async (year) => {
   }
 
   try {
-    const response = await fetch(`${SNAPSHOT_BASE_URL}/pitchers_${year}.json`);
-    if (!response.ok) {
-      throw new Error(`Snapshot fetch failed: ${response.status}`);
+    const remoteUrl = `${SNAPSHOT_BASE_URL}/pitchers_${year}.json`;
+    const localUrl = LOCAL_SNAPSHOT_BASE
+      ? `${LOCAL_SNAPSHOT_BASE}/pitchers_${year}.json`
+      : null;
+    const preferLocal = Number(year) === 2025 && localUrl;
+    const urls = preferLocal
+      ? [
+          { url: localUrl, source: "bundled snapshot" },
+          { url: remoteUrl, source: "cdn snapshot" },
+        ]
+      : [
+          { url: remoteUrl, source: "cdn snapshot" },
+          { url: localUrl, source: "bundled snapshot" },
+        ].filter((entry) => entry.url);
+
+    let loaded = false;
+    for (const entry of urls) {
+      try {
+        const response = await fetch(entry.url);
+        if (!response.ok) {
+          throw new Error(`Snapshot fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const players = Array.isArray(data) ? data : data.players || [];
+        const meta = Array.isArray(data) ? null : data.meta || null;
+        if (meta) {
+          meta.source = entry.source;
+        }
+        pitcherSnapshotsByYear.set(year, { players, meta });
+        activePitchers = players;
+        activeMetaByMode.pitchers = meta;
+        loaded = true;
+        break;
+      } catch (innerError) {
+        console.log(innerError);
+      }
     }
-    const data = await response.json();
-    const players = Array.isArray(data) ? data : data.players || [];
-    const meta = Array.isArray(data) ? null : data.meta || null;
-    if (meta && !meta.source) {
-      meta.source = "snapshot";
+    if (!loaded) {
+      throw new Error("Snapshot fetch failed");
     }
-    pitcherSnapshotsByYear.set(year, { players, meta });
-    activePitchers = players;
-    activeMetaByMode.pitchers = meta;
   } catch (error) {
     console.log(error);
     try {

@@ -461,6 +461,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added pitcher endpoints to the local API (`/pitchers`, `/pitchers/search`, `/pitchers/compare`, `/pitcher`).
 - Stats glossary now flags stats that need new data and disables unavailable picks.
 - Extension falls back to local API data if snapshot fetch fails.
+- Extension prefers bundled 2025 snapshots before CDN to use the current backfill.
 
 ### 5) Derived stats + snapshot export
 
