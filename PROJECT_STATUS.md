@@ -75,9 +75,6 @@ Notes:
 - Sweet-Spot % -> not in current dataset
 - Average Launch Angle -> `la`
 - Launch Angle Standard Deviation -> not in current dataset
-- Average Home Run Distance -> not in current dataset
-- True Distance -> not in current dataset
-- Hang Time -> not in current dataset
 
 #### Hitter Stats - Batted-Ball Type
 
@@ -201,9 +198,6 @@ yet. A pitching dataset (e.g., `pitching_stats`) is required before mapping.
 - Sweet-Spot %
 - Average Launch Angle
 - Launch Angle Standard Deviation
-- Average Home Run Distance
-- True Distance
-- Hang Time
 
 #### Batted-Ball Type
 
