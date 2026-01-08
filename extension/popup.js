@@ -566,6 +566,13 @@ const loadSnapshot = async (year) => {
   updateMeta();
 };
 
+const updateRangeTagsVisibility = () => {
+  const showTags = isRangeMode();
+  statsEl
+    .querySelectorAll(".stat-tag")
+    .forEach((tag) => tag.classList.toggle("hidden", !showTags));
+};
+
 const renderStatsConfig = (config) => {
   statsEl.textContent = "";
   const groupOrder = [];
@@ -652,6 +659,7 @@ const renderStatsConfig = (config) => {
 
   updateStatsLimit();
   enforceRangeSelections();
+  updateRangeTagsVisibility();
 };
 
 searchButton.addEventListener("click", async () => {
@@ -837,6 +845,7 @@ if (rangeEnabledInput) {
   rangeEnabledInput.addEventListener("change", () => {
     enforceRangeSelections();
     updateStatsLimit();
+    updateRangeTagsVisibility();
   });
 }
 
