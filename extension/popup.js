@@ -938,17 +938,17 @@ const renderStatsConfig = () => {
   updateRangeTagsVisibility();
 };
 
-const runSearch = () => {
+const runSearch = ({ showEmptyMessage = true } = {}) => {
   try {
     const query = searchInput.value.trim();
     if (!query) {
-      resultsEl.textContent = "Enter a search term.";
+      resultsEl.textContent = showEmptyMessage ? "Enter a search term." : "";
       return;
     }
 
     const normalizedQuery = normalizeText(query);
     if (!normalizedQuery) {
-      resultsEl.textContent = "Enter a search term.";
+      resultsEl.textContent = showEmptyMessage ? "Enter a search term." : "";
       return;
     }
 
@@ -984,11 +984,14 @@ const runSearch = () => {
   }
 };
 
-searchButton.addEventListener("click", runSearch);
+searchButton.addEventListener("click", () => runSearch({ showEmptyMessage: true }));
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
-    runSearch();
+    runSearch({ showEmptyMessage: true });
   }
+});
+searchInput.addEventListener("input", () => {
+  runSearch({ showEmptyMessage: false });
 });
 
 clearButton.addEventListener("click", () => {
