@@ -21,6 +21,137 @@ tasks. Update it as the project evolves.
 These are the target stats to compute and expose. Mapping to available data
 columns and derived formulas is pending.
 
+### Mapping to current DB columns (batting_stats)
+
+Notes:
+- Mappings below use current `batting_stats` columns from pybaseball.
+- "Not in current dataset" means we do not have that stat yet.
+- "Derived" indicates a formula using existing columns.
+
+#### Hitter Stats - Outcome and Slash
+
+- Plate Appearances (PA) -> `pa`
+- At-Bats (AB) -> `ab`
+- Hits (H) -> `h`
+- Singles (1B) -> `1b`
+- Doubles (2B) -> `2b`
+- Triples (3B) -> `3b`
+- Home Runs (HR) -> `hr`
+- Runs (R) -> `r`
+- Runs Batted In (RBI) -> `rbi`
+- Walks (BB) -> `bb`
+- Intentional Walks (IBB) -> `ibb`
+- Hit By Pitch (HBP) -> `hbp`
+- Strikeouts (SO) -> `so`
+- Sacrifice Flies (SF) -> `sf`
+- Sacrifice Hits (SH) -> `sh`
+- Batting Average (AVG) -> `avg`
+- On-Base Percentage (OBP) -> `obp`
+- Slugging Percentage (SLG) -> `slg`
+- On-Base Plus Slugging (OPS) -> `ops`
+- Isolated Power (ISO) -> `iso`
+- Batting Average on Balls in Play (BABIP) -> `babip`
+
+#### Hitter Stats - Expected and Statcast Quality
+
+- Expected Batting Average (xBA) -> `xba`
+- Expected Slugging (xSLG) -> `xslg`
+- Expected On-Base Percentage (xOBP) -> not in current dataset
+- Expected Weighted On-Base Average (xwOBA) -> `xwoba`
+- Weighted On-Base Average (wOBA) -> `woba`
+- Expected Home Runs (xHR) -> not in current dataset
+
+#### Hitter Stats - Contact and Power
+
+- Average Exit Velocity -> `ev`
+- Max Exit Velocity -> `maxev`
+- Median Exit Velocity -> not in current dataset
+- Exit Velocity Percentiles (10th, 50th, 90th) -> not in current dataset
+- Hard-Hit % -> `hardhitpct`
+- Barrel Count -> `barrels`
+- Barrel % -> `barrelpct`
+- Barrels per Plate Appearance -> derived: `barrels / pa`
+- Barrels per Ball in Play -> not in current dataset
+- Sweet-Spot % -> not in current dataset
+- Average Launch Angle -> `la`
+- Launch Angle Standard Deviation -> not in current dataset
+- Average Home Run Distance -> not in current dataset
+- True Distance -> not in current dataset
+- Hang Time -> not in current dataset
+
+#### Hitter Stats - Batted-Ball Type
+
+- Ground Ball % -> `gbpct`
+- Line Drive % -> `ldpct`
+- Fly Ball % -> `fbpct`
+- Pop-Up % -> `iffbpct`
+- Ground Balls per Plate Appearance -> derived: `gb / pa`
+- Fly Balls per Plate Appearance -> derived: `fb / pa`
+- Line Drives per Plate Appearance -> derived: `ld / pa`
+- Infield Fly % -> `iffbpct`
+
+#### Hitter Stats - Direction and Spray
+
+- Pull % -> `pullpct`
+- Center % -> `centpct`
+- Oppo % -> `oppopct`
+- Pull Air % -> not in current dataset
+- Oppo Air % -> not in current dataset
+- Pulled Ground Ball % -> not in current dataset
+- Oppo Ground Ball % -> not in current dataset
+- Straightaway % -> `centpct` (center%)
+- Shifted Plate Appearance % -> not in current dataset
+- Non-Shifted Plate Appearance % -> not in current dataset
+
+#### Hitter Stats - Plate Discipline
+
+- Swing % -> `swingpct`
+- Swing Outside Zone % (O-Swing%) -> `o_swingpct`
+- Swing Inside Zone % (Z-Swing%) -> `z_swingpct`
+- Contact % -> `contactpct`
+- Contact Outside Zone % (O-Contact%) -> `o_contactpct`
+- Contact Inside Zone % (Z-Contact%) -> `z_contactpct`
+- Whiff % -> `swstrpct` (closest available)
+- Called Strike % -> `cstrpct`
+- Swinging Strike % -> `swstrpct`
+- Foul % -> not in current dataset
+- Foul Tip % -> not in current dataset
+- In-Play % -> not in current dataset
+- Take % -> not in current dataset
+- Take in Zone % -> not in current dataset
+- Take out of Zone % -> not in current dataset
+- First-Pitch Swing % -> not in current dataset
+- First-Pitch Take % -> not in current dataset
+- Two-Strike Swing % -> not in current dataset
+- Two-Strike Whiff % -> not in current dataset
+
+#### Hitter Stats - Contact Quality Buckets
+
+- Under % -> not in current dataset
+- Topped % -> not in current dataset
+- Flare/Burner % -> not in current dataset
+- Solid Contact % -> not in current dataset
+- Weak Contact % -> not in current dataset
+- Poorly Hit % -> not in current dataset
+- Poorly Under % -> not in current dataset
+- Poorly Topped % -> not in current dataset
+- Poorly Weak % -> not in current dataset
+
+#### Hitter Stats - Count and Context
+
+- Ahead-in-Count % -> not in current dataset
+- Even-Count % -> not in current dataset
+- Behind-in-Count % -> not in current dataset
+- Two-Strike Plate Appearance % -> not in current dataset
+- Three-Ball Plate Appearance % -> not in current dataset
+- Late and Close Plate Appearances -> not in current dataset
+- Leverage Index -> `pli` (avg LI)
+
+### Pitcher Stats
+
+All pitcher stat mappings are pending because we do not ingest a pitching table
+yet. A pitching dataset (e.g., `pitching_stats`) is required before mapping.
+
 ### Hitter Stats
 
 #### Outcome and Slash
