@@ -406,6 +406,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Player search uses fuzzy matching to tolerate typos.
 - Added a Clear saved players action (available on Players and Compare tabs).
 - Added Download PNG buttons to export the ASCII table output.
+- Downloaded PNGs now include player names and date in the filename.
 
 ### 5) Derived stats + snapshot export
 

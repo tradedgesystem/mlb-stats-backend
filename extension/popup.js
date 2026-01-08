@@ -322,6 +322,20 @@ const renderAsciiTable = (rows, statKeys, target) => {
   target.textContent = [line, headerLine, line, ...bodyLines, line].join("\n");
 };
 
+const slugify = (value) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const formatDateStamp = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const downloadAsciiAsPng = (target, filename) => {
   if (!target) {
     return;
@@ -670,13 +684,35 @@ viewButton.addEventListener("click", async () => {
 
 if (downloadPlayerButton) {
   downloadPlayerButton.addEventListener("click", () => {
-    downloadAsciiAsPng(outputPlayer, "player_stats.png");
+    const chosen = savedPlayers.find(
+      (player) => player.player_id === activePlayerId
+    );
+    const name = chosen ? slugify(chosen.name) : "player";
+    const season = yearSelect.value;
+    const stamp = formatDateStamp();
+    downloadAsciiAsPng(
+      outputPlayer,
+      `player_${name}_${season}_${stamp}.png`
+    );
   });
 }
 
 if (downloadCompareButton) {
   downloadCompareButton.addEventListener("click", () => {
-    downloadAsciiAsPng(outputCompare, "compare_stats.png");
+    const season = yearSelect.value;
+    const stamp = formatDateStamp();
+    const names = Array.from(activeCompareIds)
+      .map((playerId) => {
+        const player = savedPlayers.find((item) => item.player_id === playerId);
+        return player ? slugify(player.name) : null;
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+    const namePart = names.length ? names.join("_") : "players";
+    downloadAsciiAsPng(
+      outputCompare,
+      `compare_${namePart}_${season}_${stamp}.png`
+    );
   });
 }
 
