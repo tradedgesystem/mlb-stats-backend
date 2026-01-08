@@ -20,6 +20,8 @@ const compareButton = document.getElementById("compare-run-btn");
 const statsEl = document.getElementById("stats");
 const outputPlayer = document.getElementById("output-player");
 const outputCompare = document.getElementById("output-compare");
+const downloadPlayerButton = document.getElementById("download-player");
+const downloadCompareButton = document.getElementById("download-compare");
 const metaEl = document.getElementById("snapshot-meta");
 const warningEl = document.getElementById("snapshot-warning");
 const statsLimitEl = document.getElementById("stats-limit");
@@ -318,6 +320,46 @@ const renderAsciiTable = (rows, statKeys, target) => {
   );
 
   target.textContent = [line, headerLine, line, ...bodyLines, line].join("\n");
+};
+
+const downloadAsciiAsPng = (target, filename) => {
+  if (!target) {
+    return;
+  }
+  const text = target.textContent.trim();
+  if (!text) {
+    return;
+  }
+  const lines = text.split("\n");
+  const fontFamily = "Courier New";
+  const fontSize = 12;
+  const lineHeight = 16;
+  const padding = 12;
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+  context.font = `${fontSize}px ${fontFamily}`;
+  const maxWidth = Math.max(...lines.map((line) => context.measureText(line).width));
+
+  canvas.width = Math.ceil(maxWidth + padding * 2);
+  canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#111111";
+  context.font = `${fontSize}px ${fontFamily}`;
+
+  lines.forEach((line, index) => {
+    context.fillText(line, padding, padding + lineHeight * (index + 1) - 4);
+  });
+
+  const link = document.createElement("a");
+  link.href = canvas.toDataURL("image/png");
+  link.download = filename;
+  link.click();
 };
 
 const renderResults = (players) => {
@@ -625,6 +667,18 @@ viewButton.addEventListener("click", async () => {
     console.log(error);
   }
 });
+
+if (downloadPlayerButton) {
+  downloadPlayerButton.addEventListener("click", () => {
+    downloadAsciiAsPng(outputPlayer, "player_stats.png");
+  });
+}
+
+if (downloadCompareButton) {
+  downloadCompareButton.addEventListener("click", () => {
+    downloadAsciiAsPng(outputCompare, "compare_stats.png");
+  });
+}
 
 const loadStatsConfig = async () => {
   try {

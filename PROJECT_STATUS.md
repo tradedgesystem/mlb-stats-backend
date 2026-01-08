@@ -405,6 +405,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added a Teams tab with roster lists (hitters shown; pitchers pending dataset).
 - Player search uses fuzzy matching to tolerate typos.
 - Added a Clear saved players action (available on Players and Compare tabs).
+- Added Download PNG buttons to export the ASCII table output.
 
 ### 5) Derived stats + snapshot export
 
