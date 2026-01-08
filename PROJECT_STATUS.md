@@ -456,6 +456,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Downloaded PNGs now include player names and date in the filename.
 - Added date range UI with a subset of aggregate stats; selection blocks mixing unsupported stats.
 - Added `extension/pitching_stats_config.json` and pitcher snapshots for team rosters.
+- Added a Hitters/Pitchers mode switch; search, saved players, compare, and stats selections are mode-specific.
 
 ### 5) Derived stats + snapshot export
 

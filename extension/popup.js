@@ -34,6 +34,7 @@ const statsCountEl = document.getElementById("stats-count-players");
 const playersLimitEl = document.getElementById("players-limit");
 const compareLimitEl = document.getElementById("compare-limit");
 const chosenPlayerEl = document.getElementById("chosen-player");
+const modeSelect = document.getElementById("mode");
 const tabPlayers = document.getElementById("tab-players");
 const tabCompare = document.getElementById("tab-compare");
 const tabTeams = document.getElementById("tab-teams");
@@ -43,25 +44,50 @@ const panelCompare = document.getElementById("panel-compare");
 const panelTeams = document.getElementById("panel-teams");
 const panelStats = document.getElementById("panel-stats");
 
-const savedPlayers = [];
-let activePlayerId = null;
-const activeCompareIds = new Set();
-let statsConfig = [];
-const statsByKey = new Map();
-const selectedStatKeys = new Set();
+const stateByMode = {
+  hitters: {
+    savedPlayers: [],
+    activePlayerId: null,
+    activeCompareIds: new Set(),
+    selectedStatKeys: new Set(),
+    statsByKey: new Map(),
+    statsConfig: [],
+    configLoaded: false,
+  },
+  pitchers: {
+    savedPlayers: [],
+    activePlayerId: null,
+    activeCompareIds: new Set(),
+    selectedStatKeys: new Set(),
+    statsByKey: new Map(),
+    statsConfig: [],
+    configLoaded: false,
+  },
+};
+let activeMode = modeSelect ? modeSelect.value : "hitters";
 const snapshotsByYear = new Map();
 const pitcherSnapshotsByYear = new Map();
 let activePlayers = [];
 let activePitchers = [];
-let activeMeta = null;
+const activeMetaByMode = { hitters: null, pitchers: null };
 let activeTeam = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const MAX_STATS = 10;
 const MAX_SAVED_PLAYERS = 10;
 const MAX_COMPARE_PLAYERS = 5;
+const CONFIG_FILES = {
+  hitters: "stats_config.json",
+  pitchers: "pitching_stats_config.json",
+};
+
+const getState = () => stateByMode[activeMode];
+const getActiveDataset = () =>
+  activeMode === "pitchers" ? activePitchers : activePlayers;
+const getActiveMeta = () => activeMetaByMode[activeMode];
 
 const getSelectedKeys = () => {
+  const { statsConfig, selectedStatKeys } = getState();
   if (!statsConfig.length) {
     return [];
   }
@@ -92,6 +118,7 @@ const formatValue = (value, format) => {
 const isRangeMode = () => Boolean(rangeEnabledInput && rangeEnabledInput.checked);
 
 const isRangeSupported = (key) => {
+  const { statsByKey } = getState();
   const config = statsByKey.get(key);
   return Boolean(config && config.range_supported);
 };
@@ -107,6 +134,7 @@ const updateMeta = () => {
   if (!metaEl) {
     return;
   }
+  const activeMeta = getActiveMeta();
   if (!activeMeta) {
     metaEl.textContent = "Data updated: unavailable";
     if (warningEl) {
@@ -137,6 +165,7 @@ const updateMeta = () => {
 };
 
 const updateStatsLimit = () => {
+  const { selectedStatKeys } = getState();
   const count = selectedStatKeys.size;
   const atLimit = count >= MAX_STATS;
   if (statsLimitEl) {
@@ -156,6 +185,11 @@ const enforceRangeSelections = () => {
     setRangeWarning("");
     return;
   }
+  if (activeMode === "pitchers") {
+    setRangeWarning("Date ranges are not available for pitchers yet.");
+    return;
+  }
+  const { selectedStatKeys } = getState();
   const removed = [];
   Array.from(selectedStatKeys).forEach((key) => {
     if (!isRangeSupported(key)) {
@@ -177,6 +211,7 @@ const enforceRangeSelections = () => {
 };
 
 const updatePlayerLimit = () => {
+  const { savedPlayers, activeCompareIds, activePlayerId } = getState();
   if (playersLimitEl) {
     if (savedPlayers.length >= MAX_SAVED_PLAYERS) {
       playersLimitEl.textContent = `Max ${MAX_SAVED_PLAYERS} players saved.`;
@@ -199,6 +234,7 @@ const updatePlayerLimit = () => {
 };
 
 const renderSelectedStats = () => {
+  const { selectedStatKeys, statsByKey } = getState();
   const labels = Array.from(selectedStatKeys)
     .map((key) => statsByKey.get(key)?.label || key)
     .sort((a, b) => a.localeCompare(b));
@@ -354,6 +390,7 @@ const renderAsciiTable = (rows, statKeys, target) => {
     return;
   }
 
+  const { statsByKey } = getState();
   const headers = ["Player", "Team", "Season"];
   statKeys.forEach((key) => {
     const config = statsByKey.get(key);
@@ -466,6 +503,7 @@ const renderSelectedList = (container) => {
     return;
   }
   container.innerHTML = "";
+  const { savedPlayers, activeCompareIds, activePlayerId } = getState();
   if (!savedPlayers.length) {
     container.textContent = "No players saved.";
     return;
@@ -487,15 +525,16 @@ const renderSelectedList = (container) => {
     }
     button.addEventListener("click", () => {
       if (isPlayersTab) {
-        activePlayerId = player.player_id;
+        getState().activePlayerId = player.player_id;
       } else {
-        if (activeCompareIds.has(player.player_id)) {
-          activeCompareIds.delete(player.player_id);
+        const compareIds = getState().activeCompareIds;
+        if (compareIds.has(player.player_id)) {
+          compareIds.delete(player.player_id);
         } else {
-          if (activeCompareIds.size >= MAX_COMPARE_PLAYERS) {
+          if (compareIds.size >= MAX_COMPARE_PLAYERS) {
             return;
           }
-          activeCompareIds.add(player.player_id);
+          compareIds.add(player.player_id);
         }
       }
       updatePlayerLimit();
@@ -522,13 +561,14 @@ const renderSelected = () => {
 };
 
 const removePlayer = (playerId) => {
+  const { savedPlayers, activeCompareIds } = getState();
   const index = savedPlayers.findIndex((item) => item.player_id === playerId);
   if (index === -1) {
     return;
   }
   savedPlayers.splice(index, 1);
-  if (activePlayerId === playerId) {
-    activePlayerId = null;
+  if (getState().activePlayerId === playerId) {
+    getState().activePlayerId = null;
   }
   activeCompareIds.delete(playerId);
   renderSelected();
@@ -536,14 +576,16 @@ const removePlayer = (playerId) => {
 };
 
 const clearSavedPlayers = () => {
+  const { savedPlayers, activeCompareIds } = getState();
   savedPlayers.length = 0;
   activeCompareIds.clear();
-  activePlayerId = null;
+  getState().activePlayerId = null;
   renderSelected();
   updatePlayerLimit();
 };
 
 const addPlayer = (player) => {
+  const { savedPlayers } = getState();
   if (savedPlayers.find((item) => item.player_id === player.player_id)) {
     return;
   }
@@ -551,8 +593,8 @@ const addPlayer = (player) => {
     return;
   }
   savedPlayers.push(player);
-  if (!activePlayerId) {
-    activePlayerId = player.player_id;
+  if (!getState().activePlayerId) {
+    getState().activePlayerId = player.player_id;
   }
   renderSelected();
   updatePlayerLimit();
@@ -562,11 +604,13 @@ const loadSnapshot = async (year) => {
   if (snapshotsByYear.has(year)) {
     const cached = snapshotsByYear.get(year);
     activePlayers = cached.players;
-    activeMeta = cached.meta;
+    activeMetaByMode.hitters = cached.meta;
     activeTeam = null;
     renderTeamsList();
     renderTeamRoster();
-    updateMeta();
+    if (activeMode === "hitters") {
+      updateMeta();
+    }
     return;
   }
 
@@ -577,25 +621,31 @@ const loadSnapshot = async (year) => {
     const meta = Array.isArray(data) ? null : data.meta || null;
     snapshotsByYear.set(year, { players, meta });
     activePlayers = players;
-    activeMeta = meta;
+    activeMetaByMode.hitters = meta;
     activeTeam = null;
   } catch (error) {
     console.log(error);
     activePlayers = [];
-    activeMeta = null;
+    activeMetaByMode.hitters = null;
     activeTeam = null;
   }
   renderTeamsList();
   renderTeamRoster();
-  updateMeta();
+  if (activeMode === "hitters") {
+    updateMeta();
+  }
 };
 
 const loadPitcherSnapshot = async (year) => {
   if (pitcherSnapshotsByYear.has(year)) {
     const cached = pitcherSnapshotsByYear.get(year);
     activePitchers = cached.players;
+    activeMetaByMode.pitchers = cached.meta;
     renderTeamsList();
     renderTeamRoster();
+    if (activeMode === "pitchers") {
+      updateMeta();
+    }
     return;
   }
 
@@ -603,14 +653,20 @@ const loadPitcherSnapshot = async (year) => {
     const response = await fetch(`${SNAPSHOT_BASE_URL}/pitchers_${year}.json`);
     const data = await response.json();
     const players = Array.isArray(data) ? data : data.players || [];
-    pitcherSnapshotsByYear.set(year, { players });
+    const meta = Array.isArray(data) ? null : data.meta || null;
+    pitcherSnapshotsByYear.set(year, { players, meta });
     activePitchers = players;
+    activeMetaByMode.pitchers = meta;
   } catch (error) {
     console.log(error);
     activePitchers = [];
+    activeMetaByMode.pitchers = null;
   }
   renderTeamsList();
   renderTeamRoster();
+  if (activeMode === "pitchers") {
+    updateMeta();
+  }
 };
 
 const updateRangeTagsVisibility = () => {
@@ -620,10 +676,37 @@ const updateRangeTagsVisibility = () => {
     .forEach((tag) => tag.classList.toggle("hidden", !showTags));
 };
 
-const renderStatsConfig = (config) => {
+const updateRangeAvailability = () => {
+  const disableRange = activeMode === "pitchers";
+  if (rangeEnabledInput) {
+    rangeEnabledInput.disabled = disableRange;
+    if (disableRange) {
+      rangeEnabledInput.checked = false;
+    }
+  }
+  if (rangeStartInput) {
+    rangeStartInput.disabled = disableRange;
+  }
+  if (rangeEndInput) {
+    rangeEndInput.disabled = disableRange;
+  }
+  if (disableRange) {
+    setRangeWarning("Date ranges are not available for pitchers yet.");
+  } else if (!isRangeMode()) {
+    setRangeWarning("");
+  }
+  updateRangeTagsVisibility();
+};
+
+const renderStatsConfig = () => {
+  const { statsConfig, statsByKey, selectedStatKeys } = getState();
+  const config = statsConfig;
   statsEl.textContent = "";
   const groupOrder = [];
   const groups = {};
+
+  statsByKey.clear();
+  const hasSelection = selectedStatKeys.size > 0;
 
   config.forEach((item) => {
     statsByKey.set(item.key, item);
@@ -650,7 +733,9 @@ const renderStatsConfig = (config) => {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.value = item.key;
-      checkbox.checked = Boolean(item.default);
+      checkbox.checked = hasSelection
+        ? selectedStatKeys.has(item.key)
+        : Boolean(item.default);
       if (checkbox.checked) {
         selectedStatKeys.add(item.key);
       }
@@ -719,7 +804,8 @@ searchButton.addEventListener("click", async () => {
 
     const normalizedQuery = normalizeText(query);
     const maxDistance = Math.max(2, Math.floor(normalizedQuery.length / 3));
-    const matches = activePlayers
+    const dataset = getActiveDataset();
+    const matches = dataset
       .map((player) => {
         const score = fuzzyScore(player.name, query);
         return score === null ? null : { player, score };
@@ -748,6 +834,7 @@ clearButton.addEventListener("click", () => {
 
 compareButton.addEventListener("click", async () => {
   try {
+    const { activeCompareIds } = getState();
     if (
       activeCompareIds.size < 2 ||
       activeCompareIds.size > MAX_COMPARE_PLAYERS
@@ -761,10 +848,9 @@ compareButton.addEventListener("click", async () => {
       return;
     }
 
+    const dataset = getActiveDataset();
     const rows = Array.from(activeCompareIds)
-      .map((playerId) =>
-        activePlayers.find((row) => row.player_id === playerId)
-      )
+      .map((playerId) => dataset.find((row) => row.player_id === playerId))
       .filter(Boolean);
     console.log(rows);
     renderAsciiTable(rows, statKeys, outputCompare);
@@ -775,6 +861,7 @@ compareButton.addEventListener("click", async () => {
 
 viewButton.addEventListener("click", async () => {
   try {
+    const { activePlayerId } = getState();
     if (!activePlayerId) {
       renderMessage("Select 1 player to view.", outputPlayer);
       return;
@@ -785,7 +872,8 @@ viewButton.addEventListener("click", async () => {
       return;
     }
 
-    const data = activePlayers.find((row) => row.player_id === activePlayerId);
+    const dataset = getActiveDataset();
+    const data = dataset.find((row) => row.player_id === activePlayerId);
     console.log(data);
     if (!data) {
       renderMessage("Player not found in snapshot.", outputPlayer);
@@ -799,6 +887,7 @@ viewButton.addEventListener("click", async () => {
 
 if (downloadPlayerButton) {
   downloadPlayerButton.addEventListener("click", () => {
+    const { savedPlayers, activePlayerId } = getState();
     const chosen = savedPlayers.find(
       (player) => player.player_id === activePlayerId
     );
@@ -807,13 +896,14 @@ if (downloadPlayerButton) {
     const stamp = formatDateStamp();
     downloadAsciiAsPng(
       outputPlayer,
-      `player_${name}_${season}_${stamp}.png`
+      `${activeMode === "pitchers" ? "pitcher" : "player"}_${name}_${season}_${stamp}.png`
     );
   });
 }
 
 if (downloadCompareButton) {
   downloadCompareButton.addEventListener("click", () => {
+    const { activeCompareIds, savedPlayers } = getState();
     const season = yearSelect.value;
     const stamp = formatDateStamp();
     const names = Array.from(activeCompareIds)
@@ -826,17 +916,31 @@ if (downloadCompareButton) {
     const namePart = names.length ? names.join("_") : "players";
     downloadAsciiAsPng(
       outputCompare,
-      `compare_${namePart}_${season}_${stamp}.png`
+      `compare_${activeMode}_${namePart}_${season}_${stamp}.png`
     );
   });
 }
 
-const loadStatsConfig = async () => {
+const loadStatsConfigForMode = async (mode, { render = false } = {}) => {
+  const state = stateByMode[mode];
+  if (!state) {
+    return;
+  }
+  if (state.configLoaded) {
+    if (render && mode === activeMode) {
+      renderStatsConfig();
+    }
+    return;
+  }
   try {
-    const response = await fetch(chrome.runtime.getURL("stats_config.json"));
+    const fileName = CONFIG_FILES[mode] || CONFIG_FILES.hitters;
+    const response = await fetch(chrome.runtime.getURL(fileName));
     const data = await response.json();
-    statsConfig = Array.isArray(data) ? data : [];
-    renderStatsConfig(statsConfig);
+    state.statsConfig = Array.isArray(data) ? data : [];
+    state.configLoaded = true;
+    if (render && mode === activeMode) {
+      renderStatsConfig();
+    }
   } catch (error) {
     console.log(error);
   }
@@ -856,20 +960,42 @@ const setActiveTab = (tab) => {
   });
 };
 
+const resetModeSelections = (state) => {
+  state.savedPlayers.length = 0;
+  state.activeCompareIds.clear();
+  state.activePlayerId = null;
+};
+
+const clearOutputs = () => {
+  resultsEl.textContent = "";
+  outputPlayer.textContent = "";
+  outputCompare.textContent = "";
+};
+
+const applyMode = async (mode) => {
+  if (!stateByMode[mode]) {
+    return;
+  }
+  activeMode = mode;
+  await loadStatsConfigForMode(mode, { render: true });
+  updateRangeAvailability();
+  updatePlayerLimit();
+  renderSelected();
+  clearOutputs();
+  updateMeta();
+};
+
 renderResults([]);
 renderSelected();
 updatePlayerLimit();
 yearSelect.addEventListener("change", async () => {
-  savedPlayers.length = 0;
-  activeCompareIds.clear();
-  activePlayerId = null;
+  Object.values(stateByMode).forEach((state) => resetModeSelections(state));
   renderSelected();
-  resultsEl.textContent = "";
-  outputPlayer.textContent = "";
-  outputCompare.textContent = "";
+  clearOutputs();
   await loadSnapshot(yearSelect.value);
   await loadPitcherSnapshot(yearSelect.value);
   updatePlayerLimit();
+  updateMeta();
 });
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));
@@ -897,6 +1023,12 @@ if (rangeEnabledInput) {
   });
 }
 
-loadStatsConfig();
+if (modeSelect) {
+  modeSelect.addEventListener("change", () => {
+    applyMode(modeSelect.value);
+  });
+}
+
 loadSnapshot(yearSelect.value);
 loadPitcherSnapshot(yearSelect.value);
+applyMode(activeMode);
