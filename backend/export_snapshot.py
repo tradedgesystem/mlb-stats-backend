@@ -12,7 +12,13 @@ def load_stats_config(config_path: Path) -> list[dict]:
         return json.load(handle)
 
 
-def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
+def export_snapshot(
+    year: int,
+    output_path: Path,
+    config_path: Path,
+    table_name: str,
+    dataset: str,
+) -> None:
     stats_config = load_stats_config(config_path)
     stat_keys = [item["key"] for item in stats_config]
     base_keys = ["player_id", "name", "team", "season"]
@@ -23,7 +29,7 @@ def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
         conn.row_factory = sqlite3.Row
         existing = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(batting_stats)").fetchall()
+            for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
         }
         missing = [col for col in columns if col not in existing]
         if missing:
@@ -31,7 +37,7 @@ def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
         available = [col for col in columns if col in existing]
         quoted = [f'"{col}"' for col in available]
         rows = conn.execute(
-            f"SELECT {', '.join(quoted)} FROM batting_stats WHERE season = ?",
+            f"SELECT {', '.join(quoted)} FROM {table_name} WHERE season = ?",
             (year,),
         ).fetchall()
 
@@ -47,6 +53,7 @@ def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
             "year": year,
             "player_count": len(rows),
             "stat_keys": [key for key in stat_keys if key in available],
+            "dataset": dataset,
         },
         "players": [dict(row) for row in rows],
     }
@@ -59,19 +66,31 @@ def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export stats snapshot JSON.")
     parser.add_argument("--year", type=int, default=2025)
+    parser.add_argument(
+        "--dataset",
+        choices=["batting", "pitching"],
+        default="batting",
+        help="Dataset to export.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    config_path = repo_root / "extension" / "stats_config.json"
-
-    output_path = args.output
-    if output_path is None:
-        output_path = (
+    if args.dataset == "pitching":
+        config_path = repo_root / "extension" / "pitching_stats_config.json"
+        table_name = "pitching_stats"
+        default_output = (
+            repo_root / "extension" / "snapshots" / f"pitchers_{args.year}.json"
+        )
+    else:
+        config_path = repo_root / "extension" / "stats_config.json"
+        table_name = "batting_stats"
+        default_output = (
             repo_root / "extension" / "snapshots" / f"players_{args.year}.json"
         )
 
-    export_snapshot(args.year, output_path, config_path)
+    output_path = args.output or default_output
+    export_snapshot(args.year, output_path, config_path, table_name, args.dataset)
 
 
 if __name__ == "__main__":

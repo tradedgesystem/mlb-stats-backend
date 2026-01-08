@@ -144,10 +144,57 @@ Notes:
 - Late and Close Plate Appearances -> not in current dataset
 - Leverage Index -> `pli` (avg LI)
 
-### Pitcher Stats
+### Mapping to current DB columns (pitching_stats)
 
-All pitcher stat mappings are pending because we do not ingest a pitching table
-yet. A pitching dataset (e.g., `pitching_stats`) is required before mapping.
+Notes:
+- Mappings below use current `pitching_stats` columns from pybaseball.
+- "Not in current dataset" means we do not have that stat yet.
+
+#### Pitcher Stats - Outcomes and Rates
+
+- Games (G) -> `g`
+- Games Started (GS) -> `gs`
+- Innings Pitched (IP) -> `ip`
+- Batters Faced (BF) -> `tbf`
+- Hits Allowed (H) -> `h`
+- Runs Allowed (R) -> `r`
+- Earned Runs (ER) -> `er`
+- Home Runs Allowed (HR) -> `hr`
+- Walks Allowed (BB) -> `bb`
+- Hit Batters (HBP) -> `hbp`
+- Strikeouts (SO) -> `so`
+- Earned Run Average (ERA) -> `era`
+- Walks plus Hits per Inning Pitched (WHIP) -> `whip`
+- Strikeouts per Nine (K/9) -> `k_9`
+- Walks per Nine (BB/9) -> `bb_9`
+- Home Runs per Nine (HR/9) -> `hr_9`
+- Strikeout Minus Walk Rate (K-BB%) -> `k_bbpct`
+
+#### Pitcher Stats - Expected and Contact Allowed
+
+- Expected ERA (xERA) -> `xera`
+- Expected Weighted On-Base Average Allowed (xwOBA) -> not in current dataset
+- Weighted On-Base Average Allowed (wOBA) -> not in current dataset
+- Batting Average Allowed (BAA) -> `avg`
+- Slugging Allowed (SLG) -> not in current dataset
+- Average Exit Velocity Allowed -> `ev`
+- Max Exit Velocity Allowed -> `maxev`
+- Exit Velocity Percentiles Allowed (10th, 50th, 90th) -> not in current dataset
+- Barrel % Allowed -> `barrelpct`
+- Sweet-Spot % Allowed -> not in current dataset
+
+#### Pitcher Stats - Pitch Results
+
+- Whiff % -> `swstrpct`
+- Chase % -> `o_swingpct`
+- Called Strikes plus Whiffs (CSW%) -> `cswpct`
+- Strike % -> not in current dataset
+- Called Strike % -> `cstrpct`
+- Swinging Strike % -> `swstrpct`
+- Ground Ball % -> `gbpct`
+- Fly Ball % -> `fbpct`
+- Line Drive % -> `ldpct`
+- Pop-Ups Forced -> `iffbpct`
 
 ### Hitter Stats
 
@@ -402,12 +449,13 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added separate Players and Compare tabs to split individual vs comparison flow.
 - Players and Compare tabs list the currently selected stats.
 - Users can save up to 10 players and choose 1 for individual or up to 5 for compare.
-- Added a Teams tab with roster lists (hitters shown; pitchers pending dataset).
+- Added a Teams tab with roster lists (hitters + pitchers).
 - Player search uses fuzzy matching to tolerate typos.
 - Added a Clear saved players action (available on Players and Compare tabs).
 - Added Download PNG buttons to export the ASCII table output.
 - Downloaded PNGs now include player names and date in the filename.
 - Added date range UI with a subset of aggregate stats; selection blocks mixing unsupported stats.
+- Added `extension/pitching_stats_config.json` and pitcher snapshots for team rosters.
 
 ### 5) Derived stats + snapshot export
 

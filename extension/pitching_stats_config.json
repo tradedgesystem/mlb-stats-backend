@@ -1,0 +1,14 @@
+[
+  {"key":"g","label":"G","group":"Outcomes","format":"integer","default":true,"description":"Games pitched.","range_supported":false},
+  {"key":"gs","label":"GS","group":"Outcomes","format":"integer","default":false,"description":"Games started.","range_supported":false},
+  {"key":"ip","label":"IP","group":"Outcomes","format":"float","default":true,"description":"Innings pitched.","range_supported":false},
+  {"key":"bf","label":"BF","group":"Outcomes","format":"integer","default":false,"description":"Batters faced.","range_supported":false},
+  {"key":"h","label":"H","group":"Outcomes","format":"integer","default":false,"description":"Hits allowed.","range_supported":false},
+  {"key":"r","label":"R","group":"Outcomes","format":"integer","default":false,"description":"Runs allowed.","range_supported":false},
+  {"key":"er","label":"ER","group":"Outcomes","format":"integer","default":false,"description":"Earned runs allowed.","range_supported":false},
+  {"key":"hr","label":"HR","group":"Outcomes","format":"integer","default":false,"description":"Home runs allowed.","range_supported":false},
+  {"key":"bb","label":"BB","group":"Outcomes","format":"integer","default":false,"description":"Walks allowed.","range_supported":false},
+  {"key":"so","label":"SO","group":"Outcomes","format":"integer","default":false,"description":"Strikeouts.","range_supported":false},
+  {"key":"era","label":"ERA","group":"Rates","format":"rate","default":true,"description":"Earned run average.","range_supported":false},
+  {"key":"whip","label":"WHIP","group":"Rates","format":"rate","default":true,"description":"Walks plus hits per inning pitched.","range_supported":false}
+]

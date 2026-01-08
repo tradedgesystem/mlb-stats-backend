@@ -16,6 +16,7 @@ const savedPlayersCompareEl = document.getElementById("saved-players-compare");
 const teamsListEl = document.getElementById("teams-list");
 const teamHittersEl = document.getElementById("team-hitters");
 const teamPitchersEl = document.getElementById("team-pitchers");
+const teamTitleEl = document.getElementById("team-title");
 const selectedStatsPlayersEl = document.getElementById("selected-stats-players");
 const selectedStatsCompareEl = document.getElementById("selected-stats-compare");
 const viewButton = document.getElementById("view-btn");
@@ -49,7 +50,9 @@ let statsConfig = [];
 const statsByKey = new Map();
 const selectedStatKeys = new Set();
 const snapshotsByYear = new Map();
+const pitcherSnapshotsByYear = new Map();
 let activePlayers = [];
+let activePitchers = [];
 let activeMeta = null;
 let activeTeam = null;
 const SNAPSHOT_BASE_URL =
@@ -277,18 +280,34 @@ const renderTeamRoster = () => {
   if (!activeTeam) {
     teamHittersEl.textContent = "Select a team.";
     teamPitchersEl.textContent = "";
+    if (teamTitleEl) {
+      teamTitleEl.textContent = "Hitters";
+    }
     return;
   }
-  const players = activePlayers.filter((player) => player.team === activeTeam);
-  if (players.length) {
-    teamHittersEl.innerHTML = players
+  if (teamTitleEl) {
+    teamTitleEl.textContent = `Hitters - ${activeTeam}`;
+  }
+  const hitters = activePlayers
+    .filter((player) => player.team === activeTeam)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (hitters.length) {
+    teamHittersEl.innerHTML = hitters
       .map((player) => `${player.name}`)
       .join(", ");
   } else {
     teamHittersEl.textContent = "No hitters found.";
   }
-  teamPitchersEl.textContent =
-    "Pitcher data not available in the current dataset.";
+  const pitchers = activePitchers
+    .filter((player) => player.team === activeTeam)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (pitchers.length) {
+    teamPitchersEl.innerHTML = pitchers
+      .map((player) => `${player.name}`)
+      .join(", ");
+  } else {
+    teamPitchersEl.textContent = "No pitchers found.";
+  }
 };
 
 const renderTeamsList = () => {
@@ -297,7 +316,12 @@ const renderTeamsList = () => {
   }
   teamsListEl.innerHTML = "";
   const teams = Array.from(
-    new Set(activePlayers.map((player) => player.team).filter(Boolean))
+    new Set(
+      activePlayers
+        .concat(activePitchers)
+        .map((player) => player.team)
+        .filter(Boolean)
+    )
   ).sort((a, b) => a.localeCompare(b));
   if (!teams.length) {
     teamsListEl.textContent = "No teams available.";
@@ -566,6 +590,29 @@ const loadSnapshot = async (year) => {
   updateMeta();
 };
 
+const loadPitcherSnapshot = async (year) => {
+  if (pitcherSnapshotsByYear.has(year)) {
+    const cached = pitcherSnapshotsByYear.get(year);
+    activePitchers = cached.players;
+    renderTeamsList();
+    renderTeamRoster();
+    return;
+  }
+
+  try {
+    const response = await fetch(`${SNAPSHOT_BASE_URL}/pitchers_${year}.json`);
+    const data = await response.json();
+    const players = Array.isArray(data) ? data : data.players || [];
+    pitcherSnapshotsByYear.set(year, { players });
+    activePitchers = players;
+  } catch (error) {
+    console.log(error);
+    activePitchers = [];
+  }
+  renderTeamsList();
+  renderTeamRoster();
+};
+
 const updateRangeTagsVisibility = () => {
   const showTags = isRangeMode();
   statsEl
@@ -821,6 +868,7 @@ yearSelect.addEventListener("change", async () => {
   outputPlayer.textContent = "";
   outputCompare.textContent = "";
   await loadSnapshot(yearSelect.value);
+  await loadPitcherSnapshot(yearSelect.value);
   updatePlayerLimit();
 });
 
@@ -851,3 +899,4 @@ if (rangeEnabledInput) {
 
 loadStatsConfig();
 loadSnapshot(yearSelect.value);
+loadPitcherSnapshot(yearSelect.value);

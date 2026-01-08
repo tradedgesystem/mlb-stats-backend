@@ -31,6 +31,9 @@ jobs:
           python backend/export_snapshot.py --year 2024
           python backend/export_snapshot.py --year 2025
           python backend/export_snapshot.py --year 2026
+          python backend/export_snapshot.py --year 2024 --dataset pitching
+          python backend/export_snapshot.py --year 2025 --dataset pitching
+          python backend/export_snapshot.py --year 2026 --dataset pitching
 
       - name: Commit and push if changed
         run: |
