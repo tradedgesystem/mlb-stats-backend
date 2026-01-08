@@ -275,7 +275,7 @@ const renderTeamsList = () => {
   });
 };
 
-const renderTable = (rows, statKeys, target) => {
+const renderAsciiTable = (rows, statKeys, target) => {
   if (!target) {
     return;
   }
@@ -285,47 +285,39 @@ const renderTable = (rows, statKeys, target) => {
     return;
   }
 
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-
-  const baseHeaders = ["Name", "Team", "Season"];
-  baseHeaders.forEach((label) => {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headRow.appendChild(th);
-  });
-
+  const headers = ["Player", "Team", "Season"];
   statKeys.forEach((key) => {
     const config = statsByKey.get(key);
-    const th = document.createElement("th");
-    th.textContent = config?.label || key;
-    headRow.appendChild(th);
+    headers.push(config?.label || key);
   });
 
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    [row.name, row.team, row.season].forEach((value) => {
-      const td = document.createElement("td");
-      td.textContent = value ?? "-";
-      tr.appendChild(td);
-    });
-
-    statKeys.forEach((key) => {
+  const rowsData = rows.map((row) => {
+    const base = [row.name, row.team, row.season];
+    const stats = statKeys.map((key) => {
       const config = statsByKey.get(key);
-      const value = formatValue(row[key], config?.format);
-      const td = document.createElement("td");
-      td.textContent = value ?? "-";
-      tr.appendChild(td);
+      return formatValue(row[key], config?.format);
     });
-    tbody.appendChild(tr);
+    return base.concat(stats).map((value) =>
+      value === null || value === undefined ? "-" : String(value)
+    );
   });
-  table.appendChild(tbody);
-  target.appendChild(table);
+
+  const widths = headers.map((header, index) => {
+    const cellWidths = rowsData.map((row) => row[index].length);
+    return Math.max(header.length, ...cellWidths);
+  });
+
+  const pad = (value, width) => value + " ".repeat(Math.max(0, width - value.length));
+  const line = `+${widths.map((w) => "-".repeat(w + 2)).join("+")}+`;
+  const headerLine =
+    "| " +
+    headers.map((header, i) => pad(header, widths[i])).join(" | ") +
+    " |";
+  const bodyLines = rowsData.map(
+    (row) => "| " + row.map((cell, i) => pad(cell, widths[i])).join(" | ") + " |"
+  );
+
+  target.textContent = [line, headerLine, line, ...bodyLines, line].join("\n");
 };
 
 const renderResults = (players) => {
@@ -604,7 +596,7 @@ compareButton.addEventListener("click", async () => {
       )
       .filter(Boolean);
     console.log(rows);
-    renderTable(rows, statKeys, outputCompare);
+    renderAsciiTable(rows, statKeys, outputCompare);
   } catch (error) {
     console.log(error);
   }
@@ -628,7 +620,7 @@ viewButton.addEventListener("click", async () => {
       renderMessage("Player not found in snapshot.", outputPlayer);
       return;
     }
-    renderTable([data], statKeys, outputPlayer);
+    renderAsciiTable([data], statKeys, outputPlayer);
   } catch (error) {
     console.log(error);
   }

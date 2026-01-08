@@ -394,7 +394,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Extension renders a stats checkbox list grouped by category.
 - Compare/View output is filtered to selected stats only.
 - Output formatting follows `stats_config.json` (percent/rate/float/integer).
-- Popup renders a readable table instead of raw JSON.
+- Popup renders an ASCII table instead of raw JSON.
 - Snapshot freshness warning shows if older than 36 hours.
 - Added a Stats tab with a glossary description for each stat.
 - Selection limit enforces a max of 10 stats with a warning message.
