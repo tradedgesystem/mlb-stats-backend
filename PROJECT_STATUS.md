@@ -463,6 +463,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Extension falls back to local API data if snapshot fetch fails.
 - Extension prefers bundled 2025 snapshots before CDN to use the current backfill.
 - Compare view bolds the best value per stat.
+- Compare ranking respects stats where lower is better (ERA/WHIP/etc.).
 
 ### 5) Derived stats + snapshot export
 

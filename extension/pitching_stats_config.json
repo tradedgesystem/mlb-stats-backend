@@ -47,7 +47,8 @@
     "default": false,
     "description": "Hits allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "r",
@@ -57,7 +58,8 @@
     "default": false,
     "description": "Runs allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "er",
@@ -67,7 +69,8 @@
     "default": false,
     "description": "Earned runs allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "hr",
@@ -77,7 +80,8 @@
     "default": false,
     "description": "Home runs allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "bb",
@@ -87,7 +91,8 @@
     "default": false,
     "description": "Walks allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "hbp",
@@ -97,7 +102,8 @@
     "default": false,
     "description": "Hit batters.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "so",
@@ -117,7 +123,8 @@
     "default": true,
     "description": "Earned run average.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "whip",
@@ -127,7 +134,8 @@
     "default": true,
     "description": "Walks plus hits per inning pitched.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "k_9",
@@ -147,7 +155,8 @@
     "default": false,
     "description": "Walks per nine innings.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "hr_9",
@@ -157,7 +166,8 @@
     "default": false,
     "description": "Home runs per nine innings.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "k_bbpct",
@@ -177,7 +187,8 @@
     "default": false,
     "description": "Expected ERA.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "xwoba_allowed",
@@ -187,7 +198,8 @@
     "default": false,
     "description": "Expected wOBA allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "woba_allowed",
@@ -197,7 +209,8 @@
     "default": false,
     "description": "wOBA allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "avg",
@@ -207,7 +220,8 @@
     "default": false,
     "description": "Batting average allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "slg_allowed",
@@ -217,7 +231,8 @@
     "default": false,
     "description": "Slugging allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "ev",
@@ -227,7 +242,8 @@
     "default": false,
     "description": "Average exit velocity allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "maxev",
@@ -237,7 +253,8 @@
     "default": false,
     "description": "Max exit velocity allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "ev_p10_allowed",
@@ -247,7 +264,8 @@
     "default": false,
     "description": "10th percentile exit velocity allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "ev_p50_allowed",
@@ -257,7 +275,8 @@
     "default": false,
     "description": "50th percentile exit velocity allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "ev_p90_allowed",
@@ -267,7 +286,8 @@
     "default": false,
     "description": "90th percentile exit velocity allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "barrelpct",
@@ -277,7 +297,8 @@
     "default": false,
     "description": "Barrel rate allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "sweet_spot_pct_allowed",
@@ -287,7 +308,8 @@
     "default": false,
     "description": "Sweet-spot contact rate allowed. Not in current dataset.",
     "range_supported": false,
-    "available": false
+    "available": false,
+    "lower_is_better": true
   },
   {
     "key": "hardhitpct",
@@ -297,7 +319,8 @@
     "default": false,
     "description": "Hard-hit rate allowed.",
     "range_supported": false,
-    "available": true
+    "available": true,
+    "lower_is_better": true
   },
   {
     "key": "fbpct_2",

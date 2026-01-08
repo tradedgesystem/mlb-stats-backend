@@ -432,10 +432,16 @@ const renderAsciiTable = (rows, statKeys, target) => {
   if (rows.length > 1) {
     statKeys.forEach((key) => {
       let best = null;
+      const config = statsByKey.get(key);
+      const lowerIsBetter = Boolean(config && config.lower_is_better);
       rows.forEach((row) => {
         const value = row[key];
         if (typeof value === "number" && !Number.isNaN(value)) {
-          if (best === null || value > best) {
+          if (best === null) {
+            best = value;
+          } else if (lowerIsBetter && value < best) {
+            best = value;
+          } else if (!lowerIsBetter && value > best) {
             best = value;
           }
         }
