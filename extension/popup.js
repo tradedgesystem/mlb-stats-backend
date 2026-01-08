@@ -635,8 +635,13 @@ const renderStatsConfig = (config) => {
       desc.className = "stat-desc";
       desc.textContent = item.description || "Definition coming soon.";
 
+      const tag = document.createElement("span");
+      tag.className = `stat-tag ${item.range_supported ? "range-ok" : "season-only"}`;
+      tag.textContent = item.range_supported ? "Range OK" : "Season only";
+
       textWrap.appendChild(text);
       textWrap.appendChild(desc);
+      textWrap.appendChild(tag);
       row.appendChild(checkbox);
       row.appendChild(textWrap);
       groupEl.appendChild(row);
