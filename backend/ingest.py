@@ -186,7 +186,7 @@ def build_daily_pitching(start_date: datetime.date, end_date: datetime.date) -> 
 
 
 def main() -> None:
-    batting_df = batting_stats(YEAR)
+    batting_df = batting_stats(YEAR, qual=0)
     batting_df.columns = normalize_columns(batting_df.columns.tolist())
 
     if "season" not in batting_df.columns:
@@ -215,7 +215,7 @@ def main() -> None:
 
     log_missing_and_sparse(batting_df, REQUIRED_BATTING)
 
-    pitching_df = pitching_stats(YEAR)
+    pitching_df = pitching_stats(YEAR, qual=0)
     pitching_df.columns = normalize_columns(pitching_df.columns.tolist())
 
     if "season" not in pitching_df.columns:

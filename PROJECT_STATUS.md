@@ -464,6 +464,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Extension prefers bundled 2025 snapshots before CDN to use the current backfill.
 - Compare view bolds the best value per stat.
 - Compare ranking respects stats where lower is better (ERA/WHIP/etc.).
+- Ingestion uses `qual=0` to include non-qualified players in 2025 backfill.
 
 ### 5) Derived stats + snapshot export
 
