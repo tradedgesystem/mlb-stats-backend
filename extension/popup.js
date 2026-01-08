@@ -332,29 +332,43 @@ const renderTeamRoster = () => {
     }
     return;
   }
+
+  const renderRosterList = (players, container, mode) => {
+    container.innerHTML = "";
+    if (!players.length) {
+      container.textContent =
+        mode === "pitchers" ? "No pitchers found." : "No hitters found.";
+      return;
+    }
+    players.forEach((player) => {
+      const row = document.createElement("div");
+      row.textContent = `${player.name} (${player.team})`;
+      const addButton = document.createElement("button");
+      addButton.textContent = "Add";
+      addButton.addEventListener("click", () => {
+        addPlayerToMode(mode, player);
+        if (activeMode === mode) {
+          renderSelected();
+          updatePlayerLimit();
+        }
+      });
+      row.appendChild(addButton);
+      container.appendChild(row);
+    });
+  };
+
   if (teamTitleEl) {
     teamTitleEl.textContent = `Hitters - ${activeTeam}`;
   }
   const hitters = activePlayers
     .filter((player) => player.team === activeTeam)
     .sort((a, b) => a.name.localeCompare(b.name));
-  if (hitters.length) {
-    teamHittersEl.innerHTML = hitters
-      .map((player) => `${player.name}`)
-      .join(", ");
-  } else {
-    teamHittersEl.textContent = "No hitters found.";
-  }
+  renderRosterList(hitters, teamHittersEl, "hitters");
+
   const pitchers = activePitchers
     .filter((player) => player.team === activeTeam)
     .sort((a, b) => a.name.localeCompare(b.name));
-  if (pitchers.length) {
-    teamPitchersEl.innerHTML = pitchers
-      .map((player) => `${player.name}`)
-      .join(", ");
-  } else {
-    teamPitchersEl.textContent = "No pitchers found.";
-  }
+  renderRosterList(pitchers, teamPitchersEl, "pitchers");
 };
 
 const renderTeamsList = () => {
@@ -509,6 +523,23 @@ const renderResults = (players) => {
   });
 };
 
+const addPlayerToMode = (mode, player) => {
+  const state = stateByMode[mode];
+  if (!state) {
+    return;
+  }
+  if (state.savedPlayers.find((item) => item.player_id === player.player_id)) {
+    return;
+  }
+  if (state.savedPlayers.length >= MAX_SAVED_PLAYERS) {
+    return;
+  }
+  state.savedPlayers.push(player);
+  if (!state.activePlayerId) {
+    state.activePlayerId = player.player_id;
+  }
+};
+
 const renderSelectedList = (container) => {
   if (!container) {
     return;
@@ -596,17 +627,7 @@ const clearSavedPlayers = () => {
 };
 
 const addPlayer = (player) => {
-  const { savedPlayers } = getState();
-  if (savedPlayers.find((item) => item.player_id === player.player_id)) {
-    return;
-  }
-  if (savedPlayers.length >= MAX_SAVED_PLAYERS) {
-    return;
-  }
-  savedPlayers.push(player);
-  if (!getState().activePlayerId) {
-    getState().activePlayerId = player.player_id;
-  }
+  addPlayerToMode(activeMode, player);
   renderSelected();
   updatePlayerLimit();
 };
@@ -917,7 +938,7 @@ const renderStatsConfig = () => {
   updateRangeTagsVisibility();
 };
 
-searchButton.addEventListener("click", async () => {
+const runSearch = () => {
   try {
     const query = searchInput.value.trim();
     if (!query) {
@@ -926,11 +947,26 @@ searchButton.addEventListener("click", async () => {
     }
 
     const normalizedQuery = normalizeText(query);
-    const maxDistance = Math.max(2, Math.floor(normalizedQuery.length / 3));
+    if (!normalizedQuery) {
+      resultsEl.textContent = "Enter a search term.";
+      return;
+    }
+
     const dataset = getActiveDataset();
+    const maxDistance =
+      normalizedQuery.length <= 3
+        ? 2
+        : Math.max(2, Math.floor(normalizedQuery.length / 2));
+
     const matches = dataset
       .map((player) => {
-        const score = fuzzyScore(player.name, query);
+        const normalizedName = normalizeText(player.name || "");
+        let score = null;
+        if (normalizedName.includes(normalizedQuery)) {
+          score = 0;
+        } else if (normalizedQuery.length > 2) {
+          score = fuzzyScore(player.name, query);
+        }
         return score === null ? null : { player, score };
       })
       .filter((entry) => entry && entry.score <= maxDistance)
@@ -945,6 +981,13 @@ searchButton.addEventListener("click", async () => {
     renderResults(matches);
   } catch (error) {
     console.log(error);
+  }
+};
+
+searchButton.addEventListener("click", runSearch);
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    runSearch();
   }
 });
 
