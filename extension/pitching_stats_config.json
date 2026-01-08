@@ -6,7 +6,8 @@
     "format": "integer",
     "default": true,
     "description": "Games pitched.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "gs",
@@ -15,7 +16,8 @@
     "format": "integer",
     "default": false,
     "description": "Games started.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "ip",
@@ -24,7 +26,8 @@
     "format": "float",
     "default": true,
     "description": "Innings pitched.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "tbf",
@@ -33,7 +36,8 @@
     "format": "integer",
     "default": false,
     "description": "Batters faced.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "h",
@@ -42,7 +46,8 @@
     "format": "integer",
     "default": false,
     "description": "Hits allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "r",
@@ -51,7 +56,8 @@
     "format": "integer",
     "default": false,
     "description": "Runs allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "er",
@@ -60,7 +66,8 @@
     "format": "integer",
     "default": false,
     "description": "Earned runs allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "hr",
@@ -69,7 +76,8 @@
     "format": "integer",
     "default": false,
     "description": "Home runs allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "bb",
@@ -78,7 +86,8 @@
     "format": "integer",
     "default": false,
     "description": "Walks allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "hbp",
@@ -87,7 +96,8 @@
     "format": "integer",
     "default": false,
     "description": "Hit batters.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "so",
@@ -96,7 +106,8 @@
     "format": "integer",
     "default": true,
     "description": "Strikeouts.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "era",
@@ -105,7 +116,8 @@
     "format": "rate",
     "default": true,
     "description": "Earned run average.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "whip",
@@ -114,7 +126,8 @@
     "format": "rate",
     "default": true,
     "description": "Walks plus hits per inning pitched.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "k_9",
@@ -123,7 +136,8 @@
     "format": "rate",
     "default": false,
     "description": "Strikeouts per nine innings.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "bb_9",
@@ -132,7 +146,8 @@
     "format": "rate",
     "default": false,
     "description": "Walks per nine innings.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "hr_9",
@@ -141,7 +156,8 @@
     "format": "rate",
     "default": false,
     "description": "Home runs per nine innings.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "k_bbpct",
@@ -150,7 +166,8 @@
     "format": "percent",
     "default": false,
     "description": "Strikeout minus walk rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "xera",
@@ -159,7 +176,8 @@
     "format": "rate",
     "default": false,
     "description": "Expected ERA.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "xwoba_allowed",
@@ -168,7 +186,8 @@
     "format": "rate",
     "default": false,
     "description": "Expected wOBA allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "woba_allowed",
@@ -177,7 +196,8 @@
     "format": "rate",
     "default": false,
     "description": "wOBA allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "avg",
@@ -186,7 +206,8 @@
     "format": "rate",
     "default": false,
     "description": "Batting average allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "slg_allowed",
@@ -195,7 +216,8 @@
     "format": "rate",
     "default": false,
     "description": "Slugging allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "ev",
@@ -204,7 +226,8 @@
     "format": "float",
     "default": false,
     "description": "Average exit velocity allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "maxev",
@@ -213,7 +236,8 @@
     "format": "float",
     "default": false,
     "description": "Max exit velocity allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "ev_p10_allowed",
@@ -222,7 +246,8 @@
     "format": "float",
     "default": false,
     "description": "10th percentile exit velocity allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "ev_p50_allowed",
@@ -231,7 +256,8 @@
     "format": "float",
     "default": false,
     "description": "50th percentile exit velocity allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "ev_p90_allowed",
@@ -240,7 +266,8 @@
     "format": "float",
     "default": false,
     "description": "90th percentile exit velocity allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "barrelpct",
@@ -249,7 +276,8 @@
     "format": "percent",
     "default": false,
     "description": "Barrel rate allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "sweet_spot_pct_allowed",
@@ -258,7 +286,8 @@
     "format": "percent",
     "default": false,
     "description": "Sweet-spot contact rate allowed. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "hardhitpct",
@@ -267,16 +296,18 @@
     "format": "percent",
     "default": false,
     "description": "Hard-hit rate allowed.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
-    "key": "fbpct",
+    "key": "fbpct_2",
     "label": "Fastball %",
     "group": "Pitch Arsenal",
     "format": "percent",
     "default": false,
     "description": "Fastball usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "slpct",
@@ -285,7 +316,8 @@
     "format": "percent",
     "default": false,
     "description": "Slider usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "ctpct",
@@ -294,7 +326,8 @@
     "format": "percent",
     "default": false,
     "description": "Cutter usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "cbpct",
@@ -303,7 +336,8 @@
     "format": "percent",
     "default": false,
     "description": "Curveball usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "chpct",
@@ -312,7 +346,8 @@
     "format": "percent",
     "default": false,
     "description": "Changeup usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "sfpct",
@@ -321,7 +356,8 @@
     "format": "percent",
     "default": false,
     "description": "Splitter usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "knpct",
@@ -330,7 +366,8 @@
     "format": "percent",
     "default": false,
     "description": "Knuckleball usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "xxpct",
@@ -339,7 +376,8 @@
     "format": "percent",
     "default": false,
     "description": "Other pitch usage percentage.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "fbv",
@@ -348,7 +386,8 @@
     "format": "float",
     "default": false,
     "description": "Average fastball velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "slv",
@@ -357,7 +396,8 @@
     "format": "float",
     "default": false,
     "description": "Average slider velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "ctv",
@@ -366,7 +406,8 @@
     "format": "float",
     "default": false,
     "description": "Average cutter velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "cbv",
@@ -375,7 +416,8 @@
     "format": "float",
     "default": false,
     "description": "Average curveball velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "chv",
@@ -384,7 +426,8 @@
     "format": "float",
     "default": false,
     "description": "Average changeup velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "sfv",
@@ -393,7 +436,8 @@
     "format": "float",
     "default": false,
     "description": "Average splitter velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "knv",
@@ -402,7 +446,8 @@
     "format": "float",
     "default": false,
     "description": "Average knuckleball velocity.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "avg_velo",
@@ -411,7 +456,8 @@
     "format": "float",
     "default": false,
     "description": "Average velocity (all pitches). Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "max_velo",
@@ -420,7 +466,8 @@
     "format": "float",
     "default": false,
     "description": "Max velocity (all pitches). Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "velo_sd",
@@ -429,7 +476,8 @@
     "format": "float",
     "default": false,
     "description": "Velocity standard deviation. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "spin_rate",
@@ -438,7 +486,8 @@
     "format": "float",
     "default": false,
     "description": "Average spin rate. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "spin_sd",
@@ -447,7 +496,8 @@
     "format": "float",
     "default": false,
     "description": "Spin rate standard deviation. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "spin_axis",
@@ -456,7 +506,8 @@
     "format": "float",
     "default": false,
     "description": "Spin axis. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "extension",
@@ -465,7 +516,8 @@
     "format": "float",
     "default": false,
     "description": "Extension. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "release_height",
@@ -474,7 +526,8 @@
     "format": "float",
     "default": false,
     "description": "Release height. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "release_side",
@@ -483,7 +536,8 @@
     "format": "float",
     "default": false,
     "description": "Release side. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "whiffpct",
@@ -492,7 +546,8 @@
     "format": "percent",
     "default": false,
     "description": "Whiff rate. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "o_swingpct",
@@ -501,7 +556,8 @@
     "format": "percent",
     "default": false,
     "description": "Chase rate (swings on pitches outside the zone).",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "cswpct",
@@ -510,7 +566,8 @@
     "format": "percent",
     "default": false,
     "description": "Called strikes plus whiffs.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "strike_pct",
@@ -519,7 +576,8 @@
     "format": "percent",
     "default": false,
     "description": "Strike rate. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "cstrpct",
@@ -528,7 +586,8 @@
     "format": "percent",
     "default": false,
     "description": "Called strike rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "swstrpct",
@@ -537,7 +596,8 @@
     "format": "percent",
     "default": false,
     "description": "Swinging strike rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "gbpct",
@@ -546,7 +606,8 @@
     "format": "percent",
     "default": false,
     "description": "Ground-ball rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "fbpct",
@@ -555,7 +616,8 @@
     "format": "percent",
     "default": false,
     "description": "Fly-ball rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "ldpct",
@@ -564,7 +626,8 @@
     "format": "percent",
     "default": false,
     "description": "Line-drive rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "iffbpct",
@@ -573,7 +636,8 @@
     "format": "percent",
     "default": false,
     "description": "Infield fly-ball rate.",
-    "range_supported": false
+    "range_supported": false,
+    "available": true
   },
   {
     "key": "primary_pitch_pct",
@@ -582,7 +646,8 @@
     "format": "percent",
     "default": false,
     "description": "Primary pitch usage. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   },
   {
     "key": "secondary_pitch_pct",
@@ -591,6 +656,7 @@
     "format": "percent",
     "default": false,
     "description": "Secondary pitch usage. Not in current dataset.",
-    "range_supported": false
+    "range_supported": false,
+    "available": false
   }
 ]

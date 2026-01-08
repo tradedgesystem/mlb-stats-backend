@@ -149,7 +149,7 @@ batted-ball or pitch-level data).
 - Sweet-Spot % Allowed -> `sweet_spot_pct_allowed` (needs new data)
 
 ### Pitch Arsenal
-- Pitch Usage % (by pitch type) -> `fbpct`, `slpct`, `ctpct`, `cbpct`, `chpct`, `sfpct`, `knpct`, `xxpct` (available)
+- Pitch Usage % (by pitch type) -> `fbpct_2`, `slpct`, `ctpct`, `cbpct`, `chpct`, `sfpct`, `knpct`, `xxpct` (available)
 - Average Velocity (by pitch type) -> `fbv`, `slv`, `ctv`, `cbv`, `chv`, `sfv`, `knv` (available)
 - Max Velocity -> `max_velo` (needs new data)
 - Velocity Standard Deviation -> `velo_sd` (needs new data)

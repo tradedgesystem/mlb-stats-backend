@@ -20,7 +20,9 @@ def export_snapshot(
     dataset: str,
 ) -> None:
     stats_config = load_stats_config(config_path)
-    stat_keys = [item["key"] for item in stats_config]
+    stat_keys = [
+        item["key"] for item in stats_config if item.get("available", True)
+    ]
     base_keys = ["player_id", "name", "team", "season"]
     columns = base_keys + stat_keys
 

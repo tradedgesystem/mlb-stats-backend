@@ -3,13 +3,19 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from pybaseball import batting_stats, pitching_stats
+import pandas as pd
+from pybaseball import batting_stats, batting_stats_range, pitching_stats, pitching_stats_range
 
 YEAR = 2025
 BAT_TABLE_NAME = "batting_stats"
 PITCH_TABLE_NAME = "pitching_stats"
+DAILY_BAT_TABLE_NAME = "batting_stats_daily"
+DAILY_PITCH_TABLE_NAME = "pitching_stats_daily"
+DATE_RANGE_START = os.environ.get("DATE_RANGE_START")
+DATE_RANGE_END = os.environ.get("DATE_RANGE_END")
 
 REQUIRED_BATTING = [
     "avg",
@@ -46,6 +52,36 @@ REQUIRED_PITCHING = [
     "er",
 ]
 
+DAILY_BATTING_COLUMNS = [
+    "pa",
+    "ab",
+    "h",
+    "1b",
+    "2b",
+    "3b",
+    "hr",
+    "r",
+    "rbi",
+    "bb",
+    "ibb",
+    "hbp",
+    "so",
+    "sf",
+    "sh",
+]
+
+DAILY_PITCHING_COLUMNS = [
+    "ip",
+    "tbf",
+    "h",
+    "r",
+    "er",
+    "hr",
+    "bb",
+    "hbp",
+    "so",
+]
+
 
 def normalize_columns(columns: list[str]) -> list[str]:
     normalized: list[str] = []
@@ -77,6 +113,76 @@ def log_missing_and_sparse(df, required: list[str]) -> None:
     sparse_cols = sorted(sparse[sparse > 0.2].index.tolist())
     if sparse_cols:
         print(f"Columns with >20% nulls: {', '.join(sparse_cols)}")
+
+
+def parse_date(value: str) -> datetime.date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def iter_dates(start_date: datetime.date, end_date: datetime.date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += timedelta(days=1)
+
+
+def ensure_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    for col in columns:
+        if col not in df.columns:
+            df[col] = pd.NA
+    return df
+
+
+def build_daily_batting(start_date: datetime.date, end_date: datetime.date) -> pd.DataFrame:
+    frames = []
+    for day in iter_dates(start_date, end_date):
+        day_str = day.isoformat()
+        daily_df = batting_stats_range(day_str, day_str)
+        daily_df.columns = normalize_columns(daily_df.columns.tolist())
+
+        if "season" not in daily_df.columns:
+            daily_df["season"] = day.year
+        if "idfg" not in daily_df.columns:
+            raise ValueError("Missing expected idfg column for player IDs.")
+        if "player_id" not in daily_df.columns:
+            daily_df["player_id"] = daily_df["idfg"]
+        daily_df["game_date"] = day_str
+
+        daily_df = ensure_columns(daily_df, DAILY_BATTING_COLUMNS)
+        base_cols = ["player_id", "name", "team", "season", "game_date"]
+        daily_df = daily_df[base_cols + DAILY_BATTING_COLUMNS]
+        frames.append(daily_df)
+
+    if not frames:
+        columns = ["player_id", "name", "team", "season", "game_date"] + DAILY_BATTING_COLUMNS
+        return pd.DataFrame(columns=columns)
+    return pd.concat(frames, ignore_index=True)
+
+
+def build_daily_pitching(start_date: datetime.date, end_date: datetime.date) -> pd.DataFrame:
+    frames = []
+    for day in iter_dates(start_date, end_date):
+        day_str = day.isoformat()
+        daily_df = pitching_stats_range(day_str, day_str)
+        daily_df.columns = normalize_columns(daily_df.columns.tolist())
+
+        if "season" not in daily_df.columns:
+            daily_df["season"] = day.year
+        if "idfg" not in daily_df.columns:
+            raise ValueError("Missing expected idfg column for player IDs.")
+        if "player_id" not in daily_df.columns:
+            daily_df["player_id"] = daily_df["idfg"]
+        daily_df["game_date"] = day_str
+
+        daily_df = ensure_columns(daily_df, DAILY_PITCHING_COLUMNS)
+        base_cols = ["player_id", "name", "team", "season", "game_date"]
+        daily_df = daily_df[base_cols + DAILY_PITCHING_COLUMNS]
+        frames.append(daily_df)
+
+    if not frames:
+        columns = ["player_id", "name", "team", "season", "game_date"] + DAILY_PITCHING_COLUMNS
+        return pd.DataFrame(columns=columns)
+    return pd.concat(frames, ignore_index=True)
 
 
 def main() -> None:
@@ -121,6 +227,16 @@ def main() -> None:
 
     log_missing_and_sparse(pitching_df, REQUIRED_PITCHING)
 
+    daily_batting_df = None
+    daily_pitching_df = None
+    if DATE_RANGE_START and DATE_RANGE_END:
+        start_date = parse_date(DATE_RANGE_START)
+        end_date = parse_date(DATE_RANGE_END)
+        if end_date < start_date:
+            raise ValueError("DATE_RANGE_END must be on or after DATE_RANGE_START.")
+        daily_batting_df = build_daily_batting(start_date, end_date)
+        daily_pitching_df = build_daily_pitching(start_date, end_date)
+
     db_path = Path(__file__).with_name("stats.db")
     tmp_path = db_path.with_name("stats_tmp.db")
     if tmp_path.exists():
@@ -140,6 +256,14 @@ def main() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_pitching_stats_season "
                 "ON pitching_stats(season)"
             )
+            if daily_batting_df is not None:
+                daily_batting_df.to_sql(
+                    DAILY_BAT_TABLE_NAME, conn, if_exists="replace", index=False
+                )
+            if daily_pitching_df is not None:
+                daily_pitching_df.to_sql(
+                    DAILY_PITCH_TABLE_NAME, conn, if_exists="replace", index=False
+                )
             conn.commit()
         os.replace(tmp_path, db_path)
     except Exception:

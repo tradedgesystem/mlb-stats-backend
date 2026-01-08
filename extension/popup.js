@@ -73,6 +73,7 @@ const activeMetaByMode = { hitters: null, pitchers: null };
 let activeTeam = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
+const LOCAL_API_BASE = "http://127.0.0.1:8000";
 const MAX_STATS = 10;
 const MAX_SAVED_PLAYERS = 10;
 const MAX_COMPARE_PLAYERS = 5;
@@ -143,15 +144,21 @@ const updateMeta = () => {
     return;
   }
   const timestamp = activeMeta.generated_at;
+  const source = activeMeta.source;
   const date = timestamp ? new Date(timestamp) : null;
-  const readable = date && !Number.isNaN(date.getTime())
-    ? date.toLocaleString()
-    : "unavailable";
-  metaEl.textContent = `Data updated: ${readable}`;
+  const readable =
+    date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : null;
+  if (readable) {
+    metaEl.textContent = `Data updated: ${readable}${source ? ` (${source})` : ""}`;
+  } else if (source) {
+    metaEl.textContent = `Data source: ${source}`;
+  } else {
+    metaEl.textContent = "Data updated: unavailable";
+  }
 
   if (warningEl) {
     if (!date || Number.isNaN(date.getTime())) {
-      warningEl.textContent = "Snapshot freshness unknown.";
+      warningEl.textContent = "";
       return;
     }
     const ageHours = (Date.now() - date.getTime()) / 36e5;
@@ -616,18 +623,38 @@ const loadSnapshot = async (year) => {
 
   try {
     const response = await fetch(`${SNAPSHOT_BASE_URL}/players_${year}.json`);
+    if (!response.ok) {
+      throw new Error(`Snapshot fetch failed: ${response.status}`);
+    }
     const data = await response.json();
     const players = Array.isArray(data) ? data : data.players || [];
     const meta = Array.isArray(data) ? null : data.meta || null;
+    if (meta && !meta.source) {
+      meta.source = "snapshot";
+    }
     snapshotsByYear.set(year, { players, meta });
     activePlayers = players;
     activeMetaByMode.hitters = meta;
     activeTeam = null;
   } catch (error) {
     console.log(error);
-    activePlayers = [];
-    activeMetaByMode.hitters = null;
-    activeTeam = null;
+    try {
+      const response = await fetch(`${LOCAL_API_BASE}/players?year=${year}`);
+      if (!response.ok) {
+        throw new Error(`Local API fetch failed: ${response.status}`);
+      }
+      const players = await response.json();
+      const meta = { source: "local api" };
+      snapshotsByYear.set(year, { players, meta });
+      activePlayers = players;
+      activeMetaByMode.hitters = meta;
+      activeTeam = null;
+    } catch (innerError) {
+      console.log(innerError);
+      activePlayers = [];
+      activeMetaByMode.hitters = null;
+      activeTeam = null;
+    }
   }
   renderTeamsList();
   renderTeamRoster();
@@ -651,16 +678,35 @@ const loadPitcherSnapshot = async (year) => {
 
   try {
     const response = await fetch(`${SNAPSHOT_BASE_URL}/pitchers_${year}.json`);
+    if (!response.ok) {
+      throw new Error(`Snapshot fetch failed: ${response.status}`);
+    }
     const data = await response.json();
     const players = Array.isArray(data) ? data : data.players || [];
     const meta = Array.isArray(data) ? null : data.meta || null;
+    if (meta && !meta.source) {
+      meta.source = "snapshot";
+    }
     pitcherSnapshotsByYear.set(year, { players, meta });
     activePitchers = players;
     activeMetaByMode.pitchers = meta;
   } catch (error) {
     console.log(error);
-    activePitchers = [];
-    activeMetaByMode.pitchers = null;
+    try {
+      const response = await fetch(`${LOCAL_API_BASE}/pitchers?year=${year}`);
+      if (!response.ok) {
+        throw new Error(`Local API fetch failed: ${response.status}`);
+      }
+      const players = await response.json();
+      const meta = { source: "local api" };
+      pitcherSnapshotsByYear.set(year, { players, meta });
+      activePitchers = players;
+      activeMetaByMode.pitchers = meta;
+    } catch (innerError) {
+      console.log(innerError);
+      activePitchers = [];
+      activeMetaByMode.pitchers = null;
+    }
   }
   renderTeamsList();
   renderTeamRoster();
@@ -672,7 +718,7 @@ const loadPitcherSnapshot = async (year) => {
 const updateRangeTagsVisibility = () => {
   const showTags = isRangeMode();
   statsEl
-    .querySelectorAll(".stat-tag")
+    .querySelectorAll(".range-tag")
     .forEach((tag) => tag.classList.toggle("hidden", !showTags));
 };
 
@@ -729,17 +775,28 @@ const renderStatsConfig = () => {
     groups[group].forEach((item) => {
       const row = document.createElement("label");
       row.className = "stat-item";
+      const isAvailable = item.available !== false;
+      if (!isAvailable) {
+        row.classList.add("stat-item-disabled");
+        selectedStatKeys.delete(item.key);
+      }
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.value = item.key;
-      checkbox.checked = hasSelection
-        ? selectedStatKeys.has(item.key)
-        : Boolean(item.default);
+      checkbox.disabled = !isAvailable;
+      checkbox.checked = isAvailable
+        ? hasSelection
+          ? selectedStatKeys.has(item.key)
+          : Boolean(item.default)
+        : false;
       if (checkbox.checked) {
         selectedStatKeys.add(item.key);
       }
       checkbox.addEventListener("change", () => {
+        if (!isAvailable) {
+          return;
+        }
         if (checkbox.checked) {
           if (isRangeMode() && !item.range_supported) {
             checkbox.checked = false;
@@ -774,13 +831,21 @@ const renderStatsConfig = () => {
       desc.className = "stat-desc";
       desc.textContent = item.description || "Definition coming soon.";
 
-      const tag = document.createElement("span");
-      tag.className = `stat-tag ${item.range_supported ? "range-ok" : "season-only"}`;
-      tag.textContent = item.range_supported ? "Range OK" : "Season only";
-
       textWrap.appendChild(text);
       textWrap.appendChild(desc);
-      textWrap.appendChild(tag);
+      if (!isAvailable) {
+        const unavailableTag = document.createElement("span");
+        unavailableTag.className = "stat-tag stat-unavailable";
+        unavailableTag.textContent = "Needs data";
+        textWrap.appendChild(unavailableTag);
+      } else {
+        const tag = document.createElement("span");
+        tag.className = `stat-tag range-tag ${
+          item.range_supported ? "range-ok" : "season-only"
+        }`;
+        tag.textContent = item.range_supported ? "Range OK" : "Season only";
+        textWrap.appendChild(tag);
+      }
       row.appendChild(checkbox);
       row.appendChild(textWrap);
       groupEl.appendChild(row);

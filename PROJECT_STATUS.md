@@ -459,6 +459,8 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added a Hitters/Pitchers mode switch; search, saved players, compare, and stats selections are mode-specific.
 - Expanded hitter + pitcher stat configs and documented mappings in `STATS_MAPPING.md`.
 - Added pitcher endpoints to the local API (`/pitchers`, `/pitchers/search`, `/pitchers/compare`, `/pitcher`).
+- Stats glossary now flags stats that need new data and disables unavailable picks.
+- Extension falls back to local API data if snapshot fetch fails.
 
 ### 5) Derived stats + snapshot export
 
@@ -569,6 +571,9 @@ Notes:
 - Date ranges will only sum/count these aggregate fields; rate stats will be
   computed on the fly from the totals.
 - Statcast-only metrics (xwOBA, barrel rate, etc.) remain season-only for now.
+- Ingestion can backfill a date window by setting `DATE_RANGE_START` and
+  `DATE_RANGE_END` before running `backend/ingest.py`. This will populate
+  `batting_stats_daily` and `pitching_stats_daily` for the aggregate fields only.
 
 ### 8) Ingestion expansion (controlled)
 
