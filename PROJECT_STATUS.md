@@ -401,6 +401,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Stats tab shows a live counter for selected stats.
 - Added separate Players and Compare tabs to split individual vs comparison flow.
 - Players and Compare tabs list the currently selected stats.
+- Users can save up to 10 players and choose 1 for individual or up to 5 for compare.
 
 ### 5) Derived stats + snapshot export
 

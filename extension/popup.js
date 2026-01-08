@@ -3,8 +3,8 @@ const searchInput = document.getElementById("search");
 const searchButton = document.getElementById("search-btn");
 const clearButton = document.getElementById("clear-btn");
 const resultsEl = document.getElementById("results");
-const selectedEl = document.getElementById("selected");
-const selectedCompareEl = document.getElementById("selected-compare");
+const savedPlayersEl = document.getElementById("saved-players");
+const savedPlayersCompareEl = document.getElementById("saved-players-compare");
 const selectedStatsPlayersEl = document.getElementById("selected-stats-players");
 const selectedStatsCompareEl = document.getElementById("selected-stats-compare");
 const viewButton = document.getElementById("view-btn");
@@ -16,6 +16,9 @@ const metaEl = document.getElementById("snapshot-meta");
 const warningEl = document.getElementById("snapshot-warning");
 const statsLimitEl = document.getElementById("stats-limit");
 const statsCountEl = document.getElementById("stats-count-players");
+const playersLimitEl = document.getElementById("players-limit");
+const compareLimitEl = document.getElementById("compare-limit");
+const chosenPlayerEl = document.getElementById("chosen-player");
 const tabPlayers = document.getElementById("tab-players");
 const tabCompare = document.getElementById("tab-compare");
 const tabStats = document.getElementById("tab-stats");
@@ -23,7 +26,9 @@ const panelPlayers = document.getElementById("panel-players");
 const panelCompare = document.getElementById("panel-compare");
 const panelStats = document.getElementById("panel-stats");
 
-const selectedPlayers = [];
+const savedPlayers = [];
+let activePlayerId = null;
+const activeCompareIds = new Set();
 let statsConfig = [];
 const statsByKey = new Map();
 const selectedStatKeys = new Set();
@@ -33,6 +38,8 @@ let activeMeta = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const MAX_STATS = 10;
+const MAX_SAVED_PLAYERS = 10;
+const MAX_COMPARE_PLAYERS = 5;
 
 const getSelectedKeys = () => {
   if (!statsConfig.length) {
@@ -108,6 +115,28 @@ const updateStatsLimit = () => {
     statsCountEl.textContent = `Selected stats: ${count} / ${MAX_STATS}`;
   }
   renderSelectedStats();
+};
+
+const updatePlayerLimit = () => {
+  if (playersLimitEl) {
+    if (savedPlayers.length >= MAX_SAVED_PLAYERS) {
+      playersLimitEl.textContent = `Max ${MAX_SAVED_PLAYERS} players saved.`;
+    } else {
+      playersLimitEl.textContent = "";
+    }
+  }
+  if (compareLimitEl) {
+    compareLimitEl.textContent =
+      `Selected for compare: ${activeCompareIds.size} / ${MAX_COMPARE_PLAYERS}`;
+  }
+  if (chosenPlayerEl) {
+    const chosen = savedPlayers.find(
+      (player) => player.player_id === activePlayerId
+    );
+    chosenPlayerEl.textContent = chosen
+      ? `Chosen for view: ${chosen.name}`
+      : "Chosen for view: none";
+  }
 };
 
 const renderSelectedStats = () => {
@@ -205,46 +234,61 @@ const renderSelectedList = (container) => {
   if (!container) {
     return;
   }
-  if (!selectedPlayers.length) {
-    container.textContent = "None selected.";
+  container.innerHTML = "";
+  if (!savedPlayers.length) {
+    container.textContent = "No players saved.";
     return;
   }
-
-  container.innerHTML = "";
-  selectedPlayers.forEach((player) => {
-    const row = document.createElement("div");
-    row.textContent = `${player.name} (${player.team})`;
-    const removeButton = document.createElement("button");
-    removeButton.textContent = "Remove";
-    removeButton.addEventListener("click", () => removePlayer(player.player_id));
-    row.appendChild(removeButton);
-    container.appendChild(row);
+  const isPlayersTab = container === savedPlayersEl;
+  savedPlayers.forEach((player) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "player-button";
+    button.textContent = `${player.name} (${player.team})`;
+    if (
+      (isPlayersTab && player.player_id === activePlayerId) ||
+      (!isPlayersTab && activeCompareIds.has(player.player_id))
+    ) {
+      button.classList.add("selected");
+    }
+    button.addEventListener("click", () => {
+      if (isPlayersTab) {
+        activePlayerId = player.player_id;
+      } else {
+        if (activeCompareIds.has(player.player_id)) {
+          activeCompareIds.delete(player.player_id);
+        } else {
+          if (activeCompareIds.size >= MAX_COMPARE_PLAYERS) {
+            return;
+          }
+          activeCompareIds.add(player.player_id);
+        }
+      }
+      updatePlayerLimit();
+      renderSelected();
+    });
+    container.appendChild(button);
   });
 };
 
 const renderSelected = () => {
-  renderSelectedList(selectedEl);
-  renderSelectedList(selectedCompareEl);
+  renderSelectedList(savedPlayersEl);
+  renderSelectedList(savedPlayersCompareEl);
 };
 
 const addPlayer = (player) => {
-  if (selectedPlayers.find((item) => item.player_id === player.player_id)) {
+  if (savedPlayers.find((item) => item.player_id === player.player_id)) {
     return;
   }
-  if (selectedPlayers.length >= 5) {
+  if (savedPlayers.length >= MAX_SAVED_PLAYERS) {
     return;
   }
-  selectedPlayers.push(player);
+  savedPlayers.push(player);
+  if (!activePlayerId) {
+    activePlayerId = player.player_id;
+  }
   renderSelected();
-};
-
-const removePlayer = (playerId) => {
-  const index = selectedPlayers.findIndex((item) => item.player_id === playerId);
-  if (index === -1) {
-    return;
-  }
-  selectedPlayers.splice(index, 1);
-  renderSelected();
+  updatePlayerLimit();
 };
 
 const loadSnapshot = async (year) => {
@@ -377,7 +421,10 @@ clearButton.addEventListener("click", () => {
 
 compareButton.addEventListener("click", async () => {
   try {
-    if (selectedPlayers.length < 2 || selectedPlayers.length > 5) {
+    if (
+      activeCompareIds.size < 2 ||
+      activeCompareIds.size > MAX_COMPARE_PLAYERS
+    ) {
       renderMessage("Select 2-5 players to compare.", outputCompare);
       return;
     }
@@ -387,9 +434,9 @@ compareButton.addEventListener("click", async () => {
       return;
     }
 
-    const rows = selectedPlayers
-      .map((player) =>
-        activePlayers.find((row) => row.player_id === player.player_id)
+    const rows = Array.from(activeCompareIds)
+      .map((playerId) =>
+        activePlayers.find((row) => row.player_id === playerId)
       )
       .filter(Boolean);
     console.log(rows);
@@ -401,7 +448,7 @@ compareButton.addEventListener("click", async () => {
 
 viewButton.addEventListener("click", async () => {
   try {
-    if (selectedPlayers.length !== 1) {
+    if (!activePlayerId) {
       renderMessage("Select 1 player to view.", outputPlayer);
       return;
     }
@@ -411,8 +458,7 @@ viewButton.addEventListener("click", async () => {
       return;
     }
 
-    const playerId = selectedPlayers[0].player_id;
-    const data = activePlayers.find((row) => row.player_id === playerId);
+    const data = activePlayers.find((row) => row.player_id === activePlayerId);
     console.log(data);
     if (!data) {
       renderMessage("Player not found in snapshot.", outputPlayer);
@@ -451,12 +497,15 @@ const setActiveTab = (tab) => {
 renderResults([]);
 renderSelected();
 yearSelect.addEventListener("change", async () => {
-  selectedPlayers.length = 0;
+  savedPlayers.length = 0;
+  activeCompareIds.clear();
+  activePlayerId = null;
   renderSelected();
   resultsEl.textContent = "";
   outputPlayer.textContent = "";
   outputCompare.textContent = "";
   await loadSnapshot(yearSelect.value);
+  updatePlayerLimit();
 });
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));

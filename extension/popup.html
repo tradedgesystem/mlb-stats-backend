@@ -199,6 +199,26 @@
         color: #4f4f4f;
       }
 
+      .players {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0 10px;
+      }
+
+      .player-button {
+        padding: 4px 8px;
+        border: 1px solid #1a1a1a;
+        border-radius: 999px;
+        background: #fff;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .player-button.selected {
+        background: #ffe4a1;
+      }
+
       .list button {
         margin-left: 6px;
         padding: 2px 6px;
@@ -229,8 +249,10 @@
         <button id="clear-btn">Clear</button>
       </div>
       <div id="results" class="list"></div>
-      <label>Selected (1-5)</label>
-      <div id="selected" class="list"></div>
+      <label>Saved players (max 10)</label>
+      <div id="players-limit" class="warning"></div>
+      <div id="saved-players" class="players"></div>
+      <div id="chosen-player" class="count"></div>
       <div id="stats-count-players" class="count"></div>
       <label>Stats in use</label>
       <div id="selected-stats-players" class="list"></div>
@@ -241,8 +263,9 @@
     </div>
 
     <div id="panel-compare" class="tab-content">
-      <label>Selected (2-5)</label>
-      <div id="selected-compare" class="list"></div>
+      <label>Saved players (max 10)</label>
+      <div id="saved-players-compare" class="players"></div>
+      <div id="compare-limit" class="count"></div>
       <label>Stats in use</label>
       <div id="selected-stats-compare" class="list"></div>
       <div class="row">
