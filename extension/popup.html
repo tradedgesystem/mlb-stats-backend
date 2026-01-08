@@ -230,6 +230,7 @@
     <div class="tabs">
       <button id="tab-players" class="tab-button active">Players</button>
       <button id="tab-compare" class="tab-button">Compare</button>
+      <button id="tab-teams" class="tab-button">Teams</button>
       <button id="tab-stats" class="tab-button">Stats</button>
     </div>
 
@@ -247,6 +248,9 @@
       <div class="row">
         <button id="search-btn">Search</button>
         <button id="clear-btn">Clear</button>
+      </div>
+      <div class="row">
+        <button id="browse-teams-btn">Browse Teams</button>
       </div>
       <div id="results" class="list"></div>
       <label>Saved players (max 10)</label>
@@ -272,6 +276,15 @@
         <button id="compare-run-btn">Run Compare</button>
       </div>
       <div id="output-compare" class="output"></div>
+    </div>
+
+    <div id="panel-teams" class="tab-content">
+      <label>Teams</label>
+      <div id="teams-list" class="players"></div>
+      <label id="team-title">Hitters</label>
+      <div id="team-hitters" class="list"></div>
+      <label>Pitchers</label>
+      <div id="team-pitchers" class="list"></div>
     </div>
 
     <div id="panel-stats" class="tab-content">

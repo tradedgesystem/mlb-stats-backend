@@ -2,9 +2,13 @@ const yearSelect = document.getElementById("year");
 const searchInput = document.getElementById("search");
 const searchButton = document.getElementById("search-btn");
 const clearButton = document.getElementById("clear-btn");
+const browseTeamsButton = document.getElementById("browse-teams-btn");
 const resultsEl = document.getElementById("results");
 const savedPlayersEl = document.getElementById("saved-players");
 const savedPlayersCompareEl = document.getElementById("saved-players-compare");
+const teamsListEl = document.getElementById("teams-list");
+const teamHittersEl = document.getElementById("team-hitters");
+const teamPitchersEl = document.getElementById("team-pitchers");
 const selectedStatsPlayersEl = document.getElementById("selected-stats-players");
 const selectedStatsCompareEl = document.getElementById("selected-stats-compare");
 const viewButton = document.getElementById("view-btn");
@@ -21,9 +25,11 @@ const compareLimitEl = document.getElementById("compare-limit");
 const chosenPlayerEl = document.getElementById("chosen-player");
 const tabPlayers = document.getElementById("tab-players");
 const tabCompare = document.getElementById("tab-compare");
+const tabTeams = document.getElementById("tab-teams");
 const tabStats = document.getElementById("tab-stats");
 const panelPlayers = document.getElementById("panel-players");
 const panelCompare = document.getElementById("panel-compare");
+const panelTeams = document.getElementById("panel-teams");
 const panelStats = document.getElementById("panel-stats");
 
 const savedPlayers = [];
@@ -35,6 +41,7 @@ const selectedStatKeys = new Set();
 const snapshotsByYear = new Map();
 let activePlayers = [];
 let activeMeta = null;
+let activeTeam = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const MAX_STATS = 10;
@@ -157,6 +164,111 @@ const renderMessage = (message, target) => {
     return;
   }
   target.textContent = message;
+};
+
+const normalizeText = (value) =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const levenshtein = (a, b) => {
+  if (a === b) {
+    return 0;
+  }
+  if (!a || !b) {
+    return Math.max(a.length, b.length);
+  }
+  const dp = Array.from({ length: a.length + 1 }, () =>
+    new Array(b.length + 1).fill(0)
+  );
+  for (let i = 0; i <= a.length; i += 1) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= b.length; j += 1) {
+    dp[0][j] = j;
+  }
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[a.length][b.length];
+};
+
+const fuzzyScore = (name, query) => {
+  const normalizedName = normalizeText(name);
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) {
+    return null;
+  }
+  if (normalizedName.includes(normalizedQuery)) {
+    return 0;
+  }
+  const parts = name
+    .toLowerCase()
+    .split(/\s+/)
+    .map(normalizeText)
+    .filter(Boolean);
+  let best = levenshtein(normalizedName, normalizedQuery);
+  parts.forEach((part) => {
+    best = Math.min(best, levenshtein(part, normalizedQuery));
+  });
+  return best;
+};
+
+const renderTeamRoster = () => {
+  if (!teamHittersEl || !teamPitchersEl) {
+    return;
+  }
+  teamHittersEl.textContent = "";
+  teamPitchersEl.textContent = "";
+  if (!activeTeam) {
+    teamHittersEl.textContent = "Select a team.";
+    teamPitchersEl.textContent = "";
+    return;
+  }
+  const players = activePlayers.filter((player) => player.team === activeTeam);
+  if (players.length) {
+    teamHittersEl.innerHTML = players
+      .map((player) => `${player.name}`)
+      .join(", ");
+  } else {
+    teamHittersEl.textContent = "No hitters found.";
+  }
+  teamPitchersEl.textContent =
+    "Pitcher data not available in the current dataset.";
+};
+
+const renderTeamsList = () => {
+  if (!teamsListEl) {
+    return;
+  }
+  teamsListEl.innerHTML = "";
+  const teams = Array.from(
+    new Set(activePlayers.map((player) => player.team).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  if (!teams.length) {
+    teamsListEl.textContent = "No teams available.";
+    return;
+  }
+  teams.forEach((team) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "player-button";
+    button.textContent = team;
+    if (team === activeTeam) {
+      button.classList.add("selected");
+    }
+    button.addEventListener("click", () => {
+      activeTeam = team;
+      renderTeamsList();
+      renderTeamRoster();
+    });
+    teamsListEl.appendChild(button);
+  });
 };
 
 const renderTable = (rows, statKeys, target) => {
@@ -296,6 +408,9 @@ const loadSnapshot = async (year) => {
     const cached = snapshotsByYear.get(year);
     activePlayers = cached.players;
     activeMeta = cached.meta;
+    activeTeam = null;
+    renderTeamsList();
+    renderTeamRoster();
     updateMeta();
     return;
   }
@@ -308,11 +423,15 @@ const loadSnapshot = async (year) => {
     snapshotsByYear.set(year, { players, meta });
     activePlayers = players;
     activeMeta = meta;
+    activeTeam = null;
   } catch (error) {
     console.log(error);
     activePlayers = [];
     activeMeta = null;
+    activeTeam = null;
   }
+  renderTeamsList();
+  renderTeamRoster();
   updateMeta();
 };
 
@@ -395,15 +514,20 @@ searchButton.addEventListener("click", async () => {
       return;
     }
 
+    const normalizedQuery = normalizeText(query);
+    const maxDistance = Math.max(2, Math.floor(normalizedQuery.length / 3));
     const matches = activePlayers
-      .filter((player) =>
-        player.name.toLowerCase().includes(query.toLowerCase())
-      )
+      .map((player) => {
+        const score = fuzzyScore(player.name, query);
+        return score === null ? null : { player, score };
+      })
+      .filter((entry) => entry && entry.score <= maxDistance)
+      .sort((a, b) => a.score - b.score || a.player.name.localeCompare(b.player.name))
       .slice(0, 50)
-      .map((player) => ({
-        player_id: player.player_id,
-        name: player.name,
-        team: player.team,
+      .map((entry) => ({
+        player_id: entry.player.player_id,
+        name: entry.player.name,
+        team: entry.player.team,
       }));
     console.log(matches);
     renderResults(matches);
@@ -485,6 +609,7 @@ const setActiveTab = (tab) => {
   const tabs = [
     { name: "players", button: tabPlayers, panel: panelPlayers },
     { name: "compare", button: tabCompare, panel: panelCompare },
+    { name: "teams", button: tabTeams, panel: panelTeams },
     { name: "stats", button: tabStats, panel: panelStats },
   ];
   tabs.forEach(({ name, button, panel }) => {
@@ -496,6 +621,7 @@ const setActiveTab = (tab) => {
 
 renderResults([]);
 renderSelected();
+updatePlayerLimit();
 yearSelect.addEventListener("change", async () => {
   savedPlayers.length = 0;
   activeCompareIds.clear();
@@ -510,7 +636,12 @@ yearSelect.addEventListener("change", async () => {
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));
 tabCompare.addEventListener("click", () => setActiveTab("compare"));
+tabTeams.addEventListener("click", () => setActiveTab("teams"));
 tabStats.addEventListener("click", () => setActiveTab("stats"));
+
+if (browseTeamsButton) {
+  browseTeamsButton.addEventListener("click", () => setActiveTab("teams"));
+}
 
 loadStatsConfig();
 loadSnapshot(yearSelect.value);
