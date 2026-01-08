@@ -16,6 +16,199 @@ tasks. Update it as the project evolves.
 - Serve data from a local FastAPI backend in development.
 - Keep scraping out of the extension. Ingestion only runs via `backend/ingest.py`.
 
+## Stat List (Provided)
+
+These are the target stats to compute and expose. Mapping to available data
+columns and derived formulas is pending.
+
+### Hitter Stats
+
+#### Outcome and Slash
+
+- Plate Appearances (PA)
+- At-Bats (AB)
+- Hits (H)
+- Singles (1B)
+- Doubles (2B)
+- Triples (3B)
+- Home Runs (HR)
+- Runs (R)
+- Runs Batted In (RBI)
+- Walks (BB)
+- Intentional Walks (IBB)
+- Hit By Pitch (HBP)
+- Strikeouts (SO)
+- Sacrifice Flies (SF)
+- Sacrifice Hits (SH)
+- Batting Average (AVG)
+- On-Base Percentage (OBP)
+- Slugging Percentage (SLG)
+- On-Base Plus Slugging (OPS)
+- Isolated Power (ISO)
+- Batting Average on Balls in Play (BABIP)
+
+#### Expected and Statcast Quality
+
+- Expected Batting Average (xBA)
+- Expected Slugging (xSLG)
+- Expected On-Base Percentage (xOBP)
+- Expected Weighted On-Base Average (xwOBA)
+- Weighted On-Base Average (wOBA)
+- Expected Home Runs (xHR)
+
+#### Contact and Power
+
+- Average Exit Velocity
+- Max Exit Velocity
+- Median Exit Velocity
+- Exit Velocity Percentiles (10th, 50th, 90th)
+- Hard-Hit %
+- Barrel Count
+- Barrel %
+- Barrels per Plate Appearance
+- Barrels per Ball in Play
+- Sweet-Spot %
+- Average Launch Angle
+- Launch Angle Standard Deviation
+- Average Home Run Distance
+- True Distance
+- Hang Time
+
+#### Batted-Ball Type
+
+- Ground Ball %
+- Line Drive %
+- Fly Ball %
+- Pop-Up %
+- Ground Balls per Plate Appearance
+- Fly Balls per Plate Appearance
+- Line Drives per Plate Appearance
+- Infield Fly %
+
+#### Direction and Spray
+
+- Pull %
+- Center %
+- Oppo %
+- Pull Air %
+- Oppo Air %
+- Pulled Ground Ball %
+- Oppo Ground Ball %
+- Straightaway %
+- Shifted Plate Appearance %
+- Non-Shifted Plate Appearance %
+
+#### Plate Discipline
+
+- Swing %
+- Swing Outside Zone % (O-Swing%)
+- Swing Inside Zone % (Z-Swing%)
+- Contact %
+- Contact Outside Zone % (O-Contact%)
+- Contact Inside Zone % (Z-Contact%)
+- Whiff %
+- Called Strike %
+- Swinging Strike %
+- Foul %
+- Foul Tip %
+- In-Play %
+- Take %
+- Take in Zone %
+- Take out of Zone %
+- First-Pitch Swing %
+- First-Pitch Take %
+- Two-Strike Swing %
+- Two-Strike Whiff %
+
+#### Contact Quality Buckets
+
+- Under %
+- Topped %
+- Flare/Burner %
+- Solid Contact %
+- Weak Contact %
+- Poorly Hit %
+- Poorly Under %
+- Poorly Topped %
+- Poorly Weak %
+
+#### Count and Context
+
+- Ahead-in-Count %
+- Even-Count %
+- Behind-in-Count %
+- Two-Strike Plate Appearance %
+- Three-Ball Plate Appearance %
+- Late and Close Plate Appearances
+- Leverage Index
+
+### Pitcher Stats
+
+#### Outcomes and Rates
+
+- Games (G)
+- Games Started (GS)
+- Innings Pitched (IP)
+- Batters Faced (BF)
+- Hits Allowed (H)
+- Runs Allowed (R)
+- Earned Runs (ER)
+- Home Runs Allowed (HR)
+- Walks Allowed (BB)
+- Hit Batters (HBP)
+- Strikeouts (SO)
+- Earned Run Average (ERA)
+- Walks plus Hits per Inning Pitched (WHIP)
+- Strikeouts per Nine (K/9)
+- Walks per Nine (BB/9)
+- Home Runs per Nine (HR/9)
+- Strikeout Minus Walk Rate (K-BB%)
+
+#### Expected and Contact Allowed
+
+- Expected ERA (xERA)
+- Expected Weighted On-Base Average Allowed (xwOBA)
+- Weighted On-Base Average Allowed (wOBA)
+- Batting Average Allowed (BAA)
+- Slugging Allowed (SLG)
+- Average Exit Velocity Allowed
+- Max Exit Velocity Allowed
+- Exit Velocity Percentiles Allowed (10th, 50th, 90th)
+- Barrel % Allowed
+- Sweet-Spot % Allowed
+
+#### Pitch Arsenal
+
+- Pitch Type
+- Pitch Usage %
+- Average Velocity
+- Max Velocity
+- Velocity Standard Deviation
+- Spin Rate
+- Spin Rate Standard Deviation
+- Spin Axis
+- Extension
+- Release Height
+- Release Side
+
+#### Pitch Results
+
+- Whiff %
+- Chase %
+- Called Strikes plus Whiffs (CSW%)
+- Strike %
+- Called Strike %
+- Swinging Strike %
+- Ground Ball %
+- Fly Ball %
+- Line Drive %
+- Pop-Ups Forced
+
+#### Usage and Sequencing
+
+- Primary Pitch %
+- Secondary Pitch %
+
 ## Completed (Verified)
 
 ### 1) End-to-end pipeline (local)
