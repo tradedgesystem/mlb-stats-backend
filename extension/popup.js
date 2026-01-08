@@ -4,16 +4,21 @@ const searchButton = document.getElementById("search-btn");
 const clearButton = document.getElementById("clear-btn");
 const resultsEl = document.getElementById("results");
 const selectedEl = document.getElementById("selected");
+const selectedCompareEl = document.getElementById("selected-compare");
 const viewButton = document.getElementById("view-btn");
-const compareButton = document.getElementById("compare-btn");
+const compareButton = document.getElementById("compare-run-btn");
 const statsEl = document.getElementById("stats");
-const output = document.getElementById("output");
+const outputPlayer = document.getElementById("output-player");
+const outputCompare = document.getElementById("output-compare");
 const metaEl = document.getElementById("snapshot-meta");
 const warningEl = document.getElementById("snapshot-warning");
 const statsLimitEl = document.getElementById("stats-limit");
+const statsCountEl = document.getElementById("stats-count-players");
 const tabPlayers = document.getElementById("tab-players");
+const tabCompare = document.getElementById("tab-compare");
 const tabStats = document.getElementById("tab-stats");
 const panelPlayers = document.getElementById("panel-players");
+const panelCompare = document.getElementById("panel-compare");
 const panelStats = document.getElementById("panel-stats");
 
 const selectedPlayers = [];
@@ -89,25 +94,33 @@ const updateMeta = () => {
 };
 
 const updateStatsLimit = () => {
-  if (!statsLimitEl) {
-    return;
-  }
   const count = selectedStatKeys.size;
   const atLimit = count >= MAX_STATS;
-  statsLimitEl.textContent =
-    `Selected ${count} / ${MAX_STATS}` + (atLimit ? " (max reached)" : "");
-  statsLimitEl.classList.toggle("warning", atLimit);
-  statsLimitEl.classList.toggle("count", !atLimit);
+  if (statsLimitEl) {
+    statsLimitEl.textContent =
+      `Selected ${count} / ${MAX_STATS}` + (atLimit ? " (max reached)" : "");
+    statsLimitEl.classList.toggle("warning", atLimit);
+    statsLimitEl.classList.toggle("count", !atLimit);
+  }
+  if (statsCountEl) {
+    statsCountEl.textContent = `Selected stats: ${count} / ${MAX_STATS}`;
+  }
 };
 
-const renderMessage = (message) => {
-  output.textContent = message;
+const renderMessage = (message, target) => {
+  if (!target) {
+    return;
+  }
+  target.textContent = message;
 };
 
-const renderTable = (rows, statKeys) => {
-  output.textContent = "";
+const renderTable = (rows, statKeys, target) => {
+  if (!target) {
+    return;
+  }
+  target.textContent = "";
   if (!rows.length) {
-    renderMessage("No data to display.");
+    renderMessage("No data to display.", target);
     return;
   }
 
@@ -151,7 +164,7 @@ const renderTable = (rows, statKeys) => {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  output.appendChild(table);
+  target.appendChild(table);
 };
 
 const renderResults = (players) => {
@@ -172,13 +185,16 @@ const renderResults = (players) => {
   });
 };
 
-const renderSelected = () => {
+const renderSelectedList = (container) => {
+  if (!container) {
+    return;
+  }
   if (!selectedPlayers.length) {
-    selectedEl.textContent = "None selected.";
+    container.textContent = "None selected.";
     return;
   }
 
-  selectedEl.innerHTML = "";
+  container.innerHTML = "";
   selectedPlayers.forEach((player) => {
     const row = document.createElement("div");
     row.textContent = `${player.name} (${player.team})`;
@@ -186,8 +202,13 @@ const renderSelected = () => {
     removeButton.textContent = "Remove";
     removeButton.addEventListener("click", () => removePlayer(player.player_id));
     row.appendChild(removeButton);
-    selectedEl.appendChild(row);
+    container.appendChild(row);
   });
+};
+
+const renderSelected = () => {
+  renderSelectedList(selectedEl);
+  renderSelectedList(selectedCompareEl);
 };
 
 const addPlayer = (player) => {
@@ -334,18 +355,19 @@ searchButton.addEventListener("click", async () => {
 clearButton.addEventListener("click", () => {
   searchInput.value = "";
   resultsEl.textContent = "";
-  output.textContent = "";
+  outputPlayer.textContent = "";
+  outputCompare.textContent = "";
 });
 
 compareButton.addEventListener("click", async () => {
   try {
     if (selectedPlayers.length < 2 || selectedPlayers.length > 5) {
-      renderMessage("Select 2-5 players to compare.");
+      renderMessage("Select 2-5 players to compare.", outputCompare);
       return;
     }
     const statKeys = getSelectedKeys();
     if (!statKeys.length) {
-      renderMessage("Select at least one stat.");
+      renderMessage("Select at least one stat.", outputCompare);
       return;
     }
 
@@ -355,7 +377,7 @@ compareButton.addEventListener("click", async () => {
       )
       .filter(Boolean);
     console.log(rows);
-    renderTable(rows, statKeys);
+    renderTable(rows, statKeys, outputCompare);
   } catch (error) {
     console.log(error);
   }
@@ -364,12 +386,12 @@ compareButton.addEventListener("click", async () => {
 viewButton.addEventListener("click", async () => {
   try {
     if (selectedPlayers.length !== 1) {
-      renderMessage("Select 1 player to view.");
+      renderMessage("Select 1 player to view.", outputPlayer);
       return;
     }
     const statKeys = getSelectedKeys();
     if (!statKeys.length) {
-      renderMessage("Select at least one stat.");
+      renderMessage("Select at least one stat.", outputPlayer);
       return;
     }
 
@@ -377,10 +399,10 @@ viewButton.addEventListener("click", async () => {
     const data = activePlayers.find((row) => row.player_id === playerId);
     console.log(data);
     if (!data) {
-      renderMessage("Player not found in snapshot.");
+      renderMessage("Player not found in snapshot.", outputPlayer);
       return;
     }
-    renderTable([data], statKeys);
+    renderTable([data], statKeys, outputPlayer);
   } catch (error) {
     console.log(error);
   }
@@ -398,17 +420,16 @@ const loadStatsConfig = async () => {
 };
 
 const setActiveTab = (tab) => {
-  if (tab === "stats") {
-    tabStats.classList.add("active");
-    tabPlayers.classList.remove("active");
-    panelStats.classList.add("active");
-    panelPlayers.classList.remove("active");
-    return;
-  }
-  tabPlayers.classList.add("active");
-  tabStats.classList.remove("active");
-  panelPlayers.classList.add("active");
-  panelStats.classList.remove("active");
+  const tabs = [
+    { name: "players", button: tabPlayers, panel: panelPlayers },
+    { name: "compare", button: tabCompare, panel: panelCompare },
+    { name: "stats", button: tabStats, panel: panelStats },
+  ];
+  tabs.forEach(({ name, button, panel }) => {
+    const isActive = name === tab;
+    button.classList.toggle("active", isActive);
+    panel.classList.toggle("active", isActive);
+  });
 };
 
 renderResults([]);
@@ -417,11 +438,13 @@ yearSelect.addEventListener("change", async () => {
   selectedPlayers.length = 0;
   renderSelected();
   resultsEl.textContent = "";
-  output.textContent = "";
+  outputPlayer.textContent = "";
+  outputCompare.textContent = "";
   await loadSnapshot(yearSelect.value);
 });
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));
+tabCompare.addEventListener("click", () => setActiveTab("compare"));
 tabStats.addEventListener("click", () => setActiveTab("stats"));
 
 loadStatsConfig();

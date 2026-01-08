@@ -399,6 +399,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added a Stats tab with a glossary description for each stat.
 - Selection limit enforces a max of 10 stats with a warning message.
 - Stats tab shows a live counter for selected stats.
+- Added separate Players and Compare tabs to split individual vs comparison flow.
 
 ### 5) Derived stats + snapshot export
 

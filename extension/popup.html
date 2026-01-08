@@ -209,6 +209,7 @@
   <body>
     <div class="tabs">
       <button id="tab-players" class="tab-button active">Players</button>
+      <button id="tab-compare" class="tab-button">Compare</button>
       <button id="tab-stats" class="tab-button">Stats</button>
     </div>
 
@@ -230,11 +231,20 @@
       <div id="results" class="list"></div>
       <label>Selected (1-5)</label>
       <div id="selected" class="list"></div>
+      <div id="stats-count-players" class="count"></div>
       <div class="row">
         <button id="view-btn">View Player</button>
-        <button id="compare-btn">Compare</button>
       </div>
-      <div id="output" class="output"></div>
+      <div id="output-player" class="output"></div>
+    </div>
+
+    <div id="panel-compare" class="tab-content">
+      <label>Selected (2-5)</label>
+      <div id="selected-compare" class="list"></div>
+      <div class="row">
+        <button id="compare-run-btn">Run Compare</button>
+      </div>
+      <div id="output-compare" class="output"></div>
     </div>
 
     <div id="panel-stats" class="tab-content">
