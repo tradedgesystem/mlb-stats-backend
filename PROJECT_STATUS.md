@@ -123,7 +123,7 @@ Production safety rules:
 - Keep a last-known-good snapshot and serve it if ingestion fails.
 - Log ingestion errors and stop rather than retry aggressively.
 
-Paid scale-up plan (when user base grows):
+Paid scale-up plan (triggered by user growth):
 
 - Move ingestion and API to a managed backend (Render, Fly.io, or similar).
 - Use managed Postgres for durable storage and faster queries.
