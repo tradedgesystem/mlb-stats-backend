@@ -396,6 +396,8 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Output formatting follows `stats_config.json` (percent/rate/float/integer).
 - Popup renders a readable table instead of raw JSON.
 - Snapshot freshness warning shows if older than 36 hours.
+- Added a Stats tab with a glossary description for each stat.
+- Selection limit enforces a max of 10 stats with a warning message.
 
 ### 5) Derived stats + snapshot export
 

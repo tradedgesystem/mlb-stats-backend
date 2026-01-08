@@ -10,6 +10,11 @@ const statsEl = document.getElementById("stats");
 const output = document.getElementById("output");
 const metaEl = document.getElementById("snapshot-meta");
 const warningEl = document.getElementById("snapshot-warning");
+const statsLimitEl = document.getElementById("stats-limit");
+const tabPlayers = document.getElementById("tab-players");
+const tabStats = document.getElementById("tab-stats");
+const panelPlayers = document.getElementById("panel-players");
+const panelStats = document.getElementById("panel-stats");
 
 const selectedPlayers = [];
 let statsConfig = [];
@@ -20,6 +25,7 @@ let activePlayers = [];
 let activeMeta = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
+const MAX_STATS = 10;
 
 const getSelectedKeys = () => {
   if (!statsConfig.length) {
@@ -79,6 +85,17 @@ const updateMeta = () => {
     } else {
       warningEl.textContent = "";
     }
+  }
+};
+
+const updateStatsLimit = () => {
+  if (!statsLimitEl) {
+    return;
+  }
+  if (selectedStatKeys.size >= MAX_STATS) {
+    statsLimitEl.textContent = `Max ${MAX_STATS} stats selected.`;
+  } else {
+    statsLimitEl.textContent = "";
   }
 };
 
@@ -253,22 +270,39 @@ const renderStatsConfig = (config) => {
       }
       checkbox.addEventListener("change", () => {
         if (checkbox.checked) {
+          if (selectedStatKeys.size >= MAX_STATS) {
+            checkbox.checked = false;
+            updateStatsLimit();
+            return;
+          }
           selectedStatKeys.add(item.key);
         } else {
           selectedStatKeys.delete(item.key);
         }
+        updateStatsLimit();
       });
+
+      const textWrap = document.createElement("span");
+      textWrap.className = "stat-text";
 
       const text = document.createElement("span");
       text.textContent = item.label;
 
+      const desc = document.createElement("span");
+      desc.className = "stat-desc";
+      desc.textContent = item.description || "Definition coming soon.";
+
+      textWrap.appendChild(text);
+      textWrap.appendChild(desc);
       row.appendChild(checkbox);
-      row.appendChild(text);
+      row.appendChild(textWrap);
       groupEl.appendChild(row);
     });
 
     statsEl.appendChild(groupEl);
   });
+
+  updateStatsLimit();
 };
 
 searchButton.addEventListener("click", async () => {
@@ -362,6 +396,20 @@ const loadStatsConfig = async () => {
   }
 };
 
+const setActiveTab = (tab) => {
+  if (tab === "stats") {
+    tabStats.classList.add("active");
+    tabPlayers.classList.remove("active");
+    panelStats.classList.add("active");
+    panelPlayers.classList.remove("active");
+    return;
+  }
+  tabPlayers.classList.add("active");
+  tabStats.classList.remove("active");
+  panelPlayers.classList.add("active");
+  panelStats.classList.remove("active");
+};
+
 renderResults([]);
 renderSelected();
 yearSelect.addEventListener("change", async () => {
@@ -371,6 +419,9 @@ yearSelect.addEventListener("change", async () => {
   output.textContent = "";
   await loadSnapshot(yearSelect.value);
 });
+
+tabPlayers.addEventListener("click", () => setActiveTab("players"));
+tabStats.addEventListener("click", () => setActiveTab("stats"));
 
 loadStatsConfig();
 loadSnapshot(yearSelect.value);

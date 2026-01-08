@@ -30,6 +30,34 @@
         color: #8a3b12;
       }
 
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .tab-button.active {
+        background: #fff1cc;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
       label {
         display: block;
         margin-bottom: 6px;
@@ -144,13 +172,25 @@
 
       .stat-item {
         display: flex;
-        align-items: center;
-        gap: 6px;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 6px;
       }
 
       .stat-item input {
         width: auto;
         margin: 0;
+      }
+
+      .stat-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .stat-desc {
+        font-size: 11px;
+        color: #4f4f4f;
       }
 
       .list button {
@@ -161,30 +201,41 @@
     </style>
   </head>
   <body>
-    <label for="year">Season</label>
-    <select id="year">
-      <option value="2024">2024</option>
-      <option value="2025" selected>2025</option>
-      <option value="2026">2026</option>
-    </select>
-    <div id="snapshot-meta" class="meta"></div>
-    <div id="snapshot-warning" class="warning"></div>
-    <label for="search">Search</label>
-    <input id="search" type="text" placeholder="Type a player name" />
-    <div class="row">
-      <button id="search-btn">Search</button>
-      <button id="clear-btn">Clear</button>
+    <div class="tabs">
+      <button id="tab-players" class="tab-button active">Players</button>
+      <button id="tab-stats" class="tab-button">Stats</button>
     </div>
-    <div id="results" class="list"></div>
-    <label>Selected (1-5)</label>
-    <div id="selected" class="list"></div>
-    <div class="row">
-      <button id="view-btn">View Player</button>
-      <button id="compare-btn">Compare</button>
+
+    <div id="panel-players" class="tab-content active">
+      <label for="year">Season</label>
+      <select id="year">
+        <option value="2024">2024</option>
+        <option value="2025" selected>2025</option>
+        <option value="2026">2026</option>
+      </select>
+      <div id="snapshot-meta" class="meta"></div>
+      <div id="snapshot-warning" class="warning"></div>
+      <label for="search">Search</label>
+      <input id="search" type="text" placeholder="Type a player name" />
+      <div class="row">
+        <button id="search-btn">Search</button>
+        <button id="clear-btn">Clear</button>
+      </div>
+      <div id="results" class="list"></div>
+      <label>Selected (1-5)</label>
+      <div id="selected" class="list"></div>
+      <div class="row">
+        <button id="view-btn">View Player</button>
+        <button id="compare-btn">Compare</button>
+      </div>
+      <div id="output" class="output"></div>
     </div>
-    <label>Stats to show</label>
-    <div id="stats" class="stats"></div>
-    <div id="output" class="output"></div>
+
+    <div id="panel-stats" class="tab-content">
+      <label>Stats to show (max 10)</label>
+      <div id="stats-limit" class="warning"></div>
+      <div id="stats" class="stats"></div>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
