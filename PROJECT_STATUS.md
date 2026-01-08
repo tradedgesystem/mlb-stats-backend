@@ -77,6 +77,42 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added `/player?year=YYYY&player_id=ID`.
 - Extension supports selecting 1 player and viewing stats.
 
+### 5) Zero-cost scaling and IP-ban/rate-limit strategy
+
+Goal: reach 10k-20k users with $0 spend while staying safe with upstream data
+sources.
+
+Recommended approach (low cost, low risk):
+
+- **Precompute data once per day** (or less) via a scheduled job.
+  - Keep ingestion in `backend/ingest.py` only.
+  - Never run ingestion from the extension.
+- **Serve static JSON to the extension** instead of a live API for production.
+  - Publish a daily snapshot (per season) to a static host.
+  - The extension fetches static JSON directly.
+  - This eliminates runtime compute cost and reduces failure points.
+
+Practical $0 options for static hosting:
+
+- **GitHub Pages** or **GitHub Releases** (public assets)
+- **jsDelivr** (free CDN in front of GitHub repos)
+- **Netlify/Vercel static** (free static hosting)
+
+Rate-limit and IP-ban avoidance (ingestion):
+
+- Use pybaseball only (no direct scraping from extension).
+- Keep the ingestion cadence low (daily or weekly).
+- Rely on pybaseball's built-in caching to avoid repeated pulls.
+- Avoid parallel ingestion or rapid retries.
+- Fail closed if upstream rate limits or errors appear.
+
+Production safety rules:
+
+- Never expose ingestion endpoints.
+- Never let users trigger ingestion.
+- Keep a last-known-good snapshot and serve it if ingestion fails.
+- Log ingestion errors and stop rather than retry aggressively.
+
 ### 5) Ingestion expansion (controlled)
 
 - Multi-year data (historical seasons).
@@ -121,4 +157,5 @@ Pick 1-2 of:
 
 ## Suggested Next Step
 
-Implement search + compare endpoints and wire them into the extension UI.
+Define the stat list + labels + formatting, then wire a stats selector UI that
+filters the compare output.
