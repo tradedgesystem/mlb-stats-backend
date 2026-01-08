@@ -357,6 +357,9 @@ const renderSelectedList = (container) => {
   }
   const isPlayersTab = container === savedPlayersEl;
   savedPlayers.forEach((player) => {
+    const pill = document.createElement("div");
+    pill.className = "player-pill";
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "player-button";
@@ -383,11 +386,18 @@ const renderSelectedList = (container) => {
       updatePlayerLimit();
       renderSelected();
     });
-    button.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "player-remove";
+    removeButton.textContent = "x";
+    removeButton.addEventListener("click", () => {
       removePlayer(player.player_id);
     });
-    container.appendChild(button);
+
+    pill.appendChild(button);
+    pill.appendChild(removeButton);
+    container.appendChild(pill);
   });
 };
 

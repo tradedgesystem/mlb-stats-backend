@@ -206,17 +206,37 @@
         margin: 6px 0 10px;
       }
 
-      .player-button {
-        padding: 4px 8px;
+      .player-pill {
+        display: inline-flex;
+        align-items: center;
         border: 1px solid #1a1a1a;
         border-radius: 999px;
         background: #fff;
+        font-size: 11px;
+        padding: 2px 6px;
+        gap: 6px;
+      }
+
+      .player-button {
+        border: none;
+        background: transparent;
+        padding: 2px 4px;
         font-size: 11px;
         cursor: pointer;
       }
 
       .player-button.selected {
         background: #ffe4a1;
+        border-radius: 999px;
+      }
+
+      .player-remove {
+        border: none;
+        background: transparent;
+        padding: 0 4px;
+        font-size: 12px;
+        cursor: pointer;
+        color: #8a3b12;
       }
 
       .list button {
