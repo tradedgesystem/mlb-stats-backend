@@ -3,6 +3,10 @@ const searchInput = document.getElementById("search");
 const searchButton = document.getElementById("search-btn");
 const clearButton = document.getElementById("clear-btn");
 const browseTeamsButton = document.getElementById("browse-teams-btn");
+const clearSavedPlayersButton = document.getElementById("clear-saved-players");
+const clearSavedPlayersCompareButton = document.getElementById(
+  "clear-saved-players-compare"
+);
 const resultsEl = document.getElementById("results");
 const savedPlayersEl = document.getElementById("saved-players");
 const savedPlayersCompareEl = document.getElementById("saved-players-compare");
@@ -379,6 +383,10 @@ const renderSelectedList = (container) => {
       updatePlayerLimit();
       renderSelected();
     });
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      removePlayer(player.player_id);
+    });
     container.appendChild(button);
   });
 };
@@ -386,6 +394,28 @@ const renderSelectedList = (container) => {
 const renderSelected = () => {
   renderSelectedList(savedPlayersEl);
   renderSelectedList(savedPlayersCompareEl);
+};
+
+const removePlayer = (playerId) => {
+  const index = savedPlayers.findIndex((item) => item.player_id === playerId);
+  if (index === -1) {
+    return;
+  }
+  savedPlayers.splice(index, 1);
+  if (activePlayerId === playerId) {
+    activePlayerId = null;
+  }
+  activeCompareIds.delete(playerId);
+  renderSelected();
+  updatePlayerLimit();
+};
+
+const clearSavedPlayers = () => {
+  savedPlayers.length = 0;
+  activeCompareIds.clear();
+  activePlayerId = null;
+  renderSelected();
+  updatePlayerLimit();
 };
 
 const addPlayer = (player) => {
@@ -641,6 +671,14 @@ tabStats.addEventListener("click", () => setActiveTab("stats"));
 
 if (browseTeamsButton) {
   browseTeamsButton.addEventListener("click", () => setActiveTab("teams"));
+}
+
+if (clearSavedPlayersButton) {
+  clearSavedPlayersButton.addEventListener("click", clearSavedPlayers);
+}
+
+if (clearSavedPlayersCompareButton) {
+  clearSavedPlayersCompareButton.addEventListener("click", clearSavedPlayers);
 }
 
 loadStatsConfig();

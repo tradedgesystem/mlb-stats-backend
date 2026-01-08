@@ -404,6 +404,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Users can save up to 10 players and choose 1 for individual or up to 5 for compare.
 - Added a Teams tab with roster lists (hitters shown; pitchers pending dataset).
 - Player search uses fuzzy matching to tolerate typos.
+- Added a Clear saved players action (available on Players and Compare tabs).
 
 ### 5) Derived stats + snapshot export
 
