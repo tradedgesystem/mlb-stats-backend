@@ -17,6 +17,8 @@ const selectedStatKeys = new Set();
 const snapshotsByYear = new Map();
 let activePlayers = [];
 let activeMeta = null;
+const SNAPSHOT_BASE_URL =
+  "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 
 const getSelectedKeys = () => {
   if (!statsConfig.length) {
@@ -128,9 +130,7 @@ const loadSnapshot = async (year) => {
   }
 
   try {
-    const response = await fetch(
-      chrome.runtime.getURL(`snapshots/players_${year}.json`)
-    );
+    const response = await fetch(`${SNAPSHOT_BASE_URL}/players_${year}.json`);
     const data = await response.json();
     const players = Array.isArray(data) ? data : data.players || [];
     const meta = Array.isArray(data) ? null : data.meta || null;

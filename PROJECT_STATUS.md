@@ -406,10 +406,16 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
   config list.
 - Snapshots include `meta.generated_at` and `meta.player_count`.
 - Extension loads `extension/snapshots/players_{year}.json`.
+- Extension now pulls snapshots from the hosted URL (jsDelivr).
+
+### 6) Snapshot hosting + automation
+
+- Snapshots are hosted via jsDelivr (backed by the GitHub repo).
+- Scheduled GitHub Actions workflow regenerates snapshots nightly.
 
 ## Remaining Work
 
-### 6) Individual player view
+### 7) Individual player view
 
 - Added `/player?year=YYYY&player_id=ID`.
 - Extension supports selecting 1 player and viewing stats.
@@ -478,32 +484,32 @@ and bandwidth needs. A $0 approach can still work if we:
 - Publish static snapshots to free hosting (GitHub Pages/Releases + jsDelivr).
 - Avoid serving raw pitch-by-pitch data in production.
 
-### 7) Ingestion expansion (controlled)
+### 8) Ingestion expansion (controlled)
 
 - Multi-year data (historical seasons).
 - Optional pitching stats.
 - Scheduled updates (ingestion not user-triggered).
 
-### 8) Deployment (required to sell)
+### 9) Deployment (required to sell)
 
 - Host the FastAPI API publicly (Render or similar).
 - Automate daily ingestion (GitHub Actions).
 - Use persistent storage (Postgres or durable SQLite volume).
 
-### 9) Basic protection and scaling
+### 10) Basic protection and scaling
 
 - API keys per user or license.
 - Rate limiting.
 - Basic logging/monitoring.
 
-### 10) Chrome Web Store readiness
+### 11) Chrome Web Store readiness
 
 - Clean UI and versioning.
 - Privacy policy.
 - Minimal permissions.
 - Screenshots and description.
 
-### 11) Product polish
+### 12) Product polish
 
 Pick 1-2 of:
 
@@ -522,5 +528,5 @@ Pick 1-2 of:
 
 ## Suggested Next Step
 
-Publish snapshots to a free static host and update the extension to fetch the
-hosted URL instead of the bundled file.
+Replace the JSON output with a simple table view in the extension popup for
+better readability.
