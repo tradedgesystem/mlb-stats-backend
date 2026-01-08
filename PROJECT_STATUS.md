@@ -131,6 +131,16 @@ Paid scale-up plan (triggered by user growth):
 - Add monitoring/alerts (Sentry, Logtail, or similar).
 - Add rate limiting and API keys at the edge.
 
+## Zero-cost data scope note (Statcast)
+
+Keeping *all raw Statcast data* for free is not realistic due to large storage
+and bandwidth needs. A $0 approach can still work if we:
+
+- Store **only aggregated, per-player stats** (the exact fields the UI uses).
+- Keep data split by year and compress JSON.
+- Publish static snapshots to free hosting (GitHub Pages/Releases + jsDelivr).
+- Avoid serving raw pitch-by-pitch data in production.
+
 ### 5) Ingestion expansion (controlled)
 
 - Multi-year data (historical seasons).
