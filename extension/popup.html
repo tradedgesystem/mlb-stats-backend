@@ -90,6 +90,39 @@
         font-size: 12px;
       }
 
+      .stats {
+        max-height: 180px;
+        overflow: auto;
+        padding: 8px;
+        border: 1px dashed #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+      }
+
+      .stats-group {
+        margin-bottom: 8px;
+      }
+
+      .stats-title {
+        margin: 4px 0;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .stat-item input {
+        width: auto;
+        margin: 0;
+      }
+
       .list button {
         margin-left: 6px;
         padding: 2px 6px;
@@ -117,6 +150,8 @@
       <button id="view-btn">View Player</button>
       <button id="compare-btn">Compare</button>
     </div>
+    <label>Stats to show</label>
+    <div id="stats" class="stats"></div>
     <pre id="output"></pre>
     <script src="popup.js"></script>
   </body>

@@ -73,6 +73,15 @@ def main() -> None:
     if "player_id" not in df.columns:
         df["player_id"] = df["idfg"]
 
+    if "barrels" in df.columns and "pa" in df.columns:
+        df["barrels_per_pa"] = df["barrels"] / df["pa"].replace(0, float("nan"))
+    if "gb" in df.columns and "pa" in df.columns:
+        df["gb_per_pa"] = df["gb"] / df["pa"].replace(0, float("nan"))
+    if "fb" in df.columns and "pa" in df.columns:
+        df["fb_per_pa"] = df["fb"] / df["pa"].replace(0, float("nan"))
+    if "ld" in df.columns and "pa" in df.columns:
+        df["ld_per_pa"] = df["ld"] / df["pa"].replace(0, float("nan"))
+
     log_missing_and_sparse(df)
 
     db_path = Path(__file__).with_name("stats.db")

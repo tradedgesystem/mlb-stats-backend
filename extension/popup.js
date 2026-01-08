@@ -6,9 +6,19 @@ const resultsEl = document.getElementById("results");
 const selectedEl = document.getElementById("selected");
 const viewButton = document.getElementById("view-btn");
 const compareButton = document.getElementById("compare-btn");
+const statsEl = document.getElementById("stats");
 const output = document.getElementById("output");
 
 const selectedPlayers = [];
+let statsConfig = [];
+const selectedStatKeys = new Set();
+
+const getSelectedKeys = () => {
+  if (!statsConfig.length) {
+    return [];
+  }
+  return Array.from(selectedStatKeys);
+};
 
 const renderResults = (players) => {
   if (!players.length) {
@@ -66,6 +76,59 @@ const removePlayer = (playerId) => {
   renderSelected();
 };
 
+const renderStatsConfig = (config) => {
+  statsEl.textContent = "";
+  const groupOrder = [];
+  const groups = {};
+
+  config.forEach((item) => {
+    if (!groups[item.group]) {
+      groups[item.group] = [];
+      groupOrder.push(item.group);
+    }
+    groups[item.group].push(item);
+  });
+
+  groupOrder.forEach((group) => {
+    const groupEl = document.createElement("div");
+    groupEl.className = "stats-group";
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "stats-title";
+    titleEl.textContent = group;
+    groupEl.appendChild(titleEl);
+
+    groups[group].forEach((item) => {
+      const row = document.createElement("label");
+      row.className = "stat-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = item.key;
+      checkbox.checked = Boolean(item.default);
+      if (checkbox.checked) {
+        selectedStatKeys.add(item.key);
+      }
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+          selectedStatKeys.add(item.key);
+        } else {
+          selectedStatKeys.delete(item.key);
+        }
+      });
+
+      const text = document.createElement("span");
+      text.textContent = item.label;
+
+      row.appendChild(checkbox);
+      row.appendChild(text);
+      groupEl.appendChild(row);
+    });
+
+    statsEl.appendChild(groupEl);
+  });
+};
+
 searchButton.addEventListener("click", async () => {
   try {
     const year = yearSelect.value;
@@ -101,6 +164,11 @@ compareButton.addEventListener("click", async () => {
       output.textContent = "Select 2-5 players to compare.";
       return;
     }
+    const statKeys = getSelectedKeys();
+    if (!statKeys.length) {
+      output.textContent = "Select at least one stat.";
+      return;
+    }
 
     const ids = selectedPlayers.map((player) => player.player_id).join(",");
     const response = await fetch(
@@ -110,7 +178,20 @@ compareButton.addEventListener("click", async () => {
     );
     const data = await response.json();
     console.log(data);
-    output.textContent = JSON.stringify(data, null, 2);
+    const rows = Array.isArray(data) ? data : [];
+    const filtered = rows.map((row) => {
+      const result = {
+        player_id: row.player_id,
+        name: row.name,
+        team: row.team,
+        season: row.season,
+      };
+      statKeys.forEach((key) => {
+        result[key] = row[key];
+      });
+      return result;
+    });
+    output.textContent = JSON.stringify(filtered, null, 2);
   } catch (error) {
     console.log(error);
   }
@@ -123,6 +204,11 @@ viewButton.addEventListener("click", async () => {
       output.textContent = "Select 1 player to view.";
       return;
     }
+    const statKeys = getSelectedKeys();
+    if (!statKeys.length) {
+      output.textContent = "Select at least one stat.";
+      return;
+    }
 
     const playerId = selectedPlayers[0].player_id;
     const response = await fetch(
@@ -132,11 +218,32 @@ viewButton.addEventListener("click", async () => {
     );
     const data = await response.json();
     console.log(data);
-    output.textContent = JSON.stringify(data, null, 2);
+    const filtered = {
+      player_id: data.player_id,
+      name: data.name,
+      team: data.team,
+      season: data.season,
+    };
+    statKeys.forEach((key) => {
+      filtered[key] = data[key];
+    });
+    output.textContent = JSON.stringify(filtered, null, 2);
   } catch (error) {
     console.log(error);
   }
 });
 
+const loadStatsConfig = async () => {
+  try {
+    const response = await fetch(chrome.runtime.getURL("stats_config.json"));
+    const data = await response.json();
+    statsConfig = Array.isArray(data) ? data : [];
+    renderStatsConfig(statsConfig);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 renderResults([]);
 renderSelected();
+loadStatsConfig();

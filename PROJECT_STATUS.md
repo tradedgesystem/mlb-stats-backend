@@ -388,9 +388,25 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
   - Compare button renders JSON in the popup.
   - View Player renders a single player's JSON.
 
+### 4) Stats config + selector UI
+
+- Added `extension/stats_config.json` as the stats source of truth.
+- Extension renders a stats checkbox list grouped by category.
+- Compare/View output is filtered to selected stats only.
+
+### 5) Derived stats + snapshot export
+
+- Ingestion computes:
+  - `barrels_per_pa`
+  - `gb_per_pa`
+  - `fb_per_pa`
+  - `ld_per_pa`
+- Added `backend/export_snapshot.py` to write compact per-year JSON using the
+  config list.
+
 ## Remaining Work
 
-### 4) Individual player view
+### 6) Individual player view
 
 - Added `/player?year=YYYY&player_id=ID`.
 - Extension supports selecting 1 player and viewing stats.
@@ -459,32 +475,32 @@ and bandwidth needs. A $0 approach can still work if we:
 - Publish static snapshots to free hosting (GitHub Pages/Releases + jsDelivr).
 - Avoid serving raw pitch-by-pitch data in production.
 
-### 5) Ingestion expansion (controlled)
+### 7) Ingestion expansion (controlled)
 
 - Multi-year data (historical seasons).
 - Optional pitching stats.
 - Scheduled updates (ingestion not user-triggered).
 
-### 6) Deployment (required to sell)
+### 8) Deployment (required to sell)
 
 - Host the FastAPI API publicly (Render or similar).
 - Automate daily ingestion (GitHub Actions).
 - Use persistent storage (Postgres or durable SQLite volume).
 
-### 7) Basic protection and scaling
+### 9) Basic protection and scaling
 
 - API keys per user or license.
 - Rate limiting.
 - Basic logging/monitoring.
 
-### 8) Chrome Web Store readiness
+### 10) Chrome Web Store readiness
 
 - Clean UI and versioning.
 - Privacy policy.
 - Minimal permissions.
 - Screenshots and description.
 
-### 9) Product polish
+### 11) Product polish
 
 Pick 1-2 of:
 
@@ -503,5 +519,5 @@ Pick 1-2 of:
 
 ## Suggested Next Step
 
-Define the stat list + labels + formatting, then wire a stats selector UI that
-filters the compare output.
+Export a snapshot for the current season and confirm it can be served as a
+static JSON file from a free host (GitHub Pages/Releases + jsDelivr).
