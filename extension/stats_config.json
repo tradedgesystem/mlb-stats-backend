@@ -1,59 +1,461 @@
 [
-  {"key":"pa","label":"PA","group":"Outcome & Slash","format":"integer","default":true,"description":"Plate appearances."},
-  {"key":"ab","label":"AB","group":"Outcome & Slash","format":"integer","default":false,"description":"At-bats."},
-  {"key":"h","label":"H","group":"Outcome & Slash","format":"integer","default":true,"description":"Hits."},
-  {"key":"1b","label":"1B","group":"Outcome & Slash","format":"integer","default":false,"description":"Singles."},
-  {"key":"2b","label":"2B","group":"Outcome & Slash","format":"integer","default":false,"description":"Doubles."},
-  {"key":"3b","label":"3B","group":"Outcome & Slash","format":"integer","default":false,"description":"Triples."},
-  {"key":"hr","label":"HR","group":"Outcome & Slash","format":"integer","default":true,"description":"Home runs."},
-  {"key":"r","label":"R","group":"Outcome & Slash","format":"integer","default":false,"description":"Runs scored."},
-  {"key":"rbi","label":"RBI","group":"Outcome & Slash","format":"integer","default":true,"description":"Runs batted in."},
-  {"key":"bb","label":"BB","group":"Outcome & Slash","format":"integer","default":true,"description":"Walks."},
-  {"key":"ibb","label":"IBB","group":"Outcome & Slash","format":"integer","default":false,"description":"Intentional walks."},
-  {"key":"hbp","label":"HBP","group":"Outcome & Slash","format":"integer","default":false,"description":"Hit by pitch."},
-  {"key":"so","label":"SO","group":"Outcome & Slash","format":"integer","default":true,"description":"Strikeouts."},
-  {"key":"sf","label":"SF","group":"Outcome & Slash","format":"integer","default":false,"description":"Sacrifice flies."},
-  {"key":"sh","label":"SH","group":"Outcome & Slash","format":"integer","default":false,"description":"Sacrifice hits (bunts)."},
-  {"key":"avg","label":"AVG","group":"Outcome & Slash","format":"rate","default":true,"description":"Batting average (H/AB)."},
-  {"key":"obp","label":"OBP","group":"Outcome & Slash","format":"rate","default":true,"description":"On-base percentage."},
-  {"key":"slg","label":"SLG","group":"Outcome & Slash","format":"rate","default":true,"description":"Slugging percentage."},
-  {"key":"ops","label":"OPS","group":"Outcome & Slash","format":"rate","default":true,"description":"On-base plus slugging."},
-  {"key":"iso","label":"ISO","group":"Outcome & Slash","format":"rate","default":false,"description":"Isolated power (SLG - AVG)."},
-  {"key":"babip","label":"BABIP","group":"Outcome & Slash","format":"rate","default":false,"description":"Batting average on balls in play."},
-
-  {"key":"xba","label":"xBA","group":"Expected / Quality","format":"rate","default":false,"description":"Expected batting average."},
-  {"key":"xslg","label":"xSLG","group":"Expected / Quality","format":"rate","default":false,"description":"Expected slugging percentage."},
-  {"key":"xwoba","label":"xwOBA","group":"Expected / Quality","format":"rate","default":false,"description":"Expected weighted on-base average."},
-  {"key":"woba","label":"wOBA","group":"Expected / Quality","format":"rate","default":false,"description":"Weighted on-base average."},
-
-  {"key":"ev","label":"Avg EV","group":"Contact & Power","format":"float","default":false,"description":"Average exit velocity."},
-  {"key":"maxev","label":"Max EV","group":"Contact & Power","format":"float","default":false,"description":"Max exit velocity."},
-  {"key":"hardhitpct","label":"Hard-Hit %","group":"Contact & Power","format":"percent","default":false,"description":"Percent of batted balls at 95 mph or more."},
-  {"key":"barrels","label":"Barrels","group":"Contact & Power","format":"integer","default":false,"description":"Barrel count."},
-  {"key":"barrelpct","label":"Barrel %","group":"Contact & Power","format":"percent","default":false,"description":"Barrels per batted ball."},
-  {"key":"barrels_per_pa","label":"Barrels / PA","group":"Contact & Power","format":"rate","default":false,"description":"Barrels per plate appearance."},
-  {"key":"la","label":"Avg LA","group":"Contact & Power","format":"float","default":false,"description":"Average launch angle."},
-
-  {"key":"gbpct","label":"GB %","group":"Batted-Ball","format":"percent","default":false,"description":"Ground-ball rate."},
-  {"key":"ldpct","label":"LD %","group":"Batted-Ball","format":"percent","default":false,"description":"Line-drive rate."},
-  {"key":"fbpct","label":"FB %","group":"Batted-Ball","format":"percent","default":false,"description":"Fly-ball rate."},
-  {"key":"iffbpct","label":"IFB %","group":"Batted-Ball","format":"percent","default":false,"description":"Infield fly-ball rate."},
-  {"key":"gb_per_pa","label":"GB / PA","group":"Batted-Ball","format":"rate","default":false,"description":"Ground balls per plate appearance."},
-  {"key":"fb_per_pa","label":"FB / PA","group":"Batted-Ball","format":"rate","default":false,"description":"Fly balls per plate appearance."},
-  {"key":"ld_per_pa","label":"LD / PA","group":"Batted-Ball","format":"rate","default":false,"description":"Line drives per plate appearance."},
-
-  {"key":"pullpct","label":"Pull %","group":"Direction","format":"percent","default":false,"description":"Share of batted balls pulled."},
-  {"key":"centpct","label":"Center %","group":"Direction","format":"percent","default":false,"description":"Share of batted balls to center."},
-  {"key":"oppopct","label":"Oppo %","group":"Direction","format":"percent","default":false,"description":"Share of batted balls to opposite field."},
-
-  {"key":"swingpct","label":"Swing %","group":"Plate Discipline","format":"percent","default":false,"description":"Swings per pitch."},
-  {"key":"o_swingpct","label":"O-Swing %","group":"Plate Discipline","format":"percent","default":false,"description":"Swings at pitches outside the zone."},
-  {"key":"z_swingpct","label":"Z-Swing %","group":"Plate Discipline","format":"percent","default":false,"description":"Swings at pitches inside the zone."},
-  {"key":"contactpct","label":"Contact %","group":"Plate Discipline","format":"percent","default":false,"description":"Contact rate on swings."},
-  {"key":"o_contactpct","label":"O-Contact %","group":"Plate Discipline","format":"percent","default":false,"description":"Contact rate on swings outside the zone."},
-  {"key":"z_contactpct","label":"Z-Contact %","group":"Plate Discipline","format":"percent","default":false,"description":"Contact rate on swings inside the zone."},
-  {"key":"cstrpct","label":"Called Strike %","group":"Plate Discipline","format":"percent","default":false,"description":"Called strikes per pitch."},
-  {"key":"swstrpct","label":"Swinging Strike %","group":"Plate Discipline","format":"percent","default":false,"description":"Swinging strikes per pitch."},
-
-  {"key":"pli","label":"Leverage Index","group":"Context","format":"float","default":false,"description":"Average leverage index."}
+  {
+    "key": "pa",
+    "label": "PA",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Plate appearances.",
+    "range_supported": true
+  },
+  {
+    "key": "ab",
+    "label": "AB",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "At-bats.",
+    "range_supported": true
+  },
+  {
+    "key": "h",
+    "label": "H",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Hits.",
+    "range_supported": true
+  },
+  {
+    "key": "1b",
+    "label": "1B",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Singles.",
+    "range_supported": true
+  },
+  {
+    "key": "2b",
+    "label": "2B",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Doubles.",
+    "range_supported": true
+  },
+  {
+    "key": "3b",
+    "label": "3B",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Triples.",
+    "range_supported": true
+  },
+  {
+    "key": "hr",
+    "label": "HR",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Home runs.",
+    "range_supported": true
+  },
+  {
+    "key": "r",
+    "label": "R",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Runs scored.",
+    "range_supported": true
+  },
+  {
+    "key": "rbi",
+    "label": "RBI",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Runs batted in.",
+    "range_supported": true
+  },
+  {
+    "key": "bb",
+    "label": "BB",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Walks.",
+    "range_supported": true
+  },
+  {
+    "key": "ibb",
+    "label": "IBB",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Intentional walks.",
+    "range_supported": true
+  },
+  {
+    "key": "hbp",
+    "label": "HBP",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Hit by pitch.",
+    "range_supported": true
+  },
+  {
+    "key": "so",
+    "label": "SO",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": true,
+    "description": "Strikeouts.",
+    "range_supported": true
+  },
+  {
+    "key": "sf",
+    "label": "SF",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Sacrifice flies.",
+    "range_supported": true
+  },
+  {
+    "key": "sh",
+    "label": "SH",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Sacrifice hits (bunts).",
+    "range_supported": true
+  },
+  {
+    "key": "avg",
+    "label": "AVG",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": true,
+    "description": "Batting average (H/AB).",
+    "range_supported": true
+  },
+  {
+    "key": "obp",
+    "label": "OBP",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": true,
+    "description": "On-base percentage.",
+    "range_supported": true
+  },
+  {
+    "key": "slg",
+    "label": "SLG",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": true,
+    "description": "Slugging percentage.",
+    "range_supported": true
+  },
+  {
+    "key": "ops",
+    "label": "OPS",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": true,
+    "description": "On-base plus slugging.",
+    "range_supported": true
+  },
+  {
+    "key": "iso",
+    "label": "ISO",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": false,
+    "description": "Isolated power (SLG - AVG).",
+    "range_supported": true
+  },
+  {
+    "key": "babip",
+    "label": "BABIP",
+    "group": "Outcome & Slash",
+    "format": "rate",
+    "default": false,
+    "description": "Batting average on balls in play.",
+    "range_supported": true
+  },
+  {
+    "key": "xba",
+    "label": "xBA",
+    "group": "Expected / Quality",
+    "format": "rate",
+    "default": false,
+    "description": "Expected batting average.",
+    "range_supported": false
+  },
+  {
+    "key": "xslg",
+    "label": "xSLG",
+    "group": "Expected / Quality",
+    "format": "rate",
+    "default": false,
+    "description": "Expected slugging percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "xwoba",
+    "label": "xwOBA",
+    "group": "Expected / Quality",
+    "format": "rate",
+    "default": false,
+    "description": "Expected weighted on-base average.",
+    "range_supported": false
+  },
+  {
+    "key": "woba",
+    "label": "wOBA",
+    "group": "Expected / Quality",
+    "format": "rate",
+    "default": false,
+    "description": "Weighted on-base average.",
+    "range_supported": false
+  },
+  {
+    "key": "ev",
+    "label": "Avg EV",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "Average exit velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "maxev",
+    "label": "Max EV",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "Max exit velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "hardhitpct",
+    "label": "Hard-Hit %",
+    "group": "Contact & Power",
+    "format": "percent",
+    "default": false,
+    "description": "Percent of batted balls at 95 mph or more.",
+    "range_supported": false
+  },
+  {
+    "key": "barrels",
+    "label": "Barrels",
+    "group": "Contact & Power",
+    "format": "integer",
+    "default": false,
+    "description": "Barrel count.",
+    "range_supported": false
+  },
+  {
+    "key": "barrelpct",
+    "label": "Barrel %",
+    "group": "Contact & Power",
+    "format": "percent",
+    "default": false,
+    "description": "Barrels per batted ball.",
+    "range_supported": false
+  },
+  {
+    "key": "barrels_per_pa",
+    "label": "Barrels / PA",
+    "group": "Contact & Power",
+    "format": "rate",
+    "default": false,
+    "description": "Barrels per plate appearance.",
+    "range_supported": false
+  },
+  {
+    "key": "la",
+    "label": "Avg LA",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "Average launch angle.",
+    "range_supported": false
+  },
+  {
+    "key": "gbpct",
+    "label": "GB %",
+    "group": "Batted-Ball",
+    "format": "percent",
+    "default": false,
+    "description": "Ground-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "ldpct",
+    "label": "LD %",
+    "group": "Batted-Ball",
+    "format": "percent",
+    "default": false,
+    "description": "Line-drive rate.",
+    "range_supported": false
+  },
+  {
+    "key": "fbpct",
+    "label": "FB %",
+    "group": "Batted-Ball",
+    "format": "percent",
+    "default": false,
+    "description": "Fly-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "iffbpct",
+    "label": "IFB %",
+    "group": "Batted-Ball",
+    "format": "percent",
+    "default": false,
+    "description": "Infield fly-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "gb_per_pa",
+    "label": "GB / PA",
+    "group": "Batted-Ball",
+    "format": "rate",
+    "default": false,
+    "description": "Ground balls per plate appearance.",
+    "range_supported": false
+  },
+  {
+    "key": "fb_per_pa",
+    "label": "FB / PA",
+    "group": "Batted-Ball",
+    "format": "rate",
+    "default": false,
+    "description": "Fly balls per plate appearance.",
+    "range_supported": false
+  },
+  {
+    "key": "ld_per_pa",
+    "label": "LD / PA",
+    "group": "Batted-Ball",
+    "format": "rate",
+    "default": false,
+    "description": "Line drives per plate appearance.",
+    "range_supported": false
+  },
+  {
+    "key": "pullpct",
+    "label": "Pull %",
+    "group": "Direction",
+    "format": "percent",
+    "default": false,
+    "description": "Share of batted balls pulled.",
+    "range_supported": false
+  },
+  {
+    "key": "centpct",
+    "label": "Center %",
+    "group": "Direction",
+    "format": "percent",
+    "default": false,
+    "description": "Share of batted balls to center.",
+    "range_supported": false
+  },
+  {
+    "key": "oppopct",
+    "label": "Oppo %",
+    "group": "Direction",
+    "format": "percent",
+    "default": false,
+    "description": "Share of batted balls to opposite field.",
+    "range_supported": false
+  },
+  {
+    "key": "swingpct",
+    "label": "Swing %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Swings per pitch.",
+    "range_supported": false
+  },
+  {
+    "key": "o_swingpct",
+    "label": "O-Swing %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Swings at pitches outside the zone.",
+    "range_supported": false
+  },
+  {
+    "key": "z_swingpct",
+    "label": "Z-Swing %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Swings at pitches inside the zone.",
+    "range_supported": false
+  },
+  {
+    "key": "contactpct",
+    "label": "Contact %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Contact rate on swings.",
+    "range_supported": false
+  },
+  {
+    "key": "o_contactpct",
+    "label": "O-Contact %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Contact rate on swings outside the zone.",
+    "range_supported": false
+  },
+  {
+    "key": "z_contactpct",
+    "label": "Z-Contact %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Contact rate on swings inside the zone.",
+    "range_supported": false
+  },
+  {
+    "key": "cstrpct",
+    "label": "Called Strike %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Called strikes per pitch.",
+    "range_supported": false
+  },
+  {
+    "key": "swstrpct",
+    "label": "Swinging Strike %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Swinging strikes per pitch.",
+    "range_supported": false
+  },
+  {
+    "key": "pli",
+    "label": "Leverage Index",
+    "group": "Context",
+    "format": "float",
+    "default": false,
+    "description": "Average leverage index.",
+    "range_supported": false
+  }
 ]

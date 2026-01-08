@@ -91,6 +91,19 @@
         font-size: 13px;
       }
 
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 8px;
+        font-size: 12px;
+      }
+
+      .checkbox input {
+        width: auto;
+        margin: 0;
+      }
+
       .row {
         display: flex;
         gap: 6px;
@@ -266,6 +279,15 @@
         <option value="2025" selected>2025</option>
         <option value="2026">2026</option>
       </select>
+      <label>Date range (optional)</label>
+      <div class="row">
+        <input id="range-start" type="date" />
+        <input id="range-end" type="date" />
+      </div>
+      <label class="checkbox">
+        <input id="range-enabled" type="checkbox" />
+        Use date range (aggregate stats only)
+      </label>
       <div id="snapshot-meta" class="meta"></div>
       <div id="snapshot-warning" class="warning"></div>
       <label for="search">Search</label>
@@ -323,6 +345,7 @@
     <div id="panel-stats" class="tab-content">
       <label>Stats to show</label>
       <div id="stats-limit" class="count"></div>
+      <div id="stats-range-warning" class="warning"></div>
       <div id="stats" class="stats"></div>
     </div>
     <script src="popup.js"></script>

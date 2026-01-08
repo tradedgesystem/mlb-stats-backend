@@ -407,6 +407,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added a Clear saved players action (available on Players and Compare tabs).
 - Added Download PNG buttons to export the ASCII table output.
 - Downloaded PNGs now include player names and date in the filename.
+- Added date range UI with a subset of aggregate stats; selection blocks mixing unsupported stats.
 
 ### 5) Derived stats + snapshot export
 

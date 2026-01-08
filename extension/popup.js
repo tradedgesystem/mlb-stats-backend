@@ -7,6 +7,9 @@ const clearSavedPlayersButton = document.getElementById("clear-saved-players");
 const clearSavedPlayersCompareButton = document.getElementById(
   "clear-saved-players-compare"
 );
+const rangeStartInput = document.getElementById("range-start");
+const rangeEndInput = document.getElementById("range-end");
+const rangeEnabledInput = document.getElementById("range-enabled");
 const resultsEl = document.getElementById("results");
 const savedPlayersEl = document.getElementById("saved-players");
 const savedPlayersCompareEl = document.getElementById("saved-players-compare");
@@ -25,6 +28,7 @@ const downloadCompareButton = document.getElementById("download-compare");
 const metaEl = document.getElementById("snapshot-meta");
 const warningEl = document.getElementById("snapshot-warning");
 const statsLimitEl = document.getElementById("stats-limit");
+const statsRangeWarningEl = document.getElementById("stats-range-warning");
 const statsCountEl = document.getElementById("stats-count-players");
 const playersLimitEl = document.getElementById("players-limit");
 const compareLimitEl = document.getElementById("compare-limit");
@@ -82,6 +86,20 @@ const formatValue = (value, format) => {
   }
 };
 
+const isRangeMode = () => Boolean(rangeEnabledInput && rangeEnabledInput.checked);
+
+const isRangeSupported = (key) => {
+  const config = statsByKey.get(key);
+  return Boolean(config && config.range_supported);
+};
+
+const setRangeWarning = (message) => {
+  if (!statsRangeWarningEl) {
+    return;
+  }
+  statsRangeWarningEl.textContent = message || "";
+};
+
 const updateMeta = () => {
   if (!metaEl) {
     return;
@@ -128,6 +146,31 @@ const updateStatsLimit = () => {
     statsCountEl.textContent = `Selected stats: ${count} / ${MAX_STATS}`;
   }
   renderSelectedStats();
+};
+
+const enforceRangeSelections = () => {
+  if (!isRangeMode()) {
+    setRangeWarning("");
+    return;
+  }
+  const removed = [];
+  Array.from(selectedStatKeys).forEach((key) => {
+    if (!isRangeSupported(key)) {
+      selectedStatKeys.delete(key);
+      removed.push(key);
+      const checkbox = statsEl?.querySelector(
+        `input[type=\"checkbox\"][value=\"${key}\"]`
+      );
+      if (checkbox) {
+        checkbox.checked = false;
+      }
+    }
+  });
+  if (removed.length) {
+    setRangeWarning("Date range supports aggregate stats only. Some were removed.");
+  } else {
+    setRangeWarning("");
+  }
 };
 
 const updatePlayerLimit = () => {
@@ -559,14 +602,25 @@ const renderStatsConfig = (config) => {
       }
       checkbox.addEventListener("change", () => {
         if (checkbox.checked) {
+          if (isRangeMode() && !item.range_supported) {
+            checkbox.checked = false;
+            setRangeWarning("Stat not available for date ranges.");
+            return;
+          }
           if (selectedStatKeys.size >= MAX_STATS) {
             checkbox.checked = false;
             updateStatsLimit();
             return;
           }
           selectedStatKeys.add(item.key);
+          if (isRangeMode()) {
+            setRangeWarning("");
+          }
         } else {
           selectedStatKeys.delete(item.key);
+        }
+        if (!isRangeMode()) {
+          setRangeWarning("");
         }
         updateStatsLimit();
       });
@@ -592,6 +646,7 @@ const renderStatsConfig = (config) => {
   });
 
   updateStatsLimit();
+  enforceRangeSelections();
 };
 
 searchButton.addEventListener("click", async () => {
@@ -771,6 +826,13 @@ if (clearSavedPlayersButton) {
 
 if (clearSavedPlayersCompareButton) {
   clearSavedPlayersCompareButton.addEventListener("click", clearSavedPlayers);
+}
+
+if (rangeEnabledInput) {
+  rangeEnabledInput.addEventListener("change", () => {
+    enforceRangeSelections();
+    updateStatsLimit();
+  });
 }
 
 loadStatsConfig();
