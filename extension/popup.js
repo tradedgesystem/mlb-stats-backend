@@ -92,11 +92,12 @@ const updateStatsLimit = () => {
   if (!statsLimitEl) {
     return;
   }
-  if (selectedStatKeys.size >= MAX_STATS) {
-    statsLimitEl.textContent = `Max ${MAX_STATS} stats selected.`;
-  } else {
-    statsLimitEl.textContent = "";
-  }
+  const count = selectedStatKeys.size;
+  const atLimit = count >= MAX_STATS;
+  statsLimitEl.textContent =
+    `Selected ${count} / ${MAX_STATS}` + (atLimit ? " (max reached)" : "");
+  statsLimitEl.classList.toggle("warning", atLimit);
+  statsLimitEl.classList.toggle("count", !atLimit);
 };
 
 const renderMessage = (message) => {

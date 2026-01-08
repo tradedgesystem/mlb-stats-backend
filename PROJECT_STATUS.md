@@ -398,6 +398,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Snapshot freshness warning shows if older than 36 hours.
 - Added a Stats tab with a glossary description for each stat.
 - Selection limit enforces a max of 10 stats with a warning message.
+- Stats tab shows a live counter for selected stats.
 
 ### 5) Derived stats + snapshot export
 
