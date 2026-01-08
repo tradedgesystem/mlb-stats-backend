@@ -5,6 +5,8 @@ const clearButton = document.getElementById("clear-btn");
 const resultsEl = document.getElementById("results");
 const selectedEl = document.getElementById("selected");
 const selectedCompareEl = document.getElementById("selected-compare");
+const selectedStatsPlayersEl = document.getElementById("selected-stats-players");
+const selectedStatsCompareEl = document.getElementById("selected-stats-compare");
 const viewButton = document.getElementById("view-btn");
 const compareButton = document.getElementById("compare-run-btn");
 const statsEl = document.getElementById("stats");
@@ -104,6 +106,20 @@ const updateStatsLimit = () => {
   }
   if (statsCountEl) {
     statsCountEl.textContent = `Selected stats: ${count} / ${MAX_STATS}`;
+  }
+  renderSelectedStats();
+};
+
+const renderSelectedStats = () => {
+  const labels = Array.from(selectedStatKeys)
+    .map((key) => statsByKey.get(key)?.label || key)
+    .sort((a, b) => a.localeCompare(b));
+  const text = labels.length ? labels.join(", ") : "No stats selected.";
+  if (selectedStatsPlayersEl) {
+    selectedStatsPlayersEl.textContent = text;
+  }
+  if (selectedStatsCompareEl) {
+    selectedStatsCompareEl.textContent = text;
   }
 };
 
