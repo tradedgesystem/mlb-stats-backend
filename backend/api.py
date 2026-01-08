@@ -33,6 +33,18 @@ def get_players(year: int = Query(..., ge=1800, le=2100)) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+@app.get("/pitchers")
+def get_pitchers(year: int = Query(..., ge=1800, le=2100)) -> list[dict]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM pitching_stats WHERE season = ?",
+            (year,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
 @app.get("/search")
 def search_players(
     year: int = Query(..., ge=1800, le=2100),
@@ -47,6 +59,29 @@ def search_players(
         rows = conn.execute(
             "SELECT player_id, name, team "
             "FROM batting_stats "
+            "WHERE season = ? AND LOWER(name) LIKE ? "
+            "ORDER BY name "
+            "LIMIT 50",
+            (year, f"%{term.lower()}%"),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+@app.get("/pitchers/search")
+def search_pitchers(
+    year: int = Query(..., ge=1800, le=2100),
+    q: str = Query(..., min_length=1),
+) -> list[dict]:
+    term = q.strip()
+    if not term:
+        return []
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT player_id, name, team "
+            "FROM pitching_stats "
             "WHERE season = ? AND LOWER(name) LIKE ? "
             "ORDER BY name "
             "LIMIT 50",
@@ -89,6 +124,39 @@ def compare_players(
     return ordered
 
 
+@app.get("/pitchers/compare")
+def compare_pitchers(
+    year: int = Query(..., ge=1800, le=2100),
+    player_ids: str = Query(...),
+) -> list[dict]:
+    raw_ids = [item.strip() for item in player_ids.split(",") if item.strip()]
+    if len(raw_ids) < 2 or len(raw_ids) > 5:
+        raise HTTPException(status_code=400, detail="player_ids must include 2-5 ids")
+
+    ids: list[int] = []
+    for item in raw_ids:
+        try:
+            ids.append(int(item))
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400, detail="player_ids must be integers"
+            ) from exc
+
+    placeholders = ",".join("?" for _ in ids)
+    query = (
+        "SELECT * FROM pitching_stats "
+        f"WHERE season = ? AND player_id IN ({placeholders})"
+    )
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query, (year, *ids)).fetchall()
+
+    rows_by_id = {row["player_id"]: row for row in rows}
+    ordered = [dict(rows_by_id[player_id]) for player_id in ids if player_id in rows_by_id]
+    return ordered
+
+
 @app.get("/player")
 def get_player(
     year: int = Query(..., ge=1800, le=2100),
@@ -103,5 +171,23 @@ def get_player(
 
     if row is None:
         raise HTTPException(status_code=404, detail="player not found")
+
+    return dict(row)
+
+
+@app.get("/pitcher")
+def get_pitcher(
+    year: int = Query(..., ge=1800, le=2100),
+    player_id: int = Query(..., ge=1),
+) -> dict:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM pitching_stats WHERE season = ? AND player_id = ?",
+            (year, player_id),
+        ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="pitcher not found")
 
     return dict(row)

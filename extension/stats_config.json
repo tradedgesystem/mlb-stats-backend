@@ -85,7 +85,7 @@
     "label": "BB",
     "group": "Outcome & Slash",
     "format": "integer",
-    "default": true,
+    "default": false,
     "description": "Walks.",
     "range_supported": true
   },
@@ -112,7 +112,7 @@
     "label": "SO",
     "group": "Outcome & Slash",
     "format": "integer",
-    "default": true,
+    "default": false,
     "description": "Strikeouts.",
     "range_supported": true
   },
@@ -191,7 +191,7 @@
   {
     "key": "xba",
     "label": "xBA",
-    "group": "Expected / Quality",
+    "group": "Expected / Statcast Quality",
     "format": "rate",
     "default": false,
     "description": "Expected batting average.",
@@ -200,16 +200,25 @@
   {
     "key": "xslg",
     "label": "xSLG",
-    "group": "Expected / Quality",
+    "group": "Expected / Statcast Quality",
     "format": "rate",
     "default": false,
     "description": "Expected slugging percentage.",
     "range_supported": false
   },
   {
+    "key": "xobp",
+    "label": "xOBP",
+    "group": "Expected / Statcast Quality",
+    "format": "rate",
+    "default": false,
+    "description": "Expected on-base percentage. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "xwoba",
     "label": "xwOBA",
-    "group": "Expected / Quality",
+    "group": "Expected / Statcast Quality",
     "format": "rate",
     "default": false,
     "description": "Expected weighted on-base average.",
@@ -218,10 +227,19 @@
   {
     "key": "woba",
     "label": "wOBA",
-    "group": "Expected / Quality",
+    "group": "Expected / Statcast Quality",
     "format": "rate",
     "default": false,
     "description": "Weighted on-base average.",
+    "range_supported": false
+  },
+  {
+    "key": "xhr",
+    "label": "xHR",
+    "group": "Expected / Statcast Quality",
+    "format": "float",
+    "default": false,
+    "description": "Expected home runs. Not in current dataset.",
     "range_supported": false
   },
   {
@@ -243,6 +261,42 @@
     "range_supported": false
   },
   {
+    "key": "median_ev",
+    "label": "Median EV",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "Median exit velocity. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p10",
+    "label": "EV 10th",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "10th percentile exit velocity. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p50",
+    "label": "EV 50th",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "50th percentile exit velocity. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p90",
+    "label": "EV 90th",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "90th percentile exit velocity. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "hardhitpct",
     "label": "Hard-Hit %",
     "group": "Contact & Power",
@@ -253,7 +307,7 @@
   },
   {
     "key": "barrels",
-    "label": "Barrels",
+    "label": "Barrel Count",
     "group": "Contact & Power",
     "format": "integer",
     "default": false,
@@ -279,8 +333,26 @@
     "range_supported": false
   },
   {
+    "key": "barrels_per_bip",
+    "label": "Barrels / BIP",
+    "group": "Contact & Power",
+    "format": "rate",
+    "default": false,
+    "description": "Barrels per ball in play. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "sweet_spot_pct",
+    "label": "Sweet-Spot %",
+    "group": "Contact & Power",
+    "format": "percent",
+    "default": false,
+    "description": "Sweet-spot contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "la",
-    "label": "Avg LA",
+    "label": "Avg Launch Angle",
     "group": "Contact & Power",
     "format": "float",
     "default": false,
@@ -288,9 +360,18 @@
     "range_supported": false
   },
   {
+    "key": "la_sd",
+    "label": "Launch Angle SD",
+    "group": "Contact & Power",
+    "format": "float",
+    "default": false,
+    "description": "Launch angle standard deviation. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "gbpct",
     "label": "GB %",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "percent",
     "default": false,
     "description": "Ground-ball rate.",
@@ -299,7 +380,7 @@
   {
     "key": "ldpct",
     "label": "LD %",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "percent",
     "default": false,
     "description": "Line-drive rate.",
@@ -308,25 +389,25 @@
   {
     "key": "fbpct",
     "label": "FB %",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "percent",
     "default": false,
     "description": "Fly-ball rate.",
     "range_supported": false
   },
   {
-    "key": "iffbpct",
-    "label": "IFB %",
-    "group": "Batted-Ball",
+    "key": "popct",
+    "label": "Pop-Up %",
+    "group": "Batted-Ball Type",
     "format": "percent",
     "default": false,
-    "description": "Infield fly-ball rate.",
+    "description": "Pop-up rate.",
     "range_supported": false
   },
   {
     "key": "gb_per_pa",
     "label": "GB / PA",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "rate",
     "default": false,
     "description": "Ground balls per plate appearance.",
@@ -335,7 +416,7 @@
   {
     "key": "fb_per_pa",
     "label": "FB / PA",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "rate",
     "default": false,
     "description": "Fly balls per plate appearance.",
@@ -344,16 +425,25 @@
   {
     "key": "ld_per_pa",
     "label": "LD / PA",
-    "group": "Batted-Ball",
+    "group": "Batted-Ball Type",
     "format": "rate",
     "default": false,
     "description": "Line drives per plate appearance.",
     "range_supported": false
   },
   {
+    "key": "iffbpct",
+    "label": "Infield Fly %",
+    "group": "Batted-Ball Type",
+    "format": "percent",
+    "default": false,
+    "description": "Infield fly-ball rate.",
+    "range_supported": false
+  },
+  {
     "key": "pullpct",
     "label": "Pull %",
-    "group": "Direction",
+    "group": "Direction & Spray",
     "format": "percent",
     "default": false,
     "description": "Share of batted balls pulled.",
@@ -362,19 +452,82 @@
   {
     "key": "centpct",
     "label": "Center %",
-    "group": "Direction",
+    "group": "Direction & Spray",
     "format": "percent",
     "default": false,
-    "description": "Share of batted balls to center.",
+    "description": "Share of batted balls to center field.",
     "range_supported": false
   },
   {
     "key": "oppopct",
     "label": "Oppo %",
-    "group": "Direction",
+    "group": "Direction & Spray",
     "format": "percent",
     "default": false,
-    "description": "Share of batted balls to opposite field.",
+    "description": "Share of batted balls to the opposite field.",
+    "range_supported": false
+  },
+  {
+    "key": "pull_air_pct",
+    "label": "Pull Air %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Pulled airborne contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "oppo_air_pct",
+    "label": "Oppo Air %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Opposite-field airborne contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "pull_gb_pct",
+    "label": "Pulled GB %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Pulled ground-ball rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "oppo_gb_pct",
+    "label": "Oppo GB %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Opposite-field ground-ball rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "straightaway_pct",
+    "label": "Straightaway %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Straightaway batted-ball rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "shifted_pa_pct",
+    "label": "Shifted PA %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances against a shift. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "non_shifted_pa_pct",
+    "label": "Non-Shifted PA %",
+    "group": "Direction & Spray",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances without a shift. Not in current dataset.",
     "range_supported": false
   },
   {
@@ -432,6 +585,15 @@
     "range_supported": false
   },
   {
+    "key": "whiffpct",
+    "label": "Whiff %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Whiffs per swing. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "cstrpct",
     "label": "Called Strike %",
     "group": "Plate Discipline",
@@ -450,9 +612,234 @@
     "range_supported": false
   },
   {
+    "key": "foulpct",
+    "label": "Foul %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Foul balls per pitch. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "foul_tip_pct",
+    "label": "Foul Tip %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Foul tips per pitch. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "in_play_pct",
+    "label": "In-Play %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Balls in play per pitch. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "take_pct",
+    "label": "Take %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Takes per pitch. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "take_in_zone_pct",
+    "label": "Take in Zone %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Takes on pitches in the zone. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "take_out_zone_pct",
+    "label": "Take out of Zone %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Takes on pitches out of the zone. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "first_pitch_swing_pct",
+    "label": "First-Pitch Swing %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "First-pitch swing rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "first_pitch_take_pct",
+    "label": "First-Pitch Take %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "First-pitch take rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "two_strike_swing_pct",
+    "label": "Two-Strike Swing %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Two-strike swing rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "two_strike_whiff_pct",
+    "label": "Two-Strike Whiff %",
+    "group": "Plate Discipline",
+    "format": "percent",
+    "default": false,
+    "description": "Two-strike whiff rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "under_pct",
+    "label": "Under %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Under-contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ttopct",
+    "label": "Topped %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Topped contact rate.",
+    "range_supported": false
+  },
+  {
+    "key": "flare_burner_pct",
+    "label": "Flare/Burner %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Flare/burner contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "hardpct",
+    "label": "Solid Contact %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Solid contact rate (using hard-hit buckets).",
+    "range_supported": false
+  },
+  {
+    "key": "softpct",
+    "label": "Weak Contact %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Weak contact rate (using soft contact buckets).",
+    "range_supported": false
+  },
+  {
+    "key": "poorly_hit_pct",
+    "label": "Poorly Hit %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Poorly hit contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "poorly_under_pct",
+    "label": "Poorly Under %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Poorly under contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "poorly_topped_pct",
+    "label": "Poorly Topped %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Poorly topped contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "poorly_weak_pct",
+    "label": "Poorly Weak %",
+    "group": "Contact Quality Buckets",
+    "format": "percent",
+    "default": false,
+    "description": "Poorly weak contact rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ahead_in_count_pct",
+    "label": "Ahead-in-Count %",
+    "group": "Count & Context",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances where the hitter is ahead. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "even_count_pct",
+    "label": "Even-Count %",
+    "group": "Count & Context",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances with an even count. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "behind_in_count_pct",
+    "label": "Behind-in-Count %",
+    "group": "Count & Context",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances where the hitter is behind. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "two_strike_pa_pct",
+    "label": "Two-Strike PA %",
+    "group": "Count & Context",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances that reach two strikes. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "three_ball_pa_pct",
+    "label": "Three-Ball PA %",
+    "group": "Count & Context",
+    "format": "percent",
+    "default": false,
+    "description": "Plate appearances that reach three balls. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "late_close_pa",
+    "label": "Late & Close PA",
+    "group": "Count & Context",
+    "format": "integer",
+    "default": false,
+    "description": "Late and close plate appearances. Not in current dataset.",
+    "range_supported": false
+  },
+  {
     "key": "pli",
     "label": "Leverage Index",
-    "group": "Context",
+    "group": "Count & Context",
     "format": "float",
     "default": false,
     "description": "Average leverage index.",

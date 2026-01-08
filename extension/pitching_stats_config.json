@@ -1,14 +1,596 @@
 [
-  {"key":"g","label":"G","group":"Outcomes","format":"integer","default":true,"description":"Games pitched.","range_supported":false},
-  {"key":"gs","label":"GS","group":"Outcomes","format":"integer","default":false,"description":"Games started.","range_supported":false},
-  {"key":"ip","label":"IP","group":"Outcomes","format":"float","default":true,"description":"Innings pitched.","range_supported":false},
-  {"key":"tbf","label":"BF","group":"Outcomes","format":"integer","default":false,"description":"Batters faced.","range_supported":false},
-  {"key":"h","label":"H","group":"Outcomes","format":"integer","default":false,"description":"Hits allowed.","range_supported":false},
-  {"key":"r","label":"R","group":"Outcomes","format":"integer","default":false,"description":"Runs allowed.","range_supported":false},
-  {"key":"er","label":"ER","group":"Outcomes","format":"integer","default":false,"description":"Earned runs allowed.","range_supported":false},
-  {"key":"hr","label":"HR","group":"Outcomes","format":"integer","default":false,"description":"Home runs allowed.","range_supported":false},
-  {"key":"bb","label":"BB","group":"Outcomes","format":"integer","default":false,"description":"Walks allowed.","range_supported":false},
-  {"key":"so","label":"SO","group":"Outcomes","format":"integer","default":false,"description":"Strikeouts.","range_supported":false},
-  {"key":"era","label":"ERA","group":"Rates","format":"rate","default":true,"description":"Earned run average.","range_supported":false},
-  {"key":"whip","label":"WHIP","group":"Rates","format":"rate","default":true,"description":"Walks plus hits per inning pitched.","range_supported":false}
+  {
+    "key": "g",
+    "label": "G",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": true,
+    "description": "Games pitched.",
+    "range_supported": false
+  },
+  {
+    "key": "gs",
+    "label": "GS",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Games started.",
+    "range_supported": false
+  },
+  {
+    "key": "ip",
+    "label": "IP",
+    "group": "Outcomes & Rates",
+    "format": "float",
+    "default": true,
+    "description": "Innings pitched.",
+    "range_supported": false
+  },
+  {
+    "key": "tbf",
+    "label": "BF",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Batters faced.",
+    "range_supported": false
+  },
+  {
+    "key": "h",
+    "label": "H",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Hits allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "r",
+    "label": "R",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Runs allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "er",
+    "label": "ER",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Earned runs allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "hr",
+    "label": "HR",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Home runs allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "bb",
+    "label": "BB",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Walks allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "hbp",
+    "label": "HBP",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": false,
+    "description": "Hit batters.",
+    "range_supported": false
+  },
+  {
+    "key": "so",
+    "label": "SO",
+    "group": "Outcomes & Rates",
+    "format": "integer",
+    "default": true,
+    "description": "Strikeouts.",
+    "range_supported": false
+  },
+  {
+    "key": "era",
+    "label": "ERA",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": true,
+    "description": "Earned run average.",
+    "range_supported": false
+  },
+  {
+    "key": "whip",
+    "label": "WHIP",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": true,
+    "description": "Walks plus hits per inning pitched.",
+    "range_supported": false
+  },
+  {
+    "key": "k_9",
+    "label": "K/9",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": false,
+    "description": "Strikeouts per nine innings.",
+    "range_supported": false
+  },
+  {
+    "key": "bb_9",
+    "label": "BB/9",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": false,
+    "description": "Walks per nine innings.",
+    "range_supported": false
+  },
+  {
+    "key": "hr_9",
+    "label": "HR/9",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": false,
+    "description": "Home runs per nine innings.",
+    "range_supported": false
+  },
+  {
+    "key": "k_bbpct",
+    "label": "K-BB%",
+    "group": "Outcomes & Rates",
+    "format": "percent",
+    "default": false,
+    "description": "Strikeout minus walk rate.",
+    "range_supported": false
+  },
+  {
+    "key": "xera",
+    "label": "xERA",
+    "group": "Expected & Contact Allowed",
+    "format": "rate",
+    "default": false,
+    "description": "Expected ERA.",
+    "range_supported": false
+  },
+  {
+    "key": "xwoba_allowed",
+    "label": "xwOBA",
+    "group": "Expected & Contact Allowed",
+    "format": "rate",
+    "default": false,
+    "description": "Expected wOBA allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "woba_allowed",
+    "label": "wOBA",
+    "group": "Expected & Contact Allowed",
+    "format": "rate",
+    "default": false,
+    "description": "wOBA allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "avg",
+    "label": "BAA",
+    "group": "Expected & Contact Allowed",
+    "format": "rate",
+    "default": false,
+    "description": "Batting average allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "slg_allowed",
+    "label": "SLG",
+    "group": "Expected & Contact Allowed",
+    "format": "rate",
+    "default": false,
+    "description": "Slugging allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev",
+    "label": "Avg EV Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "float",
+    "default": false,
+    "description": "Average exit velocity allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "maxev",
+    "label": "Max EV Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "float",
+    "default": false,
+    "description": "Max exit velocity allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p10_allowed",
+    "label": "EV 10th Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "float",
+    "default": false,
+    "description": "10th percentile exit velocity allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p50_allowed",
+    "label": "EV 50th Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "float",
+    "default": false,
+    "description": "50th percentile exit velocity allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "ev_p90_allowed",
+    "label": "EV 90th Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "float",
+    "default": false,
+    "description": "90th percentile exit velocity allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "barrelpct",
+    "label": "Barrel % Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "percent",
+    "default": false,
+    "description": "Barrel rate allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "sweet_spot_pct_allowed",
+    "label": "Sweet-Spot % Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "percent",
+    "default": false,
+    "description": "Sweet-spot contact rate allowed. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "hardhitpct",
+    "label": "Hard-Hit % Allowed",
+    "group": "Expected & Contact Allowed",
+    "format": "percent",
+    "default": false,
+    "description": "Hard-hit rate allowed.",
+    "range_supported": false
+  },
+  {
+    "key": "fbpct",
+    "label": "Fastball %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Fastball usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "slpct",
+    "label": "Slider %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Slider usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "ctpct",
+    "label": "Cutter %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Cutter usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "cbpct",
+    "label": "Curveball %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Curveball usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "chpct",
+    "label": "Changeup %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Changeup usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "sfpct",
+    "label": "Splitter %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Splitter usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "knpct",
+    "label": "Knuckleball %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Knuckleball usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "xxpct",
+    "label": "Other %",
+    "group": "Pitch Arsenal",
+    "format": "percent",
+    "default": false,
+    "description": "Other pitch usage percentage.",
+    "range_supported": false
+  },
+  {
+    "key": "fbv",
+    "label": "Fastball Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average fastball velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "slv",
+    "label": "Slider Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average slider velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "ctv",
+    "label": "Cutter Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average cutter velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "cbv",
+    "label": "Curveball Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average curveball velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "chv",
+    "label": "Changeup Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average changeup velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "sfv",
+    "label": "Splitter Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average splitter velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "knv",
+    "label": "Knuckleball Velo",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average knuckleball velocity.",
+    "range_supported": false
+  },
+  {
+    "key": "avg_velo",
+    "label": "Avg Velocity",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average velocity (all pitches). Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "max_velo",
+    "label": "Max Velocity",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Max velocity (all pitches). Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "velo_sd",
+    "label": "Velocity SD",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Velocity standard deviation. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "spin_rate",
+    "label": "Spin Rate",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Average spin rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "spin_sd",
+    "label": "Spin SD",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Spin rate standard deviation. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "spin_axis",
+    "label": "Spin Axis",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Spin axis. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "extension",
+    "label": "Extension",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Extension. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "release_height",
+    "label": "Release Height",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Release height. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "release_side",
+    "label": "Release Side",
+    "group": "Pitch Arsenal",
+    "format": "float",
+    "default": false,
+    "description": "Release side. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "whiffpct",
+    "label": "Whiff %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Whiff rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "o_swingpct",
+    "label": "Chase %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Chase rate (swings on pitches outside the zone).",
+    "range_supported": false
+  },
+  {
+    "key": "cswpct",
+    "label": "CSW%",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Called strikes plus whiffs.",
+    "range_supported": false
+  },
+  {
+    "key": "strike_pct",
+    "label": "Strike %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Strike rate. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "cstrpct",
+    "label": "Called Strike %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Called strike rate.",
+    "range_supported": false
+  },
+  {
+    "key": "swstrpct",
+    "label": "Swinging Strike %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Swinging strike rate.",
+    "range_supported": false
+  },
+  {
+    "key": "gbpct",
+    "label": "GB %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Ground-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "fbpct",
+    "label": "FB %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Fly-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "ldpct",
+    "label": "LD %",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Line-drive rate.",
+    "range_supported": false
+  },
+  {
+    "key": "iffbpct",
+    "label": "Pop-Ups Forced",
+    "group": "Pitch Results",
+    "format": "percent",
+    "default": false,
+    "description": "Infield fly-ball rate.",
+    "range_supported": false
+  },
+  {
+    "key": "primary_pitch_pct",
+    "label": "Primary Pitch %",
+    "group": "Usage & Sequencing",
+    "format": "percent",
+    "default": false,
+    "description": "Primary pitch usage. Not in current dataset.",
+    "range_supported": false
+  },
+  {
+    "key": "secondary_pitch_pct",
+    "label": "Secondary Pitch %",
+    "group": "Usage & Sequencing",
+    "format": "percent",
+    "default": false,
+    "description": "Secondary pitch usage. Not in current dataset.",
+    "range_supported": false
+  }
 ]

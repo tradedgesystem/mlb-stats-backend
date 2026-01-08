@@ -457,6 +457,8 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added date range UI with a subset of aggregate stats; selection blocks mixing unsupported stats.
 - Added `extension/pitching_stats_config.json` and pitcher snapshots for team rosters.
 - Added a Hitters/Pitchers mode switch; search, saved players, compare, and stats selections are mode-specific.
+- Expanded hitter + pitcher stat configs and documented mappings in `STATS_MAPPING.md`.
+- Added pitcher endpoints to the local API (`/pitchers`, `/pitchers/search`, `/pitchers/compare`, `/pitcher`).
 
 ### 5) Derived stats + snapshot export
 
@@ -546,6 +548,27 @@ and bandwidth needs. A $0 approach can still work if we:
 - Keep data split by year and compress JSON.
 - Publish static snapshots to free hosting (GitHub Pages/Releases + jsDelivr).
 - Avoid serving raw pitch-by-pitch data in production.
+
+## Date range aggregation (nightly plan)
+
+Goal: support date-range filters for the subset of aggregate stats only.
+
+Planned storage (new tables, populated nightly):
+
+- `batting_stats_daily` (or `batting_stats_by_date`):
+  - `player_id`, `season`, `game_date`, `team`
+  - aggregate-safe fields only: `pa`, `ab`, `h`, `1b`, `2b`, `3b`, `hr`, `r`,
+    `rbi`, `bb`, `ibb`, `hbp`, `so`, `sf`, `sh`
+- `pitching_stats_daily` (optional later):
+  - `player_id`, `season`, `game_date`, `team`
+  - aggregate-safe fields only: `ip`, `tbf`, `h`, `r`, `er`, `hr`, `bb`, `hbp`,
+    `so`
+
+Notes:
+
+- Date ranges will only sum/count these aggregate fields; rate stats will be
+  computed on the fly from the totals.
+- Statcast-only metrics (xwOBA, barrel rate, etc.) remain season-only for now.
 
 ### 8) Ingestion expansion (controlled)
 
