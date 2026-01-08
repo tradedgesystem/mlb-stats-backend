@@ -123,6 +123,14 @@ Production safety rules:
 - Keep a last-known-good snapshot and serve it if ingestion fails.
 - Log ingestion errors and stop rather than retry aggressively.
 
+Paid scale-up plan (when user base grows):
+
+- Move ingestion and API to a managed backend (Render, Fly.io, or similar).
+- Use managed Postgres for durable storage and faster queries.
+- Add a CDN layer for static snapshots (Cloudflare or Fastly).
+- Add monitoring/alerts (Sentry, Logtail, or similar).
+- Add rate limiting and API keys at the edge.
+
 ### 5) Ingestion expansion (controlled)
 
 - Multi-year data (historical seasons).
