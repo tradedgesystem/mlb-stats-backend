@@ -418,7 +418,7 @@ Target production path (zero-cost + ban-safe):
 
 Recommended approach (low cost, low risk):
 
-- **Precompute data once per day** (or less) via a scheduled job.
+- **Precompute data once per day** via a scheduled job (overnight).
   - Keep ingestion in `backend/ingest.py` only.
   - Never run ingestion from the extension.
 - **Serve static JSON to the extension** instead of a live API for production.
