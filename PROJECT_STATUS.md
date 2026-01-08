@@ -393,6 +393,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Added `extension/stats_config.json` as the stats source of truth.
 - Extension renders a stats checkbox list grouped by category.
 - Compare/View output is filtered to selected stats only.
+- Output formatting follows `stats_config.json` (percent/rate/float/integer).
 
 ### 5) Derived stats + snapshot export
 
@@ -403,6 +404,8 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
   - `ld_per_pa`
 - Added `backend/export_snapshot.py` to write compact per-year JSON using the
   config list.
+- Snapshots include `meta.generated_at` and `meta.player_count`.
+- Extension loads `extension/snapshots/players_{year}.json`.
 
 ## Remaining Work
 
@@ -519,5 +522,5 @@ Pick 1-2 of:
 
 ## Suggested Next Step
 
-Export a snapshot for the current season and confirm it can be served as a
-static JSON file from a free host (GitHub Pages/Releases + jsDelivr).
+Publish snapshots to a free static host and update the extension to fetch the
+hosted URL instead of the bundled file.

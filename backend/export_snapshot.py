@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -35,8 +36,22 @@ def export_snapshot(year: int, output_path: Path, config_path: Path) -> None:
         ).fetchall()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    generated_at = (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    payload = {
+        "meta": {
+            "generated_at": generated_at,
+            "year": year,
+            "player_count": len(rows),
+            "stat_keys": [key for key in stat_keys if key in available],
+        },
+        "players": [dict(row) for row in rows],
+    }
     with output_path.open("w", encoding="utf-8") as handle:
-        json.dump([dict(row) for row in rows], handle, ensure_ascii=True)
+        json.dump(payload, handle, ensure_ascii=True)
 
     print(f"Wrote {len(rows)} rows to {output_path}")
 
@@ -52,7 +67,9 @@ def main() -> None:
 
     output_path = args.output
     if output_path is None:
-        output_path = Path(__file__).with_name("snapshots") / f"players_{args.year}.json"
+        output_path = (
+            repo_root / "extension" / "snapshots" / f"players_{args.year}.json"
+        )
 
     export_snapshot(args.year, output_path, config_path)
 

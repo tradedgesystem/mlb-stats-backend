@@ -8,16 +8,58 @@ const viewButton = document.getElementById("view-btn");
 const compareButton = document.getElementById("compare-btn");
 const statsEl = document.getElementById("stats");
 const output = document.getElementById("output");
+const metaEl = document.getElementById("snapshot-meta");
 
 const selectedPlayers = [];
 let statsConfig = [];
+const statsByKey = new Map();
 const selectedStatKeys = new Set();
+const snapshotsByYear = new Map();
+let activePlayers = [];
+let activeMeta = null;
 
 const getSelectedKeys = () => {
   if (!statsConfig.length) {
     return [];
   }
   return Array.from(selectedStatKeys);
+};
+
+const formatValue = (value, format) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return value;
+  }
+  switch (format) {
+    case "integer":
+      return Math.round(value);
+    case "float":
+      return Number(value.toFixed(1));
+    case "rate":
+      return Number(value.toFixed(3));
+    case "percent":
+      return `${(value * 100).toFixed(1)}%`;
+    default:
+      return value;
+  }
+};
+
+const updateMeta = () => {
+  if (!metaEl) {
+    return;
+  }
+  if (!activeMeta) {
+    metaEl.textContent = "Data updated: unavailable";
+    return;
+  }
+  const timestamp = activeMeta.generated_at;
+  const date = timestamp ? new Date(timestamp) : null;
+  const readable = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleString()
+    : "unavailable";
+  metaEl.textContent = `Data updated: ${readable}`;
 };
 
 const renderResults = (players) => {
@@ -76,12 +118,40 @@ const removePlayer = (playerId) => {
   renderSelected();
 };
 
+const loadSnapshot = async (year) => {
+  if (snapshotsByYear.has(year)) {
+    const cached = snapshotsByYear.get(year);
+    activePlayers = cached.players;
+    activeMeta = cached.meta;
+    updateMeta();
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      chrome.runtime.getURL(`snapshots/players_${year}.json`)
+    );
+    const data = await response.json();
+    const players = Array.isArray(data) ? data : data.players || [];
+    const meta = Array.isArray(data) ? null : data.meta || null;
+    snapshotsByYear.set(year, { players, meta });
+    activePlayers = players;
+    activeMeta = meta;
+  } catch (error) {
+    console.log(error);
+    activePlayers = [];
+    activeMeta = null;
+  }
+  updateMeta();
+};
+
 const renderStatsConfig = (config) => {
   statsEl.textContent = "";
   const groupOrder = [];
   const groups = {};
 
   config.forEach((item) => {
+    statsByKey.set(item.key, item);
     if (!groups[item.group]) {
       groups[item.group] = [];
       groupOrder.push(item.group);
@@ -131,21 +201,24 @@ const renderStatsConfig = (config) => {
 
 searchButton.addEventListener("click", async () => {
   try {
-    const year = yearSelect.value;
     const query = searchInput.value.trim();
     if (!query) {
       resultsEl.textContent = "Enter a search term.";
       return;
     }
 
-    const response = await fetch(
-      `http://127.0.0.1:8000/search?year=${encodeURIComponent(
-        year
-      )}&q=${encodeURIComponent(query)}`
-    );
-    const data = await response.json();
-    console.log(data);
-    renderResults(Array.isArray(data) ? data : []);
+    const matches = activePlayers
+      .filter((player) =>
+        player.name.toLowerCase().includes(query.toLowerCase())
+      )
+      .slice(0, 50)
+      .map((player) => ({
+        player_id: player.player_id,
+        name: player.name,
+        team: player.team,
+      }));
+    console.log(matches);
+    renderResults(matches);
   } catch (error) {
     console.log(error);
   }
@@ -159,7 +232,6 @@ clearButton.addEventListener("click", () => {
 
 compareButton.addEventListener("click", async () => {
   try {
-    const year = yearSelect.value;
     if (selectedPlayers.length < 2 || selectedPlayers.length > 5) {
       output.textContent = "Select 2-5 players to compare.";
       return;
@@ -170,15 +242,12 @@ compareButton.addEventListener("click", async () => {
       return;
     }
 
-    const ids = selectedPlayers.map((player) => player.player_id).join(",");
-    const response = await fetch(
-      `http://127.0.0.1:8000/compare?year=${encodeURIComponent(
-        year
-      )}&player_ids=${encodeURIComponent(ids)}`
-    );
-    const data = await response.json();
-    console.log(data);
-    const rows = Array.isArray(data) ? data : [];
+    const rows = selectedPlayers
+      .map((player) =>
+        activePlayers.find((row) => row.player_id === player.player_id)
+      )
+      .filter(Boolean);
+    console.log(rows);
     const filtered = rows.map((row) => {
       const result = {
         player_id: row.player_id,
@@ -187,7 +256,9 @@ compareButton.addEventListener("click", async () => {
         season: row.season,
       };
       statKeys.forEach((key) => {
-        result[key] = row[key];
+        const config = statsByKey.get(key);
+        const value = row[key];
+        result[key] = formatValue(value ?? null, config?.format);
       });
       return result;
     });
@@ -199,7 +270,6 @@ compareButton.addEventListener("click", async () => {
 
 viewButton.addEventListener("click", async () => {
   try {
-    const year = yearSelect.value;
     if (selectedPlayers.length !== 1) {
       output.textContent = "Select 1 player to view.";
       return;
@@ -211,13 +281,12 @@ viewButton.addEventListener("click", async () => {
     }
 
     const playerId = selectedPlayers[0].player_id;
-    const response = await fetch(
-      `http://127.0.0.1:8000/player?year=${encodeURIComponent(
-        year
-      )}&player_id=${encodeURIComponent(playerId)}`
-    );
-    const data = await response.json();
+    const data = activePlayers.find((row) => row.player_id === playerId);
     console.log(data);
+    if (!data) {
+      output.textContent = "Player not found in snapshot.";
+      return;
+    }
     const filtered = {
       player_id: data.player_id,
       name: data.name,
@@ -225,7 +294,9 @@ viewButton.addEventListener("click", async () => {
       season: data.season,
     };
     statKeys.forEach((key) => {
-      filtered[key] = data[key];
+      const config = statsByKey.get(key);
+      const value = data[key];
+      filtered[key] = formatValue(value ?? null, config?.format);
     });
     output.textContent = JSON.stringify(filtered, null, 2);
   } catch (error) {
@@ -246,4 +317,13 @@ const loadStatsConfig = async () => {
 
 renderResults([]);
 renderSelected();
+yearSelect.addEventListener("change", async () => {
+  selectedPlayers.length = 0;
+  renderSelected();
+  resultsEl.textContent = "";
+  output.textContent = "";
+  await loadSnapshot(yearSelect.value);
+});
+
 loadStatsConfig();
+loadSnapshot(yearSelect.value);
