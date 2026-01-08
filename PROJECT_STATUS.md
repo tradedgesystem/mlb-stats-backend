@@ -82,6 +82,16 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 Goal: reach 10k-20k users with $0 spend while staying safe with upstream data
 sources.
 
+Current status:
+
+- Local dev only (extension -> local FastAPI -> local SQLite).
+
+Target production path (zero-cost + ban-safe):
+
+- Daily scheduled ingestion only (GitHub Actions).
+- Export static JSON snapshots to a public host (GitHub Pages or Releases).
+- Serve data directly from the static host (no live API server).
+
 Recommended approach (low cost, low risk):
 
 - **Precompute data once per day** (or less) via a scheduled job.
