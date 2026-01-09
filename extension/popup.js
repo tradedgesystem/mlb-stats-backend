@@ -85,11 +85,105 @@ const CONFIG_FILES = {
   hitters: "stats_config.json",
   pitchers: "pitching_stats_config.json",
 };
+const STORAGE_KEY = "mlb_stats_state_v1";
+let persistTimer = null;
 
 const getState = () => stateByMode[activeMode];
 const getActiveDataset = () =>
   activeMode === "pitchers" ? activePitchers : activePlayers;
 const getActiveMeta = () => activeMetaByMode[activeMode];
+
+const serializeModeState = (modeState) => ({
+  savedPlayers: modeState.savedPlayers,
+  activePlayerId: modeState.activePlayerId,
+  activeCompareIds: Array.from(modeState.activeCompareIds),
+  selectedStatKeys: Array.from(modeState.selectedStatKeys),
+});
+
+const serializeState = () => ({
+  version: 1,
+  year: yearSelect ? yearSelect.value : null,
+  mode: activeMode,
+  rangeEnabled: Boolean(rangeEnabledInput && rangeEnabledInput.checked),
+  rangeStart: rangeStartInput ? rangeStartInput.value : "",
+  rangeEnd: rangeEndInput ? rangeEndInput.value : "",
+  modes: {
+    hitters: serializeModeState(stateByMode.hitters),
+    pitchers: serializeModeState(stateByMode.pitchers),
+  },
+});
+
+const schedulePersist = () => {
+  if (!chrome?.storage?.local) {
+    return;
+  }
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+  }
+  persistTimer = setTimeout(() => {
+    chrome.storage.local.set({ [STORAGE_KEY]: serializeState() });
+  }, 200);
+};
+
+const restoreModeState = (mode, saved) => {
+  const state = stateByMode[mode];
+  if (!state || !saved) {
+    return;
+  }
+  state.savedPlayers.length = 0;
+  if (Array.isArray(saved.savedPlayers)) {
+    state.savedPlayers.push(...saved.savedPlayers);
+  }
+  state.activePlayerId =
+    typeof saved.activePlayerId === "number" ? saved.activePlayerId : null;
+  state.activeCompareIds.clear();
+  if (Array.isArray(saved.activeCompareIds)) {
+    saved.activeCompareIds.forEach((id) => {
+      if (typeof id === "number") {
+        state.activeCompareIds.add(id);
+      }
+    });
+  }
+  state.selectedStatKeys.clear();
+  if (Array.isArray(saved.selectedStatKeys)) {
+    saved.selectedStatKeys.forEach((key) => {
+      if (typeof key === "string") {
+        state.selectedStatKeys.add(key);
+      }
+    });
+  }
+};
+
+const loadPersistedState = async () => {
+  if (!chrome?.storage?.local) {
+    return;
+  }
+  const stored = await new Promise((resolve) => {
+    chrome.storage.local.get(STORAGE_KEY, resolve);
+  });
+  const payload = stored ? stored[STORAGE_KEY] : null;
+  if (!payload || payload.version !== 1) {
+    return;
+  }
+  if (payload.year && yearSelect) {
+    yearSelect.value = payload.year;
+  }
+  if (payload.mode && modeSelect) {
+    modeSelect.value = payload.mode;
+    activeMode = payload.mode;
+  }
+  if (rangeEnabledInput && typeof payload.rangeEnabled === "boolean") {
+    rangeEnabledInput.checked = payload.rangeEnabled;
+  }
+  if (rangeStartInput && typeof payload.rangeStart === "string") {
+    rangeStartInput.value = payload.rangeStart;
+  }
+  if (rangeEndInput && typeof payload.rangeEnd === "string") {
+    rangeEndInput.value = payload.rangeEnd;
+  }
+  restoreModeState("hitters", payload.modes?.hitters);
+  restoreModeState("pitchers", payload.modes?.pitchers);
+};
 
 const getSelectedKeys = () => {
   const { statsConfig, selectedStatKeys } = getState();
@@ -216,6 +310,7 @@ const enforceRangeSelections = () => {
   });
   if (removed.length) {
     setRangeWarning("Date range supports aggregate stats only. Some were removed.");
+    schedulePersist();
   } else {
     setRangeWarning("");
   }
@@ -594,6 +689,7 @@ const addPlayerToMode = (mode, player) => {
   if (!state.activePlayerId) {
     state.activePlayerId = player.player_id;
   }
+  schedulePersist();
 };
 
 const renderSelectedList = (container) => {
@@ -637,6 +733,7 @@ const renderSelectedList = (container) => {
       }
       updatePlayerLimit();
       renderSelected();
+      schedulePersist();
     });
 
     const removeButton = document.createElement("button");
@@ -671,6 +768,7 @@ const removePlayer = (playerId) => {
   activeCompareIds.delete(playerId);
   renderSelected();
   updatePlayerLimit();
+  schedulePersist();
 };
 
 const clearSavedPlayers = () => {
@@ -680,6 +778,7 @@ const clearSavedPlayers = () => {
   getState().activePlayerId = null;
   renderSelected();
   updatePlayerLimit();
+  schedulePersist();
 };
 
 const addPlayer = (player) => {
@@ -954,6 +1053,7 @@ const renderStatsConfig = () => {
           setRangeWarning("");
         }
         updateStatsLimit();
+        schedulePersist();
       });
 
       const textWrap = document.createElement("span");
@@ -1208,11 +1308,9 @@ const applyMode = async (mode) => {
   renderSelected();
   clearOutputs();
   updateMeta();
+  schedulePersist();
 };
 
-renderResults([]);
-renderSelected();
-updatePlayerLimit();
 yearSelect.addEventListener("change", async () => {
   Object.values(stateByMode).forEach((state) => resetModeSelections(state));
   renderSelected();
@@ -1221,6 +1319,7 @@ yearSelect.addEventListener("change", async () => {
   await loadPitcherSnapshot(yearSelect.value);
   updatePlayerLimit();
   updateMeta();
+  schedulePersist();
 });
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));
@@ -1245,7 +1344,16 @@ if (rangeEnabledInput) {
     enforceRangeSelections();
     updateStatsLimit();
     updateRangeTagsVisibility();
+    schedulePersist();
   });
+}
+
+if (rangeStartInput) {
+  rangeStartInput.addEventListener("change", schedulePersist);
+}
+
+if (rangeEndInput) {
+  rangeEndInput.addEventListener("change", schedulePersist);
 }
 
 if (modeSelect) {
@@ -1254,6 +1362,14 @@ if (modeSelect) {
   });
 }
 
-loadSnapshot(yearSelect.value);
-loadPitcherSnapshot(yearSelect.value);
-applyMode(activeMode);
+const init = async () => {
+  await loadPersistedState();
+  renderResults([]);
+  renderSelected();
+  updatePlayerLimit();
+  await loadSnapshot(yearSelect.value);
+  await loadPitcherSnapshot(yearSelect.value);
+  await applyMode(activeMode);
+};
+
+init();
