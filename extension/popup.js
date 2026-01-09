@@ -202,11 +202,11 @@ const formatValue = (value, format) => {
   }
   switch (format) {
     case "integer":
-      return Math.round(value);
+      return String(Math.round(value));
     case "float":
-      return Number(value.toFixed(1));
+      return value.toFixed(1);
     case "rate":
-      return Number(value.toFixed(3));
+      return value.toFixed(3);
     case "percent":
       return `${(value * 100).toFixed(1)}%`;
     default:
