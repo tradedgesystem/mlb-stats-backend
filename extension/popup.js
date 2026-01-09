@@ -569,7 +569,11 @@ const renderResults = (players) => {
     row.textContent = `${player.name} (${player.team})`;
     const addButton = document.createElement("button");
     addButton.textContent = "Add";
-    addButton.addEventListener("click", () => addPlayer(player));
+    addButton.addEventListener("click", () => {
+      addPlayer(player);
+      searchInput.value = "";
+      resultsEl.textContent = "";
+    });
     row.appendChild(addButton);
     resultsEl.appendChild(row);
   });
