@@ -96,22 +96,19 @@ const STORAGE_KEY = "mlb_stats_state_v1";
 let persistTimer = null;
 
 const persistNow = () => {
-  if (!chrome?.storage?.local) {
-    console.error("[Persistence] chrome.storage.local not available");
+  // Check if we're in a Chrome extension context
+  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
     return;
   }
   try {
     const state = serializeState();
-    console.log("[Persistence] Saving state immediately:", state);
     chrome.storage.local.set({ [STORAGE_KEY]: state }, () => {
-      if (chrome.runtime.lastError) {
-        console.error("[Persistence] Immediate save failed:", chrome.runtime.lastError);
-      } else {
-        console.log("[Persistence] State saved successfully (immediate)");
+      if (chrome.runtime?.lastError) {
+        console.error("[Persistence] Save failed:", chrome.runtime.lastError);
       }
     });
   } catch (error) {
-    console.error("[Persistence] Error saving state immediately:", error);
+    // Silently fail in non-extension contexts
   }
 };
 
@@ -141,8 +138,8 @@ const serializeState = () => ({
 });
 
 const schedulePersist = () => {
-  if (!chrome?.storage?.local) {
-    console.error("[Persistence] chrome.storage.local not available");
+  // Check if we're in a Chrome extension context
+  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
     return;
   }
   if (persistTimer) {
@@ -151,16 +148,13 @@ const schedulePersist = () => {
   persistTimer = setTimeout(() => {
     try {
       const state = serializeState();
-      console.log("[Persistence] Saving state (debounced):", state);
       chrome.storage.local.set({ [STORAGE_KEY]: state }, () => {
-        if (chrome.runtime.lastError) {
-          console.error("[Persistence] Debounced save failed:", chrome.runtime.lastError);
-        } else {
-          console.log("[Persistence] State saved successfully (debounced)");
+        if (chrome.runtime?.lastError) {
+          console.error("[Persistence] Save failed:", chrome.runtime.lastError);
         }
       });
     } catch (error) {
-      console.error("[Persistence] Error saving state (debounced):", error);
+      // Silently fail in non-extension contexts
     }
   }, 50);
 };
@@ -195,15 +189,14 @@ const restoreModeState = (mode, saved) => {
 };
 
 const loadPersistedState = async () => {
-  if (!chrome?.storage?.local) {
-    console.error("[Persistence] chrome.storage.local not available on load");
+  // Check if we're in a Chrome extension context
+  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
     return;
   }
   try {
-    console.log("[Persistence] Loading persisted state...");
     const stored = await new Promise((resolve, reject) => {
       chrome.storage.local.get(STORAGE_KEY, (result) => {
-        if (chrome.runtime.lastError) {
+        if (chrome.runtime?.lastError) {
           reject(chrome.runtime.lastError);
         } else {
           resolve(result);
@@ -211,41 +204,29 @@ const loadPersistedState = async () => {
       });
     });
     const payload = stored ? stored[STORAGE_KEY] : null;
-    console.log("[Persistence] Loaded payload:", payload);
     if (!payload || payload.version !== 1) {
-      console.log("[Persistence] No valid payload found, starting fresh");
       return;
     }
     if (payload.year && yearSelect) {
       yearSelect.value = payload.year;
-      console.log("[Persistence] Restored year:", payload.year);
     }
     if (payload.mode && modeSelect) {
       modeSelect.value = payload.mode;
       activeMode = payload.mode;
-      console.log("[Persistence] Restored mode:", payload.mode);
     }
     if (rangeEnabledInput && typeof payload.rangeEnabled === "boolean") {
       rangeEnabledInput.checked = payload.rangeEnabled;
-      console.log("[Persistence] Restored range enabled:", payload.rangeEnabled);
     }
     if (rangeStartInput && typeof payload.rangeStart === "string") {
       rangeStartInput.value = payload.rangeStart;
-      console.log("[Persistence] Restored range start:", payload.rangeStart);
     }
     if (rangeEndInput && typeof payload.rangeEnd === "string") {
       rangeEndInput.value = payload.rangeEnd;
-      console.log("[Persistence] Restored range end:", payload.rangeEnd);
     }
     restoreModeState("hitters", payload.modes?.hitters);
     restoreModeState("pitchers", payload.modes?.pitchers);
-    console.log("[Persistence] State restored successfully");
-    console.log("[Persistence] Hitters saved players:", stateByMode.hitters.savedPlayers);
-    console.log("[Persistence] Pitchers saved players:", stateByMode.pitchers.savedPlayers);
-    console.log("[Persistence] Hitters selected stats:", Array.from(stateByMode.hitters.selectedStatKeys));
-    console.log("[Persistence] Pitchers selected stats:", Array.from(stateByMode.pitchers.selectedStatKeys));
   } catch (error) {
-    console.error("[Persistence] Error loading state:", error);
+    // Silently fail in non-extension contexts or on errors
   }
 };
 
@@ -1631,39 +1612,20 @@ if (modeSelect) {
 const init = async () => {
   console.log("[Init] Extension initializing...");
   
-  // Step 1: Load persisted state first
+  // Step 1: Load persisted state first (silent in non-extension contexts)
   await loadPersistedState();
-  console.log("[Init] Persisted state loaded");
   
   // Step 2: Clear any stale displays
   renderResults([]);
   renderSelected();
   updatePlayerLimit();
   
-  // Step 3: Load snapshots for the current year
-  console.log("[Init] Loading snapshot for year:", yearSelect.value);
+  // Step 3: Load snapshots for current year
   await loadSnapshot(yearSelect.value);
   await loadPitcherSnapshot(yearSelect.value);
-  console.log("[Init] Snapshots loaded");
   
-  // Step 4: Apply the active mode (this will trigger rendering)
-  console.log("[Init] Applying mode:", activeMode);
+  // Step 4: Apply active mode (this will trigger rendering)
   await applyMode(activeMode);
-  
-  // Step 5: Final verification
-  console.log("[Init] Initialization complete");
-  console.log("[Init] After init - Hitters saved players:", stateByMode.hitters.savedPlayers.length);
-  console.log("[Init] After init - Pitchers saved players:", stateByMode.pitchers.savedPlayers.length);
-  console.log("[Init] After init - Hitters selected stats:", Array.from(stateByMode.hitters.selectedStatKeys));
-  console.log("[Init] After init - Pitchers selected stats:", Array.from(stateByMode.pitchers.selectedStatKeys));
-  
-  // Verify restoration
-  if (stateByMode.hitters.savedPlayers.length > 0 || stateByMode.pitchers.savedPlayers.length > 0) {
-    console.log("[Init] ✓ Players successfully restored from persistence");
-  } else {
-    console.log("[Init] ℹ No saved players found (fresh start)");
-  }
 };
 
 init();
-
