@@ -78,6 +78,10 @@ let activePitchers = [];
 const activeMetaByMode = { hitters: null, pitchers: null };
 let activeTeam = null;
 let activeLeaderboardStat = null;
+const leaderboardStateByMode = {
+  hitters: { statKey: null, meta: "", output: "", year: null },
+  pitchers: { statKey: null, meta: "", output: "", year: null },
+};
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const LOCAL_API_BASE = "http://127.0.0.1:8000";
@@ -131,6 +135,10 @@ const serializeState = () => ({
   rangeEnabled: Boolean(rangeEnabledInput && rangeEnabledInput.checked),
   rangeStart: rangeStartInput ? rangeStartInput.value : "",
   rangeEnd: rangeEndInput ? rangeEndInput.value : "",
+  leaderboard: {
+    hitters: leaderboardStateByMode.hitters,
+    pitchers: leaderboardStateByMode.pitchers,
+  },
   modes: {
     hitters: serializeModeState(stateByMode.hitters),
     pitchers: serializeModeState(stateByMode.pitchers),
@@ -188,6 +196,24 @@ const restoreModeState = (mode, saved) => {
   }
 };
 
+const normalizeLeaderboardState = (saved) => {
+  if (!saved) {
+    return { statKey: null, meta: "", output: "", year: null };
+  }
+  if (typeof saved === "string") {
+    return { statKey: saved, meta: "", output: "", year: null };
+  }
+  if (typeof saved === "object") {
+    return {
+      statKey: typeof saved.statKey === "string" ? saved.statKey : null,
+      meta: typeof saved.meta === "string" ? saved.meta : "",
+      output: typeof saved.output === "string" ? saved.output : "",
+      year: typeof saved.year === "string" ? saved.year : null,
+    };
+  }
+  return { statKey: null, meta: "", output: "", year: null };
+};
+
 const loadPersistedState = async () => {
   // Check if we're in a Chrome extension context
   if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
@@ -225,6 +251,14 @@ const loadPersistedState = async () => {
     }
     restoreModeState("hitters", payload.modes?.hitters);
     restoreModeState("pitchers", payload.modes?.pitchers);
+    const savedLeaderboard = payload.leaderboard || {};
+    leaderboardStateByMode.hitters = normalizeLeaderboardState(
+      savedLeaderboard.hitters
+    );
+    leaderboardStateByMode.pitchers = normalizeLeaderboardState(
+      savedLeaderboard.pitchers
+    );
+    activeLeaderboardStat = leaderboardStateByMode[activeMode].statKey || null;
   } catch (error) {
     // Silently fail in non-extension contexts or on errors
   }
@@ -1186,10 +1220,7 @@ const searchStats = () => {
   try {
     const query = statSearchInput.value.trim();
     if (!query) {
-      statSearchResults.textContent = "";
-      leaderboardMeta.textContent = "";
-      leaderboardOutput.textContent = "";
-      activeLeaderboardStat = null;
+      clearLeaderboardSelection();
       return;
     }
 
@@ -1267,8 +1298,11 @@ const selectLeaderboardStat = (statKey) => {
   }
 
   activeLeaderboardStat = statKey;
-  statSearchInput.value = "";
-  statSearchResults.textContent = "";
+  leaderboardStateByMode[activeMode] = {
+    ...leaderboardStateByMode[activeMode],
+    statKey,
+  };
+  resetLeaderboardSearch();
   
   if (leaderboardMeta) {
     leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
@@ -1286,6 +1320,7 @@ const renderLeaderboard = (statKey) => {
   const dataset = getActiveDataset();
   if (!dataset.length) {
     renderMessage("No data available for this season.", leaderboardOutput);
+    persistLeaderboardState(statKey);
     return;
   }
 
@@ -1294,6 +1329,7 @@ const renderLeaderboard = (statKey) => {
   
   if (!statConfig) {
     renderMessage("Stat configuration not found.", leaderboardOutput);
+    persistLeaderboardState(statKey);
     return;
   }
 
@@ -1363,6 +1399,7 @@ const renderLeaderboard = (statKey) => {
 
   if (!validPlayers.length) {
     renderMessage("No qualified MLB players have data for this stat.", leaderboardOutput);
+    persistLeaderboardState(statKey);
     return;
   }
 
@@ -1414,22 +1451,76 @@ const renderLeaderboard = (statKey) => {
   });
 
   leaderboardOutput.innerHTML = [line, headerLine, line, ...bodyLines, line].join("\n");
+  persistLeaderboardState(statKey);
 };
 
-const clearLeaderboard = () => {
+const resetLeaderboardSearch = () => {
   if (statSearchInput) {
     statSearchInput.value = "";
   }
   if (statSearchResults) {
     statSearchResults.textContent = "";
   }
+};
+
+const persistLeaderboardState = (statKey) => {
+  leaderboardStateByMode[activeMode] = {
+    statKey: statKey || null,
+    meta: leaderboardMeta ? leaderboardMeta.textContent : "",
+    output: leaderboardOutput ? leaderboardOutput.innerHTML : "",
+    year: yearSelect ? yearSelect.value : null,
+  };
+  persistNow();
+};
+
+const clearLeaderboardDisplay = () => {
   if (leaderboardMeta) {
     leaderboardMeta.textContent = "";
   }
   if (leaderboardOutput) {
     leaderboardOutput.textContent = "";
   }
+};
+
+const clearLeaderboardSelection = () => {
   activeLeaderboardStat = null;
+  leaderboardStateByMode[activeMode] = {
+    statKey: null,
+    meta: "",
+    output: "",
+    year: yearSelect ? yearSelect.value : null,
+  };
+  resetLeaderboardSearch();
+  clearLeaderboardDisplay();
+  persistNow();
+};
+
+const restoreLeaderboardForMode = () => {
+  const savedState = leaderboardStateByMode[activeMode];
+  activeLeaderboardStat = savedState.statKey || null;
+  resetLeaderboardSearch();
+  if (!activeLeaderboardStat) {
+    clearLeaderboardDisplay();
+    return;
+  }
+  const currentYear = yearSelect ? yearSelect.value : null;
+  const hasCachedOutput =
+    savedState.output &&
+    typeof savedState.output === "string" &&
+    savedState.year === currentYear;
+  if (leaderboardMeta) {
+    leaderboardMeta.textContent = savedState.meta || "";
+  }
+  if (leaderboardOutput && hasCachedOutput) {
+    leaderboardOutput.innerHTML = savedState.output;
+  } else {
+    const { statsByKey } = getState();
+    const statConfig = statsByKey.get(activeLeaderboardStat);
+    if (leaderboardMeta && statConfig) {
+      leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
+    }
+    renderLeaderboard(activeLeaderboardStat);
+  }
 };
 
 searchButton.addEventListener("click", () => runSearch({ showEmptyMessage: true }));
@@ -1609,7 +1700,7 @@ const applyMode = async (mode) => {
   updatePlayerLimit();
   renderSelected();
   clearOutputs();
-  clearLeaderboard();
+  restoreLeaderboardForMode();
   updateMeta();
   persistNow();
 };
@@ -1621,6 +1712,7 @@ yearSelect.addEventListener("change", async () => {
   renderSelected();
   updatePlayerLimit();
   updateMeta();
+  restoreLeaderboardForMode();
   persistNow();
 });
 
