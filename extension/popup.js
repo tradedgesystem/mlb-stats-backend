@@ -1310,45 +1310,54 @@ const renderLeaderboard = (statKey) => {
       return false;
     }
     
-    // Check for explicit qualification flag if available in data
-    if (player.qual === 0) {
-      return false;
+    // Check for explicit qualification flag - must be explicitly 1
+    // If qual is undefined, we can't rely on it, so we need other strong filters
+    if (player.qual === 0 || player.qual === false || player.qual === null || player.qual === undefined) {
+      // If qual is not explicitly 1, require even stricter thresholds
     }
     
-    // For hitters: must have meaningful MLB experience (100+ plate appearances)
-    // This aligns with typical MLB qualification standards
+    // For hitters: must have meaningful MLB experience (300+ plate appearances)
+    // Very high threshold to ensure only genuine MLB players
     if (activeMode === "hitters") {
       const pa = player.pa;
-      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 100) {
+      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 300) {
         return false;
       }
       // Also check games played for additional filtering
       const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
+      if (g === null || g === undefined || Number.isNaN(g) || g < 30) {
         return false;
       }
-      // Additional quality filter: must have at least 30 hits (removes players with poor performance)
+      // Additional quality filter: must have at least 75 hits
       const h = player.h;
-      if (h === null || h === undefined || Number.isNaN(h) || h < 30) {
+      if (h === null || h === undefined || Number.isNaN(h) || h < 75) {
+        return false;
+      }
+      // Ensure qual is explicitly 1 if available
+      if (player.qual !== 1) {
         return false;
       }
     }
     
-    // For pitchers: must have meaningful MLB experience (40+ innings pitched)
-    // This aligns with typical MLB qualification standards
+    // For pitchers: must have meaningful MLB experience (100+ innings pitched)
+    // Very high threshold to ensure only genuine MLB players
     if (activeMode === "pitchers") {
       const ip = player.ip;
-      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 40) {
+      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 100) {
         return false;
       }
       // Also check games played for additional filtering
       const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 5) {
+      if (g === null || g === undefined || Number.isNaN(g) || g < 15) {
         return false;
       }
-      // Additional quality filter: must have at least 15 strikeouts (removes marginal pitchers)
+      // Additional quality filter: must have at least 40 strikeouts
       const so = player.so;
-      if (so === null || so === undefined || Number.isNaN(so) || so < 15) {
+      if (so === null || so === undefined || Number.isNaN(so) || so < 40) {
+        return false;
+      }
+      // Ensure qual is explicitly 1 if available
+      if (player.qual !== 1) {
         return false;
       }
     }
