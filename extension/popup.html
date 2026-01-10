@@ -309,6 +309,7 @@
       <button id="tab-compare" class="tab-button">Compare</button>
       <button id="tab-teams" class="tab-button">Teams</button>
       <button id="tab-stats" class="tab-button">Stats</button>
+      <button id="tab-leaderboard" class="tab-button">Leaderboard</button>
     </div>
 
     <div id="panel-players" class="tab-content active">
@@ -387,6 +388,14 @@
       <div class="meta">Date range mode supports aggregate stats only. Turn off date range to use all stats.</div>
       <div id="stats-range-warning" class="warning"></div>
       <div id="stats" class="stats"></div>
+    </div>
+
+    <div id="panel-leaderboard" class="tab-content">
+      <label for="stat-search">Search for a stat</label>
+      <input id="stat-search" type="text" placeholder="Type a stat name (e.g., HR, OPS, AVG)" />
+      <div id="stat-search-results" class="list"></div>
+      <div id="leaderboard-meta" class="meta"></div>
+      <div id="leaderboard-output" class="output"></div>
     </div>
     <script src="popup.js"></script>
   </body>

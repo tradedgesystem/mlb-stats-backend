@@ -39,10 +39,16 @@ const tabPlayers = document.getElementById("tab-players");
 const tabCompare = document.getElementById("tab-compare");
 const tabTeams = document.getElementById("tab-teams");
 const tabStats = document.getElementById("tab-stats");
+const tabLeaderboard = document.getElementById("tab-leaderboard");
 const panelPlayers = document.getElementById("panel-players");
 const panelCompare = document.getElementById("panel-compare");
 const panelTeams = document.getElementById("panel-teams");
 const panelStats = document.getElementById("panel-stats");
+const panelLeaderboard = document.getElementById("panel-leaderboard");
+const statSearchInput = document.getElementById("stat-search");
+const statSearchResults = document.getElementById("stat-search-results");
+const leaderboardOutput = document.getElementById("leaderboard-output");
+const leaderboardMeta = document.getElementById("leaderboard-meta");
 
 const stateByMode = {
   hitters: {
@@ -71,6 +77,7 @@ let activePlayers = [];
 let activePitchers = [];
 const activeMetaByMode = { hitters: null, pitchers: null };
 let activeTeam = null;
+let activeLeaderboardStat = null;
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
 const LOCAL_API_BASE = "http://127.0.0.1:8000";
@@ -1194,6 +1201,198 @@ const runSearch = ({ showEmptyMessage = true } = {}) => {
   }
 };
 
+const searchStats = () => {
+  try {
+    const query = statSearchInput.value.trim();
+    if (!query) {
+      statSearchResults.textContent = "";
+      leaderboardMeta.textContent = "";
+      leaderboardOutput.textContent = "";
+      activeLeaderboardStat = null;
+      return;
+    }
+
+    const normalizedQuery = normalizeText(query);
+    if (!normalizedQuery) {
+      statSearchResults.textContent = "";
+      return;
+    }
+
+    const { statsConfig } = getState();
+    if (!statsConfig.length) {
+      statSearchResults.textContent = "Stats config not loaded.";
+      return;
+    }
+
+    const maxDistance =
+      normalizedQuery.length <= 3
+        ? 2
+        : Math.max(2, Math.floor(normalizedQuery.length / 2));
+
+    const matches = statsConfig
+      .map((stat) => {
+        let score = null;
+        const labelNormalized = normalizeText(stat.label || "");
+        if (labelNormalized.includes(normalizedQuery)) {
+          score = 0;
+        } else if (normalizedQuery.length > 2) {
+          score = fuzzyScore(stat.label, query);
+        }
+        return score === null ? null : { stat, score };
+      })
+      .filter((entry) => entry && entry.score <= maxDistance)
+      .sort((a, b) => a.score - b.score || a.stat.label.localeCompare(b.stat.label))
+      .slice(0, 25)
+      .map((entry) => ({
+        key: entry.stat.key,
+        label: entry.stat.label,
+        description: entry.stat.description,
+      }));
+
+    renderStatSearchResults(matches);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const renderStatSearchResults = (matches) => {
+  if (!statSearchResults) {
+    return;
+  }
+  statSearchResults.textContent = "";
+  if (!matches.length) {
+    statSearchResults.textContent = "No matching stats found.";
+    return;
+  }
+
+  matches.forEach((match) => {
+    const row = document.createElement("div");
+    row.className = "stat-result";
+    row.innerHTML = `<strong>${escapeHtml(match.label)}</strong><br>${escapeHtml(match.description || "")}`;
+    row.addEventListener("click", () => {
+      selectLeaderboardStat(match.key);
+    });
+    statSearchResults.appendChild(row);
+  });
+};
+
+const selectLeaderboardStat = (statKey) => {
+  const { statsByKey } = getState();
+  const statConfig = statsByKey.get(statKey);
+  
+  if (!statConfig) {
+    console.error("Stat config not found for key:", statKey);
+    return;
+  }
+
+  activeLeaderboardStat = statKey;
+  statSearchInput.value = "";
+  statSearchResults.textContent = "";
+  
+  if (leaderboardMeta) {
+    leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
+  }
+
+  renderLeaderboard(statKey);
+};
+
+const renderLeaderboard = (statKey) => {
+  if (!leaderboardOutput) {
+    return;
+  }
+  leaderboardOutput.textContent = "";
+
+  const dataset = getActiveDataset();
+  if (!dataset.length) {
+    renderMessage("No data available for this season.", leaderboardOutput);
+    return;
+  }
+
+  const { statsByKey } = getState();
+  const statConfig = statsByKey.get(statKey);
+  
+  if (!statConfig) {
+    renderMessage("Stat configuration not found.", leaderboardOutput);
+    return;
+  }
+
+  // Filter players who have valid data for this stat
+  const validPlayers = dataset.filter((player) => {
+    const value = player[statKey];
+    return value !== null && value !== undefined && !Number.isNaN(value);
+  });
+
+  if (!validPlayers.length) {
+    renderMessage("No players have data for this stat.", leaderboardOutput);
+    return;
+  }
+
+  // Sort appropriately
+  const lowerIsBetter = Boolean(statConfig && statConfig.lower_is_better);
+  const sortedPlayers = [...validPlayers].sort((a, b) => {
+    const valA = a[statKey];
+    const valB = b[statKey];
+    if (lowerIsBetter) {
+      return valA - valB;
+    }
+    return valB - valA;
+  });
+
+  // Take top 25
+  const top25 = sortedPlayers.slice(0, 25);
+
+  // Render table with rank
+  const headers = ["Rank", "Player", "Team", "Season", statConfig.label];
+  const rowsData = top25.map((player, index) => {
+    const base = [
+      String(index + 1),
+      player.name,
+      player.team,
+      String(player.season),
+      formatValue(player[statKey], statConfig.format) || "-",
+    ];
+    return { base };
+  });
+
+  const widths = headers.map((header, index) => {
+    const cellWidths = rowsData.map((row) => {
+      return row.base[index].length;
+    });
+    return Math.max(header.length, ...cellWidths);
+  });
+
+  const pad = (value, width) => value + " ".repeat(Math.max(0, width - value.length));
+  const line = `+${widths.map((w) => "-".repeat(w + 2)).join("+")}+`;
+  const headerLine =
+    "| " +
+    headers.map((header, i) => pad(header, widths[i])).join(" | ") +
+    " |";
+  const bodyLines = rowsData.map((row) => {
+    const cells = row.base.map((cell, i) => {
+      return pad(escapeHtml(cell), widths[i]);
+    });
+    return "| " + cells.join(" | ") + " |";
+  });
+
+  leaderboardOutput.innerHTML = [line, headerLine, line, ...bodyLines, line].join("\n");
+};
+
+const clearLeaderboard = () => {
+  if (statSearchInput) {
+    statSearchInput.value = "";
+  }
+  if (statSearchResults) {
+    statSearchResults.textContent = "";
+  }
+  if (leaderboardMeta) {
+    leaderboardMeta.textContent = "";
+  }
+  if (leaderboardOutput) {
+    leaderboardOutput.textContent = "";
+  }
+  activeLeaderboardStat = null;
+};
+
 searchButton.addEventListener("click", () => runSearch({ showEmptyMessage: true }));
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
@@ -1203,6 +1402,15 @@ searchInput.addEventListener("keydown", (event) => {
 searchInput.addEventListener("input", () => {
   runSearch({ showEmptyMessage: false });
 });
+
+if (statSearchInput) {
+  statSearchInput.addEventListener("input", searchStats);
+  statSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      searchStats();
+    }
+  });
+}
 
 clearButton.addEventListener("click", () => {
   searchInput.value = "";
@@ -1331,6 +1539,7 @@ const setActiveTab = (tab) => {
     { name: "compare", button: tabCompare, panel: panelCompare },
     { name: "teams", button: tabTeams, panel: panelTeams },
     { name: "stats", button: tabStats, panel: panelStats },
+    { name: "leaderboard", button: tabLeaderboard, panel: panelLeaderboard },
   ];
   tabs.forEach(({ name, button, panel }) => {
     const isActive = name === tab;
@@ -1361,6 +1570,7 @@ const applyMode = async (mode) => {
   updatePlayerLimit();
   renderSelected();
   clearOutputs();
+  clearLeaderboard();
   updateMeta();
   persistNow();
 };
@@ -1379,6 +1589,9 @@ tabPlayers.addEventListener("click", () => setActiveTab("players"));
 tabCompare.addEventListener("click", () => setActiveTab("compare"));
 tabTeams.addEventListener("click", () => setActiveTab("teams"));
 tabStats.addEventListener("click", () => setActiveTab("stats"));
+if (tabLeaderboard) {
+  tabLeaderboard.addEventListener("click", () => setActiveTab("leaderboard"));
+}
 
 if (browseTeamsButton) {
   browseTeamsButton.addEventListener("click", () => setActiveTab("teams"));
