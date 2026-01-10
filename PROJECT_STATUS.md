@@ -465,6 +465,7 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 - Compare view bolds the best value per stat.
 - Compare ranking respects stats where lower is better (ERA/WHIP/etc.).
 - Ingestion uses `qual=0` to include non-qualified players in 2025 backfill.
+- Added Leaderboard tab with stat search and top 25 rankings display.
 
 ### 5) Derived stats + snapshot export
 
@@ -483,6 +484,15 @@ pybaseball -> SQLite -> FastAPI -> Chrome extension
 
 - Snapshots are hosted via jsDelivr (backed by the GitHub repo).
 - Scheduled GitHub Actions workflow regenerates snapshots nightly.
+
+### 13) Leaderboard feature
+
+- Added Leaderboard tab to view top 25 players for any stat.
+- Stat search with fuzzy matching to discover available stats.
+- Displays rank, player name, team, season, and stat value.
+- Supports both hitters and pitchers modes.
+- Automatically clears leaderboard when switching between hitter/pitcher modes.
+- Fixed syntax errors in codebase and improved state persistence handling.
 
 ## Remaining Work
 
