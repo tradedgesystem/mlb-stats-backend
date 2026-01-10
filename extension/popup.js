@@ -1297,55 +1297,69 @@ const renderLeaderboard = (statKey) => {
     return;
   }
 
-  // Filter MLB qualified players who have valid data for this stat
-  const validPlayers = dataset.filter((player) => {
-    // Must have valid stat value
+  const hasGames = dataset.some(
+    (player) => typeof player.g === "number" && !Number.isNaN(player.g)
+  );
+  const hasPa = dataset.some(
+    (player) => typeof player.pa === "number" && !Number.isNaN(player.pa)
+  );
+  const hasIp = dataset.some(
+    (player) => typeof player.ip === "number" && !Number.isNaN(player.ip)
+  );
+
+  const basePlayers = dataset.filter((player) => {
     const value = player[statKey];
     if (value === null || value === undefined || Number.isNaN(value)) {
       return false;
     }
-    
-    // Must have a team (filters out minor leaguers without MLB teams)
+
     if (!player.team || player.team.trim() === "") {
       return false;
     }
-    
-    // Check qualification flag if available - must be truthy (1 or true)
-    // If qual is undefined/null/0, we'll rely on threshold filters instead
-    if (player.qual === false) {
+
+    if (player.qual === false || player.qual === 0) {
       return false;
     }
-    
-    // For hitters: require meaningful MLB experience (150+ plate appearances)
-    // This threshold filters out minor leaguers while keeping regular players
-    if (activeMode === "hitters") {
-      const pa = player.pa;
-      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 150) {
-        return false;
-      }
-      // Check games played
-      const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 20) {
-        return false;
-      }
-    }
-    
-    // For pitchers: require meaningful MLB experience (50+ innings pitched)
-    // This threshold filters out minor leaguers while keeping regular pitchers
-    if (activeMode === "pitchers") {
-      const ip = player.ip;
-      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 50) {
-        return false;
-      }
-      // Check games played
-      const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
-        return false;
-      }
-    }
-    
+
     return true;
   });
+
+  const qualifiedPlayers = basePlayers.filter((player) => {
+    if (activeMode === "hitters") {
+      if (hasPa) {
+        const pa = player.pa;
+        if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 150) {
+          return false;
+        }
+      }
+      if (hasGames) {
+        const g = player.g;
+        if (g === null || g === undefined || Number.isNaN(g) || g < 20) {
+          return false;
+        }
+      }
+    }
+
+    if (activeMode === "pitchers") {
+      if (hasIp) {
+        const ip = player.ip;
+        if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 50) {
+          return false;
+        }
+      }
+      if (hasGames) {
+        const g = player.g;
+        if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  const validPlayers =
+    qualifiedPlayers.length >= 25 ? qualifiedPlayers : basePlayers;
 
   if (!validPlayers.length) {
     renderMessage("No qualified MLB players have data for this stat.", leaderboardOutput);
