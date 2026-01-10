@@ -1310,9 +1310,9 @@ const renderLeaderboard = (statKey) => {
       return false;
     }
     
-    // Check qualification flag if available - must be 1
-    // If qual is not defined, we'll use threshold filters instead
-    if (player.qual === 0 || player.qual === false) {
+    // Check qualification flag if available - must be truthy (1 or true)
+    // If qual is undefined/null/0, we'll rely on threshold filters instead
+    if (player.qual === false) {
       return false;
     }
     
