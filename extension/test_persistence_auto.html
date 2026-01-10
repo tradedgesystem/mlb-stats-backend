@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automated Persistence Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+    .test-result {
+      background: #2d2d2d;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 10px 0;
+      border-left: 4px solid #569cd6;
+    }
+    .pass { border-left-color: #4caf50; background: #1e3a2a; }
+    .fail { border-left-color: #f44336; background: #3a1e1e; }
+    .warning { border-left-color: #ff9800; background: #3a2e1e; }
+    h1 { color: #569cd6; }
+    button {
+      background: #0e639c;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 10px 5px;
+    }
+    button:hover { background: #1177bb; }
+    .log {
+      background: #0d0d0d;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    .log-entry { margin: 2px 0; }
+    .log-time { color: #858585; margin-right: 10px; }
+    .log-info { color: #9cdcfe; }
+    .log-success { color: #4ec9b0; }
+    .log-error { color: #f48771; }
+    .log-warn { color: #dcdcaa; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Automated Persistence Test</h1>
+  
+  <div>
+    <button onclick="runFullTest()">Run Full Test</button>
+    <button onclick="clearStorage()">Clear Storage</button>
+    <button onclick="dumpStorage()">Dump Storage</button>
+  </div>
+
+  <div id="results"></div>
+  <div id="log" class="log"></div>
+
+  <script>
+    const STORAGE_KEY = 'mlb_stats_state_v1';
+    const resultsDiv = document.getElementById('results');
+    const logDiv = document.getElementById('log');
+
+    function log(message, type = 'info') {
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">[${time}]</span>${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    function addResult(message, status) {
+      const result = document.createElement('div');
+      result.className = `test-result ${status}`;
+      result.textContent = message;
+      resultsDiv.appendChild(result);
+      log(message, status);
+    }
+
+    async function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function clearStorage() {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.clear(() => {
+          log('Storage cleared', 'success');
+        });
+      } else {
+        addResult('chrome.storage API not available', 'fail');
+      }
+    }
+
+    async function dumpStorage() {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const result = await new Promise(resolve => {
+          chrome.storage.local.get(null, resolve);
+        });
+        log('Full storage dump:', 'info');
+        log(`<pre>${JSON.stringify(result, null, 2)}</pre>`, 'info');
+      }
+    }
+
+    async function saveTestState() {
+      const testState = {
+        version: 1,
+        year: "2025",
+        mode: "hitters",
+        rangeEnabled: false,
+        rangeStart: "",
+        rangeEnd: "",
+        modes: {
+          hitters: {
+            savedPlayers: [
+              { player_id: 1, name: "Test Player 1", team: "LAD" },
+              { player_id: 2, name: "Test Player 2", team: "NYY" }
+            ],
+            activePlayerId: 1,
+            activeCompareIds: [],
+            selectedStatKeys: ["OPS", "wRC+", "ISO", "Hard%"]
+          },
+          pitchers: {
+            savedPlayers: [
+              { player_id: 3, name: "Test Pitcher 1", team: "BOS" }
+            ],
+            activePlayerId: 3,
+            activeCompareIds: [],
+            selectedStatKeys: ["ERA", "WHIP"]
+          }
+        }
+      };
+
+      return new Promise((resolve, reject) => {
+        chrome.storage.local.set({ [STORAGE_KEY]: testState }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            log('Test state saved successfully', 'success');
+            resolve();
+          }
+        });
+      });
+    }
+
+    async function loadTestState() {
+      return new Promise((resolve, reject) => {
+        chrome.storage.local.get(STORAGE_KEY, (result) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            const payload = result ? result[STORAGE_KEY] : null;
+            log(`Test state loaded: ${payload ? 'SUCCESS' : 'NULL'}`, payload ? 'success' : 'warn');
+            resolve(payload);
+          }
+        });
+      });
+    }
+
+    async function runFullTest() {
+      resultsDiv.innerHTML = '';
+      logDiv.innerHTML = '';
+      log('Starting automated persistence test...', 'info');
+
+      try {
+        // Test 1: Clear and save
+        addResult('Test 1: Clear storage and save test state', 'info');
+        clearStorage();
+        await sleep(500);
+        await saveTestState();
+        await sleep(500);
+
+        // Test 2: Load and verify
+        addResult('Test 2: Load saved state and verify', 'info');
+        const loadedState = await loadTestState();
+        
+        if (!loadedState) {
+          addResult('❌ FAIL: State not found after save', 'fail');
+          return;
+        }
+
+        // Verify hitters
+        if (loadedState.modes?.hitters?.savedPlayers?.length === 2) {
+          addResult('✓ PASS: Hitters saved players persisted (2 found)', 'pass');
+        } else {
+          addResult(`❌ FAIL: Hitters saved players mismatch (expected 2, got ${loadedState.modes?.hitters?.savedPlayers?.length || 0})`, 'fail');
+        }
+
+        if (loadedState.modes?.hitters?.selectedStatKeys?.length === 4) {
+          addResult('✓ PASS: Hitters stats persisted (4 found)', 'pass');
+        } else {
+          addResult(`❌ FAIL: Hitters stats mismatch (expected 4, got ${loadedState.modes?.hitters?.selectedStatKeys?.length || 0})`, 'fail');
+        }
+
+        if (loadedState.modes?.hitters?.activePlayerId === 1) {
+          addResult('✓ PASS: Hitters active player ID persisted', 'pass');
+        } else {
+          addResult(`❌ FAIL: Hitters active player ID mismatch (expected 1, got ${loadedState.modes?.hitters?.activePlayerId})`, 'fail');
+        }
+
+        // Verify pitchers
+        if (loadedState.modes?.pitchers?.savedPlayers?.length === 1) {
+          addResult('✓ PASS: Pitchers saved players persisted (1 found)', 'pass');
+        } else {
+          addResult(`❌ FAIL: Pitchers saved players mismatch (expected 1, got ${loadedState.modes?.pitchers?.savedPlayers?.length || 0})`, 'fail');
+        }
+
+        if (loadedState.modes?.pitchers?.selectedStatKeys?.length === 2) {
+          addResult('✓ PASS: Pitchers stats persisted (2 found)', 'pass');
+        } else {
+          addResult(`❌ FAIL: Pitchers stats mismatch (expected 2, got ${loadedState.modes?.pitchers?.selectedStatKeys?.length || 0})`, 'fail');
+        }
+
+        // Verify global settings
+        if (loadedState.year === "2025") {
+          addResult('✓ PASS: Year persisted', 'pass');
+        } else {
+          addResult(`❌ FAIL: Year mismatch (expected 2025, got ${loadedState.year})`, 'fail');
+        }
+
+        if (loadedState.mode === "hitters") {
+          addResult('✓ PASS: Mode persisted', 'pass');
+        } else {
+          addResult(`❌ FAIL: Mode mismatch (expected hitters, got ${loadedState.mode})`, 'fail');
+        }
+
+        // Test 3: Simulate popup close/reopen
+        addResult('Test 3: Simulate popup close/reopen cycle', 'info');
+        await sleep(1000);
+        
+        const reloadedState = await loadTestState();
+        if (reloadedState && JSON.stringify(reloadedState) === JSON.stringify(loadedState)) {
+          addResult('✓ PASS: State identical after reload', 'pass');
+        } else if (reloadedState) {
+          addResult('⚠ WARNING: State changed after reload', 'warning');
+          log('First state: ' + JSON.stringify(loadedState), 'warn');
+          log('Second state: ' + JSON.stringify(reloadedState), 'warn');
+        } else {
+          addResult('❌ FAIL: State lost after reload', 'fail');
+        }
+
+        // Test 4: Multiple saves
+        addResult('Test 4: Multiple save operations', 'info');
+        await saveTestState();
+        await sleep(500);
+        await saveTestState();
+        await sleep(500);
+        
+        const finalState = await loadTestState();
+        if (finalState) {
+          addResult('✓ PASS: Multiple saves successful', 'pass');
+        } else {
+          addResult('❌ FAIL: State lost after multiple saves', 'fail');
+        }
+
+        addResult('=== ALL TESTS COMPLETE ===', 'info');
+        log('Test sequence completed', 'success');
+
+      } catch (error) {
+        addResult(`❌ FATAL ERROR: ${error.message}`, 'fail');
+        log(error.stack, 'error');
+      }
+    }
+
+    // Auto-run on load
+    window.addEventListener('load', () => {
+      log('Test page loaded. Click "Run Full Test" to begin.', 'info');
+    });
+  </script>
+</body>
+</html>

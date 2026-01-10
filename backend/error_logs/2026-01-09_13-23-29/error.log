@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus/request_decorator.py", line 111, in run_task
+    result = func(reqs, data)
+TypeError: scrape_player_fwar_task() missing 1 required positional argument: 'player_name'

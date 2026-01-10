@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persistence Test - MLB Stats Extension</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; }
+    h2 { color: #555; margin-top: 0; }
+    .step {
+      background: #fff8dc;
+      border-left: 4px solid #ffd700;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .step-title {
+      font-weight: bold;
+      color: #8b4500;
+      margin-bottom: 8px;
+    }
+    .checkbox-list {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .checkbox-item {
+      margin: 5px 0;
+    }
+    .success {
+      background: #e8f5e9;
+      border: 2px solid #4caf50;
+      padding: 15px;
+      border-radius: 4px;
+      color: #2e7d32;
+    }
+    .failure {
+      background: #ffebee;
+      border: 2px solid #f44336;
+      padding: 15px;
+      border-radius: 4px;
+      color: #c62828;
+    }
+    .storage-data {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 10px;
+    }
+    button {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #1565c0;
+    }
+    .warning {
+      color: #f57c00;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Persistence Test - MLB Stats Extension</h1>
+  
+  <div class="test-section">
+    <h2>Test Instructions</h2>
+    <p>This test will verify that your extension correctly saves and restores:</p>
+    <ul>
+      <li>Saved players</li>
+      <li>Selected statistics</li>
+      <li>Year selection</li>
+      <li>Mode selection (hitters/pitchers)</li>
+      <li>Date range settings</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 1: Initial Setup</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Open the MLB Stats extension popup</li>
+        <li>Verify the browser console is open (F12 or Cmd+Option+I)</li>
+        <li>Look for <code>[Init]</code> messages in the console</li>
+        <li>The extension should load with default settings</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 2: Add Players</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Make sure Mode is set to "Hitters"</li>
+        <li>In the Search box, type "Shohei Ohtani"</li>
+        <li>Click "Add" button next to the result</li>
+        <li>Search for "Mookie Betts" and click "Add"</li>
+        <li>Search for "Freddie Freeman" and click "Add"</li>
+        <li>You should now see 3 players in the "Saved players" section</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 3: Select Statistics</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Click the "Stats" tab</li>
+        <li>Select the following statistics (check the boxes):</li>
+        <div class="checkbox-list">
+          <div class="checkbox-item">☐ OPS</div>
+          <div class="checkbox-item">☐ wRC+</div>
+          <div class="checkbox-item">☐ ISO</div>
+          <div class="checkbox-item">☐ Hard%</div>
+          <div class="checkbox-item">☐ Barrel%</div>
+        </div>
+        <li>You should see "Selected stats: 5 / 10" at the top</li>
+        <li>Go back to the "Players" tab</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 4: Verify Persistence - Part 1</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Click anywhere outside the popup to close it</li>
+        <li>Wait 2-3 seconds (to allow the debounced save to complete)</li>
+        <li>Open the extension popup again</li>
+        <li>Check the browser console for <code>[Persistence]</code> messages</li>
+      </ol>
+    </div>
+    <div class="checkbox-list">
+      <div class="checkbox-item">☐ Console shows: "[Persistence] Loading persisted state..."</div>
+      <div class="checkbox-item">☐ Console shows: "[Persistence] Restored year: 2025"</div>
+      <div class="checkbox-item">☐ Console shows: "[Persistence] Restored mode: hitters"</div>
+      <div class="checkbox-item">☐ Console shows: "[Persistence] State restored successfully"</div>
+    </div>
+    <div class="checkbox-list">
+      <div class="checkbox-item">☐ All 3 players are still saved</div>
+      <div class="checkbox-item">☐ Selected player is still chosen</div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 5: Change Settings</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Change Year from 2025 to 2024</li>
+        <li>Search for "Aaron Judge" and click "Add"</li>
+        <li>Switch Mode to "Pitchers"</li>
+        <li>Search for "Gerrit Cole" and click "Add"</li>
+        <li>Switch Mode back to "Hitters"</li>
+        <li>You should now have 4 hitters saved</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 6: Verify Persistence - Part 2</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Close the popup</li>
+        <li>Wait 2-3 seconds</li>
+        <li>Reopen the extension</li>
+      </ol>
+    </div>
+    <div class="checkbox-list">
+      <div class="checkbox-item">☐ Year is still set to 2024</div>
+      <div class="checkbox-item">☐ Mode is still set to "Hitters"</div>
+      <div class="checkbox-item">☐ All 4 hitters are still saved</div>
+      <div class="checkbox-item">☐ The 5 statistics are still selected</div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Step 7: Test Cross-Mode Persistence</h2>
+    <div class="step">
+      <div class="step-title">Actions to perform:</div>
+      <ol>
+        <li>Switch Mode to "Pitchers"</li>
+        <li>Verify Gerrit Cole is still saved</li>
+        <li>Search for "Spencer Strasburg" and click "Add"</li>
+        <li>Select a few pitching statistics</li>
+        <li>Switch back to "Hitters"</li>
+        <li>Verify all 4 hitters are still there</li>
+        <li>Close and reopen the extension</li>
+      </ol>
+    </div>
+    <div class="checkbox-list">
+      <div class="checkbox-item">☐ Both hitters (4) and pitchers (2) are saved</div>
+      <div class="checkbox-item">☐ Hitter stats selection is preserved</div>
+      <div class="checkbox-item">☐ Pitcher stats selection is preserved</div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Debug Tools</h2>
+    <button onclick="checkStorage()">Check Chrome Storage</button>
+    <button onclick="clearStorage()">Clear Chrome Storage</button>
+    <div id="storage-output"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Expected Results</h2>
+    <div class="success">
+      <strong>✓ PASS:</strong> All selections persist across popup close/reopen
+    </div>
+    <div class="failure">
+      <strong>✗ FAIL:</strong> Any selection is lost when popup closes
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Troubleshooting</h2>
+    <div class="step">
+      <div class="step-title">If persistence is not working:</div>
+      <ol>
+        <li>Check the browser console for <code>[Persistence]</code> errors</li>
+        <li>Verify storage permissions are in manifest.json</li>
+        <li>Reload the extension in chrome://extensions</li>
+        <li>Click "Clear Chrome Storage" above and restart the test</li>
+        <li>Look for console errors during save/load operations</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    function checkStorage() {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['mlb_stats_state_v1'], (result) => {
+          const output = document.getElementById('storage-output');
+          if (chrome.runtime.lastError) {
+            output.innerHTML = '<div class="failure">Error reading storage: ' + chrome.runtime.lastError.message + '</div>';
+          } else {
+            const data = result['mlb_stats_state_v1'];
+            if (data) {
+              output.innerHTML = '<div class="success">✓ Storage found!</div>' +
+                '<div class="storage-data">' + JSON.stringify(data, null, 2) + '</div>';
+            } else {
+              output.innerHTML = '<div class="failure">✗ No storage data found</div>';
+            }
+          }
+        });
+      } else {
+        document.getElementById('storage-output').innerHTML = 
+          '<div class="failure">chrome.storage API not available. Open this in a real browser extension context.</div>';
+      }
+    }
+
+    function clearStorage() {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.clear(() => {
+          const output = document.getElementById('storage-output');
+          if (chrome.runtime.lastError) {
+            output.innerHTML = '<div class="failure">Error clearing storage: ' + chrome.runtime.lastError.message + '</div>';
+          } else {
+            output.innerHTML = '<div class="success">✓ Storage cleared successfully</div>';
+          }
+        });
+      } else {
+        document.getElementById('storage-output').innerHTML = 
+          '<div class="failure">chrome.storage API not available</div>';
+      }
+    }
+  </script>
+</body>
+</html>
