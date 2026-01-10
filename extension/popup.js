@@ -1310,18 +1310,30 @@ const renderLeaderboard = (statKey) => {
       return false;
     }
     
-    // For hitters: must have minimum plate appearances (qual=1 in pybaseball)
+    // For hitters: must have meaningful MLB experience (100+ plate appearances)
+    // This aligns with typical MLB qualification standards
     if (activeMode === "hitters") {
       const pa = player.pa;
-      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 1) {
+      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 100) {
+        return false;
+      }
+      // Also check games played for additional filtering
+      const g = player.g;
+      if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
         return false;
       }
     }
     
-    // For pitchers: must have minimum innings pitched (qual=1 in pybaseball)
+    // For pitchers: must have meaningful MLB experience (40+ innings pitched)
+    // This aligns with typical MLB qualification standards
     if (activeMode === "pitchers") {
       const ip = player.ip;
-      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 1) {
+      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 40) {
+        return false;
+      }
+      // Also check games played for additional filtering
+      const g = player.g;
+      if (g === null || g === undefined || Number.isNaN(g) || g < 5) {
         return false;
       }
     }
