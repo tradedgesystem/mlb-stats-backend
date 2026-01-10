@@ -88,6 +88,26 @@ const CONFIG_FILES = {
 const STORAGE_KEY = "mlb_stats_state_v1";
 let persistTimer = null;
 
+const persistNow = () => {
+  if (!chrome?.storage?.local) {
+    console.error("[Persistence] chrome.storage.local not available");
+    return;
+  }
+  try {
+    const state = serializeState();
+    console.log("[Persistence] Saving state immediately:", state);
+    chrome.storage.local.set({ [STORAGE_KEY]: state }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("[Persistence] Immediate save failed:", chrome.runtime.lastError);
+      } else {
+        console.log("[Persistence] State saved successfully (immediate)");
+      }
+    });
+  } catch (error) {
+    console.error("[Persistence] Error saving state immediately:", error);
+  }
+};
+
 const getState = () => stateByMode[activeMode];
 const getActiveDataset = () =>
   activeMode === "pitchers" ? activePitchers : activePlayers;
@@ -115,14 +135,27 @@ const serializeState = () => ({
 
 const schedulePersist = () => {
   if (!chrome?.storage?.local) {
+    console.error("[Persistence] chrome.storage.local not available");
     return;
   }
   if (persistTimer) {
     clearTimeout(persistTimer);
   }
   persistTimer = setTimeout(() => {
-    chrome.storage.local.set({ [STORAGE_KEY]: serializeState() });
-  }, 200);
+    try {
+      const state = serializeState();
+      console.log("[Persistence] Saving state (debounced):", state);
+      chrome.storage.local.set({ [STORAGE_KEY]: state }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("[Persistence] Debounced save failed:", chrome.runtime.lastError);
+        } else {
+          console.log("[Persistence] State saved successfully (debounced)");
+        }
+      });
+    } catch (error) {
+      console.error("[Persistence] Error saving state (debounced):", error);
+    }
+  }, 50);
 };
 
 const restoreModeState = (mode, saved) => {
@@ -156,33 +189,57 @@ const restoreModeState = (mode, saved) => {
 
 const loadPersistedState = async () => {
   if (!chrome?.storage?.local) {
+    console.error("[Persistence] chrome.storage.local not available on load");
     return;
   }
-  const stored = await new Promise((resolve) => {
-    chrome.storage.local.get(STORAGE_KEY, resolve);
-  });
-  const payload = stored ? stored[STORAGE_KEY] : null;
-  if (!payload || payload.version !== 1) {
-    return;
+  try {
+    console.log("[Persistence] Loading persisted state...");
+    const stored = await new Promise((resolve, reject) => {
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+    const payload = stored ? stored[STORAGE_KEY] : null;
+    console.log("[Persistence] Loaded payload:", payload);
+    if (!payload || payload.version !== 1) {
+      console.log("[Persistence] No valid payload found, starting fresh");
+      return;
+    }
+    if (payload.year && yearSelect) {
+      yearSelect.value = payload.year;
+      console.log("[Persistence] Restored year:", payload.year);
+    }
+    if (payload.mode && modeSelect) {
+      modeSelect.value = payload.mode;
+      activeMode = payload.mode;
+      console.log("[Persistence] Restored mode:", payload.mode);
+    }
+    if (rangeEnabledInput && typeof payload.rangeEnabled === "boolean") {
+      rangeEnabledInput.checked = payload.rangeEnabled;
+      console.log("[Persistence] Restored range enabled:", payload.rangeEnabled);
+    }
+    if (rangeStartInput && typeof payload.rangeStart === "string") {
+      rangeStartInput.value = payload.rangeStart;
+      console.log("[Persistence] Restored range start:", payload.rangeStart);
+    }
+    if (rangeEndInput && typeof payload.rangeEnd === "string") {
+      rangeEndInput.value = payload.rangeEnd;
+      console.log("[Persistence] Restored range end:", payload.rangeEnd);
+    }
+    restoreModeState("hitters", payload.modes?.hitters);
+    restoreModeState("pitchers", payload.modes?.pitchers);
+    console.log("[Persistence] State restored successfully");
+    console.log("[Persistence] Hitters saved players:", stateByMode.hitters.savedPlayers);
+    console.log("[Persistence] Pitchers saved players:", stateByMode.pitchers.savedPlayers);
+    console.log("[Persistence] Hitters selected stats:", Array.from(stateByMode.hitters.selectedStatKeys));
+    console.log("[Persistence] Pitchers selected stats:", Array.from(stateByMode.pitchers.selectedStatKeys));
+  } catch (error) {
+    console.error("[Persistence] Error loading state:", error);
   }
-  if (payload.year && yearSelect) {
-    yearSelect.value = payload.year;
-  }
-  if (payload.mode && modeSelect) {
-    modeSelect.value = payload.mode;
-    activeMode = payload.mode;
-  }
-  if (rangeEnabledInput && typeof payload.rangeEnabled === "boolean") {
-    rangeEnabledInput.checked = payload.rangeEnabled;
-  }
-  if (rangeStartInput && typeof payload.rangeStart === "string") {
-    rangeStartInput.value = payload.rangeStart;
-  }
-  if (rangeEndInput && typeof payload.rangeEnd === "string") {
-    rangeEndInput.value = payload.rangeEnd;
-  }
-  restoreModeState("hitters", payload.modes?.hitters);
-  restoreModeState("pitchers", payload.modes?.pitchers);
 };
 
 const getSelectedKeys = () => {
@@ -689,7 +746,7 @@ const addPlayerToMode = (mode, player) => {
   if (!state.activePlayerId) {
     state.activePlayerId = player.player_id;
   }
-  schedulePersist();
+  persistNow();
 };
 
 const renderSelectedList = (container) => {
@@ -733,7 +790,7 @@ const renderSelectedList = (container) => {
       }
       updatePlayerLimit();
       renderSelected();
-      schedulePersist();
+      persistNow();
     });
 
     const removeButton = document.createElement("button");
@@ -768,7 +825,7 @@ const removePlayer = (playerId) => {
   activeCompareIds.delete(playerId);
   renderSelected();
   updatePlayerLimit();
-  schedulePersist();
+  persistNow();
 };
 
 const clearSavedPlayers = () => {
@@ -778,7 +835,7 @@ const clearSavedPlayers = () => {
   getState().activePlayerId = null;
   renderSelected();
   updatePlayerLimit();
-  schedulePersist();
+  persistNow();
 };
 
 const addPlayer = (player) => {
@@ -1019,14 +1076,11 @@ const renderStatsConfig = () => {
       checkbox.type = "checkbox";
       checkbox.value = item.key;
       checkbox.disabled = !isAvailable;
+      // Only use defaults if we have NO selection at all
+      // If we have selections, always respect them
       checkbox.checked = isAvailable
-        ? hasSelection
-          ? selectedStatKeys.has(item.key)
-          : Boolean(item.default)
+        ? selectedStatKeys.has(item.key)
         : false;
-      if (checkbox.checked) {
-        selectedStatKeys.add(item.key);
-      }
       checkbox.addEventListener("change", () => {
         if (!isAvailable) {
           return;
@@ -1053,7 +1107,7 @@ const renderStatsConfig = () => {
           setRangeWarning("");
         }
         updateStatsLimit();
-        schedulePersist();
+        persistNow();
       });
 
       const textWrap = document.createElement("span");
@@ -1308,18 +1362,17 @@ const applyMode = async (mode) => {
   renderSelected();
   clearOutputs();
   updateMeta();
-  schedulePersist();
+  persistNow();
 };
 
 yearSelect.addEventListener("change", async () => {
-  Object.values(stateByMode).forEach((state) => resetModeSelections(state));
-  renderSelected();
   clearOutputs();
   await loadSnapshot(yearSelect.value);
   await loadPitcherSnapshot(yearSelect.value);
+  renderSelected();
   updatePlayerLimit();
   updateMeta();
-  schedulePersist();
+  persistNow();
 });
 
 tabPlayers.addEventListener("click", () => setActiveTab("players"));
@@ -1343,8 +1396,8 @@ if (rangeEnabledInput) {
   rangeEnabledInput.addEventListener("change", () => {
     enforceRangeSelections();
     updateStatsLimit();
-    updateRangeTagsVisibility();
-    schedulePersist();
+  updateRangeTagsVisibility();
+  persistNow();
   });
 }
 
@@ -1363,13 +1416,41 @@ if (modeSelect) {
 }
 
 const init = async () => {
+  console.log("[Init] Extension initializing...");
+  
+  // Step 1: Load persisted state first
   await loadPersistedState();
+  console.log("[Init] Persisted state loaded");
+  
+  // Step 2: Clear any stale displays
   renderResults([]);
   renderSelected();
   updatePlayerLimit();
+  
+  // Step 3: Load snapshots for the current year
+  console.log("[Init] Loading snapshot for year:", yearSelect.value);
   await loadSnapshot(yearSelect.value);
   await loadPitcherSnapshot(yearSelect.value);
+  console.log("[Init] Snapshots loaded");
+  
+  // Step 4: Apply the active mode (this will trigger rendering)
+  console.log("[Init] Applying mode:", activeMode);
   await applyMode(activeMode);
+  
+  // Step 5: Final verification
+  console.log("[Init] Initialization complete");
+  console.log("[Init] After init - Hitters saved players:", stateByMode.hitters.savedPlayers.length);
+  console.log("[Init] After init - Pitchers saved players:", stateByMode.pitchers.savedPlayers.length);
+  console.log("[Init] After init - Hitters selected stats:", Array.from(stateByMode.hitters.selectedStatKeys));
+  console.log("[Init] After init - Pitchers selected stats:", Array.from(stateByMode.pitchers.selectedStatKeys));
+  
+  // Verify restoration
+  if (stateByMode.hitters.savedPlayers.length > 0 || stateByMode.pitchers.savedPlayers.length > 0) {
+    console.log("[Init] ✓ Players successfully restored from persistence");
+  } else {
+    console.log("[Init] ℹ No saved players found (fresh start)");
+  }
 };
 
 init();
+
