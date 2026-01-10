@@ -1310,6 +1310,11 @@ const renderLeaderboard = (statKey) => {
       return false;
     }
     
+    // Check for explicit qualification flag if available in data
+    if (player.qual === 0) {
+      return false;
+    }
+    
     // For hitters: must have meaningful MLB experience (100+ plate appearances)
     // This aligns with typical MLB qualification standards
     if (activeMode === "hitters") {
@@ -1320,6 +1325,11 @@ const renderLeaderboard = (statKey) => {
       // Also check games played for additional filtering
       const g = player.g;
       if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
+        return false;
+      }
+      // Additional quality filter: must have at least 30 hits (removes players with poor performance)
+      const h = player.h;
+      if (h === null || h === undefined || Number.isNaN(h) || h < 30) {
         return false;
       }
     }
@@ -1334,6 +1344,11 @@ const renderLeaderboard = (statKey) => {
       // Also check games played for additional filtering
       const g = player.g;
       if (g === null || g === undefined || Number.isNaN(g) || g < 5) {
+        return false;
+      }
+      // Additional quality filter: must have at least 15 strikeouts (removes marginal pitchers)
+      const so = player.so;
+      if (so === null || so === undefined || Number.isNaN(so) || so < 15) {
         return false;
       }
     }
