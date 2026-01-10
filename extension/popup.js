@@ -1310,54 +1310,36 @@ const renderLeaderboard = (statKey) => {
       return false;
     }
     
-    // Check for explicit qualification flag - must be explicitly 1
-    // If qual is undefined, we can't rely on it, so we need other strong filters
-    if (player.qual === 0 || player.qual === false || player.qual === null || player.qual === undefined) {
-      // If qual is not explicitly 1, require even stricter thresholds
+    // Check qualification flag if available - must be 1
+    // If qual is not defined, we'll use threshold filters instead
+    if (player.qual === 0 || player.qual === false) {
+      return false;
     }
     
-    // For hitters: must have meaningful MLB experience (300+ plate appearances)
-    // Very high threshold to ensure only genuine MLB players
+    // For hitters: require meaningful MLB experience (150+ plate appearances)
+    // This threshold filters out minor leaguers while keeping regular players
     if (activeMode === "hitters") {
       const pa = player.pa;
-      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 300) {
+      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 150) {
         return false;
       }
-      // Also check games played for additional filtering
+      // Check games played
       const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 30) {
-        return false;
-      }
-      // Additional quality filter: must have at least 75 hits
-      const h = player.h;
-      if (h === null || h === undefined || Number.isNaN(h) || h < 75) {
-        return false;
-      }
-      // Ensure qual is explicitly 1 if available
-      if (player.qual !== 1) {
+      if (g === null || g === undefined || Number.isNaN(g) || g < 20) {
         return false;
       }
     }
     
-    // For pitchers: must have meaningful MLB experience (100+ innings pitched)
-    // Very high threshold to ensure only genuine MLB players
+    // For pitchers: require meaningful MLB experience (50+ innings pitched)
+    // This threshold filters out minor leaguers while keeping regular pitchers
     if (activeMode === "pitchers") {
       const ip = player.ip;
-      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 100) {
+      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 50) {
         return false;
       }
-      // Also check games played for additional filtering
+      // Check games played
       const g = player.g;
-      if (g === null || g === undefined || Number.isNaN(g) || g < 15) {
-        return false;
-      }
-      // Additional quality filter: must have at least 40 strikeouts
-      const so = player.so;
-      if (so === null || so === undefined || Number.isNaN(so) || so < 40) {
-        return false;
-      }
-      // Ensure qual is explicitly 1 if available
-      if (player.qual !== 1) {
+      if (g === null || g === undefined || Number.isNaN(g) || g < 10) {
         return false;
       }
     }
