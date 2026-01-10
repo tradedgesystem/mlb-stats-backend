@@ -1297,14 +1297,40 @@ const renderLeaderboard = (statKey) => {
     return;
   }
 
-  // Filter players who have valid data for this stat
+  // Filter MLB qualified players who have valid data for this stat
   const validPlayers = dataset.filter((player) => {
+    // Must have valid stat value
     const value = player[statKey];
-    return value !== null && value !== undefined && !Number.isNaN(value);
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return false;
+    }
+    
+    // Must have a team (filters out minor leaguers without MLB teams)
+    if (!player.team || player.team.trim() === "") {
+      return false;
+    }
+    
+    // For hitters: must have minimum plate appearances (qual=1 in pybaseball)
+    if (activeMode === "hitters") {
+      const pa = player.pa;
+      if (pa === null || pa === undefined || Number.isNaN(pa) || pa < 1) {
+        return false;
+      }
+    }
+    
+    // For pitchers: must have minimum innings pitched (qual=1 in pybaseball)
+    if (activeMode === "pitchers") {
+      const ip = player.ip;
+      if (ip === null || ip === undefined || Number.isNaN(ip) || ip < 1) {
+        return false;
+      }
+    }
+    
+    return true;
   });
 
   if (!validPlayers.length) {
-    renderMessage("No players have data for this stat.", leaderboardOutput);
+    renderMessage("No qualified MLB players have data for this stat.", leaderboardOutput);
     return;
   }
 
