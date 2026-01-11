@@ -49,6 +49,13 @@ const statSearchInput = document.getElementById("stat-search");
 const statSearchResults = document.getElementById("stat-search-results");
 const leaderboardOutput = document.getElementById("leaderboard-output");
 const leaderboardMeta = document.getElementById("leaderboard-meta");
+const leaderboardRoleWrap = document.getElementById("leaderboard-role-wrap");
+const leaderboardRoleStarters = document.getElementById(
+  "leaderboard-role-starters"
+);
+const leaderboardRoleRelievers = document.getElementById(
+  "leaderboard-role-relievers"
+);
 
 const stateByMode = {
   hitters: {
@@ -78,9 +85,18 @@ let activePitchers = [];
 const activeMetaByMode = { hitters: null, pitchers: null };
 let activeTeam = null;
 let activeLeaderboardStat = null;
+const PITCHER_ROLE_STARTERS = "starters";
+const PITCHER_ROLE_RELIEVERS = "relievers";
+const DEFAULT_PITCHER_ROLE = PITCHER_ROLE_STARTERS;
 const leaderboardStateByMode = {
-  hitters: { statKey: null, meta: "", output: "", year: null },
-  pitchers: { statKey: null, meta: "", output: "", year: null },
+  hitters: { statKey: null, meta: "", output: "", year: null, pitcherRole: null },
+  pitchers: {
+    statKey: null,
+    meta: "",
+    output: "",
+    year: null,
+    pitcherRole: DEFAULT_PITCHER_ROLE,
+  },
 };
 const SNAPSHOT_BASE_URL =
   "https://cdn.jsdelivr.net/gh/tradedgesystem/mlb-stats-backend@main/extension/snapshots";
@@ -198,10 +214,10 @@ const restoreModeState = (mode, saved) => {
 
 const normalizeLeaderboardState = (saved) => {
   if (!saved) {
-    return { statKey: null, meta: "", output: "", year: null };
+    return { statKey: null, meta: "", output: "", year: null, pitcherRole: null };
   }
   if (typeof saved === "string") {
-    return { statKey: saved, meta: "", output: "", year: null };
+    return { statKey: saved, meta: "", output: "", year: null, pitcherRole: null };
   }
   if (typeof saved === "object") {
     return {
@@ -209,10 +225,25 @@ const normalizeLeaderboardState = (saved) => {
       meta: typeof saved.meta === "string" ? saved.meta : "",
       output: typeof saved.output === "string" ? saved.output : "",
       year: typeof saved.year === "string" ? saved.year : null,
+      pitcherRole:
+        typeof saved.pitcherRole === "string" ? saved.pitcherRole : null,
     };
   }
-  return { statKey: null, meta: "", output: "", year: null };
+  return { statKey: null, meta: "", output: "", year: null, pitcherRole: null };
 };
+
+const normalizePitcherRole = (role) => {
+  if (role === PITCHER_ROLE_STARTERS || role === PITCHER_ROLE_RELIEVERS) {
+    return role;
+  }
+  return DEFAULT_PITCHER_ROLE;
+};
+
+const getActivePitcherRole = () =>
+  normalizePitcherRole(leaderboardStateByMode.pitchers.pitcherRole);
+
+const getActivePitcherRoleLabel = () =>
+  getActivePitcherRole() === PITCHER_ROLE_STARTERS ? "Starters" : "Relievers";
 
 const loadPersistedState = async () => {
   // Check if we're in a Chrome extension context
@@ -257,6 +288,9 @@ const loadPersistedState = async () => {
     );
     leaderboardStateByMode.pitchers = normalizeLeaderboardState(
       savedLeaderboard.pitchers
+    );
+    leaderboardStateByMode.pitchers.pitcherRole = normalizePitcherRole(
+      leaderboardStateByMode.pitchers.pitcherRole
     );
     activeLeaderboardStat = leaderboardStateByMode[activeMode].statKey || null;
   } catch (error) {
@@ -1269,6 +1303,74 @@ const renderStatSearchResults = (matches) => {
   });
 };
 
+const updateLeaderboardRoleUI = () => {
+  if (!leaderboardRoleWrap) {
+    return;
+  }
+  const showRoles = activeMode === "pitchers";
+  leaderboardRoleWrap.classList.toggle("hidden", !showRoles);
+  if (!showRoles) {
+    return;
+  }
+  const role = getActivePitcherRole();
+  if (leaderboardRoleStarters) {
+    leaderboardRoleStarters.classList.toggle(
+      "selected",
+      role === PITCHER_ROLE_STARTERS
+    );
+  }
+  if (leaderboardRoleRelievers) {
+    leaderboardRoleRelievers.classList.toggle(
+      "selected",
+      role === PITCHER_ROLE_RELIEVERS
+    );
+  }
+};
+
+const updateLeaderboardMeta = (statConfig) => {
+  if (!leaderboardMeta || !statConfig) {
+    return;
+  }
+  if (activeMode === "pitchers") {
+    leaderboardMeta.textContent = `Showing top 25 ${getActivePitcherRoleLabel()} for ${statConfig.label}`;
+    return;
+  }
+  leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
+};
+
+const setPitcherLeaderboardRole = (role) => {
+  leaderboardStateByMode.pitchers = {
+    ...leaderboardStateByMode.pitchers,
+    pitcherRole: normalizePitcherRole(role),
+  };
+  updateLeaderboardRoleUI();
+  if (activeMode !== "pitchers") {
+    persistNow();
+    return;
+  }
+  if (activeLeaderboardStat) {
+    renderLeaderboard(activeLeaderboardStat);
+    return;
+  }
+  persistNow();
+};
+
+const getPitcherRole = (player) => {
+  const g = typeof player.g === "number" && !Number.isNaN(player.g) ? player.g : null;
+  const gs = typeof player.gs === "number" && !Number.isNaN(player.gs) ? player.gs : null;
+  if (g && gs !== null) {
+    return gs / g >= 0.5 ? PITCHER_ROLE_STARTERS : PITCHER_ROLE_RELIEVERS;
+  }
+  const ip = typeof player.ip === "number" && !Number.isNaN(player.ip) ? player.ip : null;
+  if (g && ip !== null) {
+    return ip / g >= 3 ? PITCHER_ROLE_STARTERS : PITCHER_ROLE_RELIEVERS;
+  }
+  return null;
+};
+
+const matchesPitcherRole = (player, role) =>
+  getPitcherRole(player) === role;
+
 const selectLeaderboardStat = (statKey) => {
   const { statsByKey } = getState();
   const statConfig = statsByKey.get(statKey);
@@ -1284,10 +1386,7 @@ const selectLeaderboardStat = (statKey) => {
     statKey,
   };
   resetLeaderboardSearch();
-  
-  if (leaderboardMeta) {
-    leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
-  }
+  updateLeaderboardMeta(statConfig);
 
   renderLeaderboard(statKey);
 };
@@ -1313,6 +1412,7 @@ const renderLeaderboard = (statKey) => {
     persistLeaderboardState(statKey);
     return;
   }
+  updateLeaderboardMeta(statConfig);
 
   const hasGames = dataset.some(
     (player) => typeof player.g === "number" && !Number.isNaN(player.g)
@@ -1341,7 +1441,13 @@ const renderLeaderboard = (statKey) => {
     return true;
   });
 
-  const qualifiedPlayers = basePlayers.filter((player) => {
+  const role = activeMode === "pitchers" ? getActivePitcherRole() : null;
+  const rolePlayers =
+    activeMode === "pitchers"
+      ? basePlayers.filter((player) => matchesPitcherRole(player, role))
+      : basePlayers;
+
+  const qualifiedPlayers = rolePlayers.filter((player) => {
     if (activeMode === "hitters") {
       if (hasPa) {
         const pa = player.pa;
@@ -1376,10 +1482,20 @@ const renderLeaderboard = (statKey) => {
   });
 
   const validPlayers =
-    qualifiedPlayers.length >= 25 ? qualifiedPlayers : basePlayers;
+    qualifiedPlayers.length >= 25 ? qualifiedPlayers : rolePlayers;
 
   if (!validPlayers.length) {
-    renderMessage("No qualified MLB players have data for this stat.", leaderboardOutput);
+    if (activeMode === "pitchers") {
+      renderMessage(
+        `No qualified ${getActivePitcherRoleLabel().toLowerCase()} have data for this stat.`,
+        leaderboardOutput
+      );
+    } else {
+      renderMessage(
+        "No qualified MLB players have data for this stat.",
+        leaderboardOutput
+      );
+    }
     persistLeaderboardState(statKey);
     return;
   }
@@ -1445,11 +1561,14 @@ const resetLeaderboardSearch = () => {
 };
 
 const persistLeaderboardState = (statKey) => {
+  const pitcherRole =
+    activeMode === "pitchers" ? getActivePitcherRole() : null;
   leaderboardStateByMode[activeMode] = {
     statKey: statKey || null,
     meta: leaderboardMeta ? leaderboardMeta.textContent : "",
     output: leaderboardOutput ? leaderboardOutput.innerHTML : "",
     year: yearSelect ? yearSelect.value : null,
+    pitcherRole,
   };
   persistNow();
 };
@@ -1465,11 +1584,14 @@ const clearLeaderboardDisplay = () => {
 
 const clearLeaderboardSelection = () => {
   activeLeaderboardStat = null;
+  const pitcherRole =
+    activeMode === "pitchers" ? getActivePitcherRole() : null;
   leaderboardStateByMode[activeMode] = {
     statKey: null,
     meta: "",
     output: "",
     year: yearSelect ? yearSelect.value : null,
+    pitcherRole,
   };
   resetLeaderboardSearch();
   clearLeaderboardDisplay();
@@ -1480,6 +1602,7 @@ const restoreLeaderboardForMode = () => {
   const savedState = leaderboardStateByMode[activeMode];
   activeLeaderboardStat = savedState.statKey || null;
   resetLeaderboardSearch();
+  updateLeaderboardRoleUI();
   if (!activeLeaderboardStat) {
     clearLeaderboardDisplay();
     return;
@@ -1497,9 +1620,7 @@ const restoreLeaderboardForMode = () => {
   } else {
     const { statsByKey } = getState();
     const statConfig = statsByKey.get(activeLeaderboardStat);
-    if (leaderboardMeta && statConfig) {
-      leaderboardMeta.textContent = `Showing top 25 for ${statConfig.label}`;
-    }
+    updateLeaderboardMeta(statConfig);
     renderLeaderboard(activeLeaderboardStat);
   }
 };
@@ -1520,6 +1641,18 @@ if (statSearchInput) {
     if (event.key === "Enter") {
       searchStats();
     }
+  });
+}
+
+if (leaderboardRoleStarters) {
+  leaderboardRoleStarters.addEventListener("click", () => {
+    setPitcherLeaderboardRole(PITCHER_ROLE_STARTERS);
+  });
+}
+
+if (leaderboardRoleRelievers) {
+  leaderboardRoleRelievers.addEventListener("click", () => {
+    setPitcherLeaderboardRole(PITCHER_ROLE_RELIEVERS);
   });
 }
 
@@ -1681,6 +1814,7 @@ const applyMode = async (mode) => {
   updatePlayerLimit();
   renderSelected();
   clearOutputs();
+  updateLeaderboardRoleUI();
   restoreLeaderboardForMode();
   updateMeta();
   persistNow();

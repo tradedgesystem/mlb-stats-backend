@@ -114,6 +114,10 @@
         flex: 1;
       }
 
+      .leaderboard-role-button.selected {
+        background: #ffe4a1;
+      }
+
       button {
         width: 100%;
         padding: 10px 12px;
@@ -240,6 +244,10 @@
       }
 
       .stat-tag.hidden {
+        display: none;
+      }
+
+      .hidden {
         display: none;
       }
 
@@ -394,6 +402,13 @@
       <label for="stat-search">Search for a stat</label>
       <input id="stat-search" type="text" placeholder="Type a stat name (e.g., HR, OPS, AVG)" />
       <div id="stat-search-results" class="list"></div>
+      <div id="leaderboard-role-wrap" class="hidden">
+        <label>Pitcher type</label>
+        <div class="row">
+          <button id="leaderboard-role-starters" class="leaderboard-role-button" type="button">Starters</button>
+          <button id="leaderboard-role-relievers" class="leaderboard-role-button" type="button">Relievers</button>
+        </div>
+      </div>
       <div id="leaderboard-meta" class="meta"></div>
       <div id="leaderboard-output" class="output"></div>
     </div>
