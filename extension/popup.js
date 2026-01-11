@@ -374,25 +374,16 @@ const enforceRangeSelections = () => {
     return;
   }
   const { selectedStatKeys } = getState();
-  const removed = [];
-  Array.from(selectedStatKeys).forEach((key) => {
-    if (!isRangeSupported(key)) {
-      selectedStatKeys.delete(key);
-      removed.push(key);
-      const checkbox = statsEl?.querySelector(
-        `input[type=\"checkbox\"][value=\"${key}\"]`
-      );
-      if (checkbox) {
-        checkbox.checked = false;
-      }
-    }
-  });
-  if (removed.length) {
-    setRangeWarning("Date range supports aggregate stats only. Some were removed.");
-    schedulePersist();
-  } else {
-    setRangeWarning("");
+  const hasSeasonOnly = Array.from(selectedStatKeys).some(
+    (key) => !isRangeSupported(key)
+  );
+  if (hasSeasonOnly) {
+    setRangeWarning(
+      "Range mode is on; season-only stats will still show season totals."
+    );
+    return;
   }
+  setRangeWarning("");
 };
 
 const updatePlayerLimit = () => {
@@ -1108,27 +1099,17 @@ const renderStatsConfig = () => {
           return;
         }
         if (checkbox.checked) {
-          if (isRangeMode() && !item.range_supported) {
-            checkbox.checked = false;
-            setRangeWarning("Stat not available for date ranges.");
-            return;
-          }
           if (selectedStatKeys.size >= MAX_STATS) {
             checkbox.checked = false;
             updateStatsLimit();
             return;
           }
           selectedStatKeys.add(item.key);
-          if (isRangeMode()) {
-            setRangeWarning("");
-          }
         } else {
           selectedStatKeys.delete(item.key);
         }
-        if (!isRangeMode()) {
-          setRangeWarning("");
-        }
         updateStatsLimit();
+        enforceRangeSelections();
         persistNow();
       });
 

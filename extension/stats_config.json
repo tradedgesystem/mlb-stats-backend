@@ -191,6 +191,26 @@
     "available": true
   },
   {
+    "key": "wrc_plus",
+    "label": "wRC+",
+    "group": "Outcome & Slash",
+    "format": "integer",
+    "default": false,
+    "description": "Weighted Runs Created Plus.",
+    "range_supported": false,
+    "available": true
+  },
+  {
+    "key": "war",
+    "label": "fWAR",
+    "group": "Outcome & Slash",
+    "format": "float",
+    "default": false,
+    "description": "FanGraphs WAR.",
+    "range_supported": false,
+    "available": true
+  },
+  {
     "key": "iso",
     "label": "ISO",
     "group": "Outcome & Slash",
@@ -672,7 +692,7 @@
   },
   {
     "key": "swstrpct",
-    "label": "Swinging Strike %",
+    "label": "SwStr%",
     "group": "Plate Discipline",
     "format": "percent",
     "default": false,

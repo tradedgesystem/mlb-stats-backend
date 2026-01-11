@@ -127,6 +127,17 @@
     "lower_is_better": true
   },
   {
+    "key": "fip",
+    "label": "FIP",
+    "group": "Outcomes & Rates",
+    "format": "rate",
+    "default": false,
+    "description": "Fielding Independent Pitching.",
+    "range_supported": false,
+    "available": true,
+    "lower_is_better": true
+  },
+  {
     "key": "whip",
     "label": "WHIP",
     "group": "Outcomes & Rates",
@@ -176,6 +187,16 @@
     "format": "percent",
     "default": false,
     "description": "Strikeout minus walk rate.",
+    "range_supported": false,
+    "available": true
+  },
+  {
+    "key": "war",
+    "label": "fWAR",
+    "group": "Outcomes & Rates",
+    "format": "float",
+    "default": false,
+    "description": "FanGraphs WAR.",
     "range_supported": false,
     "available": true
   },
@@ -614,7 +635,7 @@
   },
   {
     "key": "swstrpct",
-    "label": "Swinging Strike %",
+    "label": "SwStr%",
     "group": "Pitch Results",
     "format": "percent",
     "default": false,

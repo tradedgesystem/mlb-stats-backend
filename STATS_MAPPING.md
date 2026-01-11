@@ -27,6 +27,8 @@ batted-ball or pitch-level data).
 - On-Base Percentage (OBP) -> `obp`
 - Slugging Percentage (SLG) -> `slg`
 - On-Base Plus Slugging (OPS) -> `ops`
+- Weighted Runs Created Plus (wRC+) -> `wrc_plus`
+- FanGraphs WAR (fWAR) -> `war`
 - Isolated Power (ISO) -> `iso`
 - Batting Average on Balls in Play (BABIP) -> `babip`
 
@@ -83,7 +85,7 @@ batted-ball or pitch-level data).
 - Contact Inside Zone % (Z-Contact%) -> `z_contactpct` (available)
 - Whiff % -> `whiffpct` (needs new data)
 - Called Strike % -> `cstrpct` (available)
-- Swinging Strike % -> `swstrpct` (available)
+- SwStr% -> `swstrpct` (available)
 - Foul % -> `foulpct` (needs new data)
 - Foul Tip % -> `foul_tip_pct` (needs new data)
 - In-Play % -> `in_play_pct` (needs new data)
@@ -130,11 +132,13 @@ batted-ball or pitch-level data).
 - Hit Batters (HBP) -> `hbp`
 - Strikeouts (SO) -> `so`
 - Earned Run Average (ERA) -> `era`
+- Fielding Independent Pitching (FIP) -> `fip` (available)
 - Walks plus Hits per Inning Pitched (WHIP) -> `whip`
 - Strikeouts per Nine (K/9) -> `k_9`
 - Walks per Nine (BB/9) -> `bb_9`
 - Home Runs per Nine (HR/9) -> `hr_9`
 - Strikeout Minus Walk Rate (K-BB%) -> `k_bbpct`
+- FanGraphs WAR (fWAR) -> `war` (available)
 
 ### Expected & Contact Allowed
 - Expected ERA (xERA) -> `xera` (available)
@@ -166,7 +170,7 @@ batted-ball or pitch-level data).
 - Called Strikes plus Whiffs (CSW%) -> `cswpct` (available)
 - Strike % -> `strike_pct` (needs new data)
 - Called Strike % -> `cstrpct` (available)
-- Swinging Strike % -> `swstrpct` (available)
+- SwStr% -> `swstrpct` (available)
 - Ground Ball % -> `gbpct` (available)
 - Fly Ball % -> `fbpct` (available)
 - Line Drive % -> `ldpct` (available)
