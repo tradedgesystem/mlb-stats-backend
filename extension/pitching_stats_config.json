@@ -26,7 +26,7 @@
     "format": "float",
     "default": true,
     "description": "Innings pitched.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -36,7 +36,7 @@
     "format": "integer",
     "default": false,
     "description": "Batters faced.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -46,7 +46,7 @@
     "format": "integer",
     "default": false,
     "description": "Hits allowed.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -79,7 +79,7 @@
     "format": "integer",
     "default": false,
     "description": "Home runs allowed.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -90,7 +90,7 @@
     "format": "integer",
     "default": false,
     "description": "Walks allowed.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -101,7 +101,7 @@
     "format": "integer",
     "default": false,
     "description": "Hit batters.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -112,7 +112,7 @@
     "format": "integer",
     "default": true,
     "description": "Strikeouts.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -144,7 +144,7 @@
     "format": "rate",
     "default": true,
     "description": "Walks plus hits per inning pitched.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -155,7 +155,7 @@
     "format": "rate",
     "default": false,
     "description": "Strikeouts per nine innings.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -165,7 +165,7 @@
     "format": "rate",
     "default": false,
     "description": "Walks per nine innings.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -176,7 +176,7 @@
     "format": "rate",
     "default": false,
     "description": "Home runs per nine innings.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true,
     "lower_is_better": true
   },
@@ -187,7 +187,7 @@
     "format": "percent",
     "default": false,
     "description": "Strikeout minus walk rate.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {

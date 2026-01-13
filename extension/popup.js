@@ -80,6 +80,7 @@ const stateByMode = {
 let activeMode = modeSelect ? modeSelect.value : "hitters";
 const snapshotsByYear = new Map();
 const pitcherSnapshotsByYear = new Map();
+const rangeCache = new Map();
 let activePlayers = [];
 let activePitchers = [];
 const activeMetaByMode = { hitters: null, pitchers: null };
@@ -112,6 +113,47 @@ const CONFIG_FILES = {
   hitters: "stats_config.json",
   pitchers: "pitching_stats_config.json",
 };
+const STATCAST_RANGE_KEYS = new Set([
+  "swingpct",
+  "o_swingpct",
+  "z_swingpct",
+  "contactpct",
+  "o_contactpct",
+  "z_contactpct",
+  "whiffpct",
+  "swstrpct",
+  "cstrpct",
+  "foulpct",
+  "foul_tip_pct",
+  "in_play_pct",
+  "take_pct",
+  "take_in_zone_pct",
+  "take_out_zone_pct",
+  "first_pitch_swing_pct",
+  "first_pitch_take_pct",
+  "two_strike_swing_pct",
+  "two_strike_whiff_pct",
+  "ev",
+  "maxev",
+  "median_ev",
+  "ev_p10",
+  "ev_p50",
+  "ev_p90",
+  "hardhitpct",
+  "barrels",
+  "barrelpct",
+  "barrels_per_pa",
+  "barrels_per_bip",
+  "sweet_spot_pct",
+  "la",
+  "la_sd",
+  "under_pct",
+  "flare_burner_pct",
+  "poorly_hit_pct",
+  "poorly_under_pct",
+  "poorly_topped_pct",
+  "poorly_weak_pct",
+]);
 const STORAGE_KEY = "mlb_stats_state_v1";
 let persistTimer = null;
 
@@ -335,6 +377,75 @@ const isRangeSupported = (key) => {
   return Boolean(config && config.range_supported);
 };
 
+const rangeNeedsStatcast = (statKeys) =>
+  activeMode === "hitters" && statKeys.some((key) => STATCAST_RANGE_KEYS.has(key));
+
+const getRangeParams = () => {
+  if (!rangeStartInput || !rangeEndInput) {
+    return null;
+  }
+  const start = rangeStartInput.value;
+  const end = rangeEndInput.value;
+  if (!start || !end) {
+    return null;
+  }
+  return { start, end };
+};
+
+const fetchRangeRows = async (playerIds, statKeys) => {
+  const params = getRangeParams();
+  if (!params) {
+    throw new Error("Select a start and end date for range mode.");
+  }
+  if (!yearSelect) {
+    throw new Error("Select a season year first.");
+  }
+  const includeStatcast = rangeNeedsStatcast(statKeys);
+  const cacheKey = [
+    activeMode,
+    yearSelect.value,
+    params.start,
+    params.end,
+    includeStatcast ? "statcast" : "basic",
+    playerIds.join(","),
+  ].join("|");
+  if (rangeCache.has(cacheKey)) {
+    return rangeCache.get(cacheKey);
+  }
+  const query = new URLSearchParams({
+    year: yearSelect.value,
+    start: params.start,
+    end: params.end,
+    player_ids: playerIds.join(","),
+  });
+  if (activeMode === "hitters") {
+    query.set("include_statcast", includeStatcast ? "true" : "false");
+  }
+  const endpoint = activeMode === "pitchers" ? "pitchers" : "players";
+  const response = await fetch(`${LOCAL_API_BASE}/${endpoint}/range?${query}`);
+  if (!response.ok) {
+    throw new Error(`Range API failed: ${response.status}`);
+  }
+  const data = await response.json();
+  rangeCache.set(cacheKey, data);
+  return data;
+};
+
+const mergeRangeRows = (playerIds, rangeRows, seasonRows) => {
+  const rangeById = new Map(rangeRows.map((row) => [row.player_id, row]));
+  const seasonById = new Map(seasonRows.map((row) => [row.player_id, row]));
+  return playerIds
+    .map((playerId) => {
+      const seasonRow = seasonById.get(playerId);
+      const rangeRow = rangeById.get(playerId);
+      if (!seasonRow && !rangeRow) {
+        return null;
+      }
+      return { ...(seasonRow || {}), ...(rangeRow || {}) };
+    })
+    .filter(Boolean);
+};
+
 const setRangeWarning = (message) => {
   if (!statsRangeWarningEl) {
     return;
@@ -383,6 +494,7 @@ const updateMeta = () => {
 };
 
 const updateStatsLimit = () => {
+  enforceRangeSelections();
   const { selectedStatKeys } = getState();
   const count = selectedStatKeys.size;
   const atLimit = count >= MAX_STATS;
@@ -403,18 +515,23 @@ const enforceRangeSelections = () => {
     setRangeWarning("");
     return;
   }
-  if (activeMode === "pitchers") {
-    setRangeWarning("Date ranges are not available for pitchers yet.");
-    return;
-  }
   const { selectedStatKeys } = getState();
-  const hasSeasonOnly = Array.from(selectedStatKeys).some(
+  const seasonOnlyKeys = Array.from(selectedStatKeys).filter(
     (key) => !isRangeSupported(key)
   );
-  if (hasSeasonOnly) {
-    setRangeWarning(
-      "Range mode is on; season-only stats will still show season totals."
-    );
+  if (seasonOnlyKeys.length) {
+    seasonOnlyKeys.forEach((key) => selectedStatKeys.delete(key));
+    if (statsEl) {
+      seasonOnlyKeys.forEach((key) => {
+        const checkbox = statsEl.querySelector(
+          `input[type="checkbox"][value="${key}"]`
+        );
+        if (checkbox) {
+          checkbox.checked = false;
+        }
+      });
+    }
+    setRangeWarning("Range mode is on; season-only stats were removed.");
     return;
   }
   setRangeWarning("");
@@ -1061,7 +1178,7 @@ const updateRangeTagsVisibility = () => {
 };
 
 const updateRangeAvailability = () => {
-  const disableRange = activeMode === "pitchers";
+  const disableRange = false;
   if (rangeEnabledInput) {
     rangeEnabledInput.disabled = disableRange;
     if (disableRange) {
@@ -1074,9 +1191,7 @@ const updateRangeAvailability = () => {
   if (rangeEndInput) {
     rangeEndInput.disabled = disableRange;
   }
-  if (disableRange) {
-    setRangeWarning("Date ranges are not available for pitchers yet.");
-  } else if (!isRangeMode()) {
+  if (!isRangeMode()) {
     setRangeWarning("");
   }
   updateRangeTagsVisibility();
@@ -1680,13 +1795,25 @@ compareButton.addEventListener("click", async () => {
     }
 
     const dataset = getActiveDataset();
-    const rows = Array.from(activeCompareIds)
-      .map((playerId) => dataset.find((row) => row.player_id === playerId))
-      .filter(Boolean);
+    let rows = [];
+    const playerIds = Array.from(activeCompareIds);
+    if (isRangeMode()) {
+      const rangeRows = await fetchRangeRows(playerIds, statKeys);
+      if (!rangeRows.length) {
+        renderMessage("No range data available for this selection.", outputCompare);
+        return;
+      }
+      rows = mergeRangeRows(playerIds, rangeRows, dataset);
+    } else {
+      rows = playerIds
+        .map((playerId) => dataset.find((row) => row.player_id === playerId))
+        .filter(Boolean);
+    }
     console.log(rows);
     renderAsciiTable(rows, statKeys, outputCompare);
   } catch (error) {
     console.log(error);
+    renderMessage(error.message || "Range request failed.", outputCompare);
   }
 });
 
@@ -1704,7 +1831,16 @@ viewButton.addEventListener("click", async () => {
     }
 
     const dataset = getActiveDataset();
-    const data = dataset.find((row) => row.player_id === activePlayerId);
+    let data = dataset.find((row) => row.player_id === activePlayerId);
+    if (isRangeMode()) {
+      const rangeRows = await fetchRangeRows([activePlayerId], statKeys);
+      if (!rangeRows.length) {
+        renderMessage("No range data available for this player.", outputPlayer);
+        return;
+      }
+      const merged = mergeRangeRows([activePlayerId], rangeRows, dataset);
+      data = merged[0];
+    }
     console.log(data);
     if (!data) {
       renderMessage("Player not found in snapshot.", outputPlayer);
@@ -1713,6 +1849,7 @@ viewButton.addEventListener("click", async () => {
     renderAsciiTable([data], statKeys, outputPlayer);
   } catch (error) {
     console.log(error);
+    renderMessage(error.message || "Range request failed.", outputPlayer);
   }
 });
 
@@ -1853,10 +1990,9 @@ if (clearSavedPlayersCompareButton) {
 
 if (rangeEnabledInput) {
   rangeEnabledInput.addEventListener("change", () => {
-    enforceRangeSelections();
     updateStatsLimit();
-  updateRangeTagsVisibility();
-  persistNow();
+    updateRangeTagsVisibility();
+    persistNow();
   });
 }
 

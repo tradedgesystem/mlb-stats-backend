@@ -20,6 +20,10 @@ curl "http://127.0.0.1:8000/players?year=2025"
 - The API is read-only: no auth, no caching, no writes.
 - Scraping only happens in `backend/ingest.py`.
 - Data is stored in `backend/stats.db`.
+- Optional Statcast enrichment for plate discipline and EV/LA buckets runs when
+  `STATCAST_RANGE_START` and `STATCAST_RANGE_END` are set (YYYY-MM-DD).
+  You can tune `STATCAST_CHUNK_DAYS` (default 7) and
+  `STATCAST_SLEEP_SECONDS` (default 0.3) for gentler pulls.
 
 ## Local Dev Loop
 
