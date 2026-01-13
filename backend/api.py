@@ -3,21 +3,31 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from datetime import date
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from .data_utils import parse_date
     from .statcast_metrics import (
+        STATCAST_BATTER_COLUMNS,
+        STATCAST_PITCHER_COLUMNS,
         STATCAST_REQUIRED_COLUMNS,
+        STATCAST_PITCHER_REQUIRED_COLUMNS,
         build_statcast_batter_metrics_from_df,
+        build_statcast_pitcher_metrics_from_df,
     )
     from .statcast_range import load_statcast_range
 except ImportError:  # pragma: no cover - script execution fallback
     from data_utils import parse_date
     from statcast_metrics import (
+        STATCAST_BATTER_COLUMNS,
+        STATCAST_PITCHER_COLUMNS,
         STATCAST_REQUIRED_COLUMNS,
+        STATCAST_PITCHER_REQUIRED_COLUMNS,
         build_statcast_batter_metrics_from_df,
+        build_statcast_pitcher_metrics_from_df,
     )
     from statcast_range import load_statcast_range
 
@@ -83,6 +93,10 @@ def parse_player_ids(raw_ids: str, min_count: int = 1, max_count: int = 5) -> li
                 status_code=400, detail="player_ids must be integers"
             ) from exc
     return ids
+
+
+def season_range(year: int) -> tuple[date, date]:
+    return date(year, 3, 1), date(year, 11, 30)
 
 
 def compute_batting_rates(row: dict) -> dict:
@@ -476,6 +490,7 @@ def get_pitchers_range(
     start: str = Query(...),
     end: str = Query(...),
     player_ids: str = Query(...),
+    include_statcast: bool = Query(False),
 ) -> list[dict]:
     try:
         start_date = parse_date(start)
@@ -500,4 +515,110 @@ def get_pitchers_range(
         conn.row_factory = sqlite3.Row
         range_rows = fetch_pitching_range(conn, year, start_date, end_date, ids)
 
+    if include_statcast and range_rows:
+        statcast_df = load_statcast_range(
+            season=year,
+            start_date=start_date,
+            end_date=end_date,
+            player_ids=ids,
+            columns=sorted(STATCAST_PITCHER_REQUIRED_COLUMNS),
+            id_column="pitcher",
+        )
+        if not statcast_df.empty:
+            metrics = build_statcast_pitcher_metrics_from_df(statcast_df)
+            metrics_by_id = {
+                row["player_id"]: row for row in metrics.to_dict("records")
+            }
+            for row in range_rows:
+                extra = metrics_by_id.get(row["player_id"])
+                if extra:
+                    row.update(extra)
+
     return range_rows
+
+
+@app.get("/leaderboard/statcast")
+def get_statcast_leaderboard(
+    year: int = Query(..., ge=1800, le=2100),
+    mode: str = Query("hitters"),
+    stat_key: str = Query(...),
+) -> list[dict]:
+    mode_value = mode.strip().lower()
+    if mode_value not in {"hitters", "pitchers"}:
+        raise HTTPException(
+            status_code=400,
+            detail="mode must be 'hitters' or 'pitchers'",
+        )
+
+    start_date, end_date = season_range(year)
+
+    if mode_value == "hitters":
+        statcast_keys = set(STATCAST_BATTER_COLUMNS) | {"barrels_per_pa"}
+        if stat_key not in statcast_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="stat_key is not available from Statcast for hitters",
+            )
+        statcast_df = load_statcast_range(
+            season=year,
+            start_date=start_date,
+            end_date=end_date,
+            columns=sorted(STATCAST_REQUIRED_COLUMNS),
+        )
+        metrics = build_statcast_batter_metrics_from_df(statcast_df)
+        metrics_by_id = {
+            row["player_id"]: row for row in metrics.to_dict("records")
+        }
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT player_id, name, team, season, pa, g "
+                "FROM batting_stats WHERE season = ?",
+                (year,),
+            ).fetchall()
+        results: list[dict] = []
+        for row in rows:
+            payload = dict(row)
+            metric = metrics_by_id.get(payload["player_id"])
+            if stat_key == "barrels_per_pa":
+                barrels = metric.get("barrels") if metric else None
+                pa = payload.get("pa")
+                if barrels is not None and pa:
+                    payload[stat_key] = float(barrels) / float(pa)
+                else:
+                    payload[stat_key] = None
+            else:
+                payload[stat_key] = metric.get(stat_key) if metric else None
+            results.append(payload)
+        return results
+
+    if stat_key not in STATCAST_PITCHER_COLUMNS:
+        raise HTTPException(
+            status_code=400,
+            detail="stat_key is not available from Statcast for pitchers",
+        )
+    statcast_df = load_statcast_range(
+        season=year,
+        start_date=start_date,
+        end_date=end_date,
+        columns=sorted(STATCAST_PITCHER_REQUIRED_COLUMNS),
+        id_column="pitcher",
+    )
+    metrics = build_statcast_pitcher_metrics_from_df(statcast_df)
+    metrics_by_id = {
+        row["player_id"]: row for row in metrics.to_dict("records")
+    }
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT player_id, name, team, season, ip, g, gs "
+            "FROM pitching_stats WHERE season = ?",
+            (year,),
+        ).fetchall()
+    results = []
+    for row in rows:
+        payload = dict(row)
+        metric = metrics_by_id.get(payload["player_id"])
+        payload[stat_key] = metric.get(stat_key) if metric else None
+        results.append(payload)
+    return results

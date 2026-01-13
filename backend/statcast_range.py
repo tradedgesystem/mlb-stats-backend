@@ -41,14 +41,15 @@ def load_statcast_range(
     player_ids: Iterable[int] | None = None,
     columns: list[str] | None = None,
     base_dir: Path = DEFAULT_RAW_ROOT,
+    id_column: str = "player_id",
 ) -> pd.DataFrame:
     paths = statcast_paths_for_range(base_dir, season, start_date, end_date)
     if not paths:
         return pd.DataFrame(columns=columns or [])
 
     columns = columns or None
-    if columns and "player_id" not in columns:
-        columns = ["player_id"] + columns
+    if columns and id_column not in columns:
+        columns = [id_column] + columns
 
     player_ids = list(player_ids or [])
 
@@ -57,15 +58,15 @@ def load_statcast_range(
         rel = con.read_parquet([str(path) for path in paths])
         if columns:
             rel = rel.project(", ".join(columns))
-        if player_ids:
+        if player_ids and id_column:
             ids = ", ".join(str(pid) for pid in player_ids)
-            rel = rel.filter(f"player_id IN ({ids})")
+            rel = rel.filter(f"{id_column} IN ({ids})")
         df = rel.df()
         con.close()
         return df
 
     frames = [pd.read_parquet(path, columns=columns) for path in paths]
     df = pd.concat(frames, ignore_index=True)
-    if player_ids:
-        df = df[df["player_id"].isin(player_ids)]
+    if player_ids and id_column in df.columns:
+        df = df[df[id_column].isin(player_ids)]
     return df

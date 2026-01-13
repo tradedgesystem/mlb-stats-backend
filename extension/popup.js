@@ -147,12 +147,64 @@ const STATCAST_RANGE_KEYS = new Set([
   "sweet_spot_pct",
   "la",
   "la_sd",
+  "gbpct",
+  "ldpct",
+  "fbpct",
+  "iffbpct",
+  "gb_per_pa",
+  "fb_per_pa",
+  "ld_per_pa",
   "under_pct",
   "flare_burner_pct",
   "poorly_hit_pct",
   "poorly_under_pct",
   "poorly_topped_pct",
   "poorly_weak_pct",
+  "pullpct",
+  "centpct",
+  "oppopct",
+  "pull_air_pct",
+  "oppo_air_pct",
+  "straightaway_pct",
+  "shifted_pa_pct",
+  "non_shifted_pa_pct",
+  "ahead_in_count_pct",
+  "even_count_pct",
+  "behind_in_count_pct",
+  "two_strike_pa_pct",
+  "three_ball_pa_pct",
+  "late_close_pa",
+  "pli",
+  "xba",
+  "xslg",
+  "xobp",
+  "xwoba",
+]);
+const STATCAST_RANGE_KEYS_PITCHERS = new Set([
+  "fbpct_2",
+  "slpct",
+  "ctpct",
+  "cbpct",
+  "chpct",
+  "sfpct",
+  "knpct",
+  "xxpct",
+  "fbv",
+  "slv",
+  "ctv",
+  "cbv",
+  "chv",
+  "sfv",
+  "knv",
+  "avg_velo",
+  "max_velo",
+  "velo_sd",
+  "spin_rate",
+  "spin_sd",
+  "spin_axis",
+  "extension",
+  "release_height",
+  "release_side",
 ]);
 const STORAGE_KEY = "mlb_stats_state_v1";
 let persistTimer = null;
@@ -377,8 +429,30 @@ const isRangeSupported = (key) => {
   return Boolean(config && config.range_supported);
 };
 
-const rangeNeedsStatcast = (statKeys) =>
-  activeMode === "hitters" && statKeys.some((key) => STATCAST_RANGE_KEYS.has(key));
+const rangeNeedsStatcast = (statKeys) => {
+  if (activeMode === "hitters") {
+    return statKeys.some((key) => STATCAST_RANGE_KEYS.has(key));
+  }
+  if (activeMode === "pitchers") {
+    return statKeys.some((key) => STATCAST_RANGE_KEYS_PITCHERS.has(key));
+  }
+  return false;
+};
+
+const isStatcastKeyForMode = (key) => {
+  if (activeMode === "hitters") {
+    return STATCAST_RANGE_KEYS.has(key);
+  }
+  if (activeMode === "pitchers") {
+    return STATCAST_RANGE_KEYS_PITCHERS.has(key);
+  }
+  return false;
+};
+
+const getSeasonFallbackRange = (year) => ({
+  start: `${year}-03-01`,
+  end: `${year}-11-30`,
+});
 
 const getRangeParams = () => {
   if (!rangeStartInput || !rangeEndInput) {
@@ -392,8 +466,8 @@ const getRangeParams = () => {
   return { start, end };
 };
 
-const fetchRangeRows = async (playerIds, statKeys) => {
-  const params = getRangeParams();
+const fetchRangeRows = async (playerIds, statKeys, overrideRange = null) => {
+  const params = overrideRange || getRangeParams();
   if (!params) {
     throw new Error("Select a start and end date for range mode.");
   }
@@ -418,8 +492,8 @@ const fetchRangeRows = async (playerIds, statKeys) => {
     end: params.end,
     player_ids: playerIds.join(","),
   });
-  if (activeMode === "hitters") {
-    query.set("include_statcast", includeStatcast ? "true" : "false");
+  if (includeStatcast) {
+    query.set("include_statcast", "true");
   }
   const endpoint = activeMode === "pitchers" ? "pitchers" : "players";
   const response = await fetch(`${LOCAL_API_BASE}/${endpoint}/range?${query}`);
@@ -429,6 +503,74 @@ const fetchRangeRows = async (playerIds, statKeys) => {
   const data = await response.json();
   rangeCache.set(cacheKey, data);
   return data;
+};
+
+const leaderboardStatcastCache = new Map();
+
+const shouldUseStatcastLeaderboard = (statKey, dataset) => {
+  const statcastKeys =
+    activeMode === "pitchers"
+      ? STATCAST_RANGE_KEYS_PITCHERS
+      : STATCAST_RANGE_KEYS;
+  if (!statcastKeys.has(statKey)) {
+    return false;
+  }
+  const hasValue = dataset.some((player) => {
+    const value = player[statKey];
+    return value !== null && value !== undefined && !Number.isNaN(value);
+  });
+  return !hasValue;
+};
+
+const fetchStatcastLeaderboard = async (statKey) => {
+  if (!yearSelect) {
+    throw new Error("Select a season year first.");
+  }
+  const cacheKey = [activeMode, yearSelect.value, statKey].join("|");
+  if (leaderboardStatcastCache.has(cacheKey)) {
+    return leaderboardStatcastCache.get(cacheKey);
+  }
+  const query = new URLSearchParams({
+    year: yearSelect.value,
+    mode: activeMode,
+    stat_key: statKey,
+  });
+  const response = await fetch(
+    `${LOCAL_API_BASE}/leaderboard/statcast?${query}`
+  );
+  if (!response.ok) {
+    throw new Error(`Leaderboard API failed: ${response.status}`);
+  }
+  const data = await response.json();
+  leaderboardStatcastCache.set(cacheKey, data);
+  return data;
+};
+
+const mergeRangeRowsForKeys = (playerIds, rangeRows, seasonRows, statKeys) => {
+  const rangeById = new Map(rangeRows.map((row) => [row.player_id, row]));
+  const seasonById = new Map(seasonRows.map((row) => [row.player_id, row]));
+  return playerIds
+    .map((playerId) => {
+      const seasonRow = seasonById.get(playerId);
+      const rangeRow = rangeById.get(playerId);
+      if (!seasonRow && !rangeRow) {
+        return null;
+      }
+      if (!seasonRow) {
+        return rangeRow;
+      }
+      if (!rangeRow) {
+        return seasonRow;
+      }
+      const merged = { ...seasonRow };
+      statKeys.forEach((key) => {
+        if (rangeRow[key] !== undefined) {
+          merged[key] = rangeRow[key];
+        }
+      });
+      return merged;
+    })
+    .filter(Boolean);
 };
 
 const mergeRangeRows = (playerIds, rangeRows, seasonRows) => {
@@ -738,7 +880,31 @@ const renderAsciiTable = (rows, statKeys, target) => {
   }
 
   const { statsByKey } = getState();
-  const headers = ["Player", "Team", "Season"];
+  const rangeParams = isRangeMode() ? getRangeParams() : null;
+  const rangeLabel = (() => {
+    if (!rangeParams) {
+      return null;
+    }
+    const formatShort = (value) => {
+      const parts = value.split("-");
+      if (parts.length !== 3) {
+        return value;
+      }
+      const month = Number(parts[1]);
+      const day = Number(parts[2]);
+      if (!month || !day) {
+        return value;
+      }
+      return `${month}/${day}`;
+    };
+    const year = yearSelect ? yearSelect.value : rangeParams.start.slice(0, 4);
+    return `${year}: ${formatShort(rangeParams.start)} to ${formatShort(rangeParams.end)}`;
+  })();
+  const baseHeaders = ["Player", "Team"];
+  if (rangeLabel) {
+    baseHeaders.push("Range");
+  }
+  const headers = [...baseHeaders];
   statKeys.forEach((key) => {
     const config = statsByKey.get(key);
     headers.push(config?.label || key);
@@ -769,7 +935,11 @@ const renderAsciiTable = (rows, statKeys, target) => {
   }
 
   const rowsData = rows.map((row) => {
-    const base = [row.name, row.team, row.season].map((value) =>
+    const baseValues = [row.name, row.team];
+    if (rangeLabel) {
+      baseValues.push(rangeLabel);
+    }
+    const base = baseValues.map((value) =>
       value === null || value === undefined ? "-" : String(value)
     );
     const stats = statKeys.map((key) => {
@@ -788,12 +958,13 @@ const renderAsciiTable = (rows, statKeys, target) => {
     return { base, stats };
   });
 
+  const baseCount = baseHeaders.length;
   const widths = headers.map((header, index) => {
     const cellWidths = rowsData.map((row) => {
-      if (index < 3) {
+      if (index < baseCount) {
         return row.base[index].length;
       }
-      return row.stats[index - 3].text.length;
+      return row.stats[index - baseCount].text.length;
     });
     return Math.max(header.length, ...cellWidths);
   });
@@ -810,7 +981,7 @@ const renderAsciiTable = (rows, statKeys, target) => {
       cells.push(pad(escapeHtml(cell), widths[i]));
     });
     row.stats.forEach((cell, index) => {
-      const text = pad(escapeHtml(cell.text), widths[index + 3]);
+      const text = pad(escapeHtml(cell.text), widths[index + baseCount]);
       cells.push(cell.isBest ? `<strong>${text}</strong>` : text);
     });
     return "| " + cells.join(" | ") + " |";
@@ -1464,7 +1635,7 @@ const setPitcherLeaderboardRole = (role) => {
     return;
   }
   if (activeLeaderboardStat) {
-    renderLeaderboard(activeLeaderboardStat);
+    void renderLeaderboard(activeLeaderboardStat);
     return;
   }
   persistNow();
@@ -1503,21 +1674,14 @@ const selectLeaderboardStat = (statKey) => {
   resetLeaderboardSearch();
   updateLeaderboardMeta(statConfig);
 
-  renderLeaderboard(statKey);
+  void renderLeaderboard(statKey);
 };
 
-const renderLeaderboard = (statKey) => {
+const renderLeaderboard = async (statKey) => {
   if (!leaderboardOutput) {
     return;
   }
   leaderboardOutput.textContent = "";
-
-  const dataset = getActiveDataset();
-  if (!dataset.length) {
-    renderMessage("No data available for this season.", leaderboardOutput);
-    persistLeaderboardState(statKey);
-    return;
-  }
 
   const { statsByKey } = getState();
   const statConfig = statsByKey.get(statKey);
@@ -1528,6 +1692,27 @@ const renderLeaderboard = (statKey) => {
     return;
   }
   updateLeaderboardMeta(statConfig);
+
+  let dataset = getActiveDataset();
+  if (shouldUseStatcastLeaderboard(statKey, dataset)) {
+    try {
+      dataset = await fetchStatcastLeaderboard(statKey);
+    } catch (error) {
+      console.error("[Leaderboard] Statcast fetch failed:", error);
+      renderMessage(
+        "Failed to fetch leaderboard data. Make sure the local API is running.",
+        leaderboardOutput
+      );
+      persistLeaderboardState(statKey);
+      return;
+    }
+  }
+
+  if (!dataset.length) {
+    renderMessage("No data available for this season.", leaderboardOutput);
+    persistLeaderboardState(statKey);
+    return;
+  }
 
   const hasGames = dataset.some(
     (player) => typeof player.g === "number" && !Number.isNaN(player.g)
@@ -1736,7 +1921,7 @@ const restoreLeaderboardForMode = () => {
     const { statsByKey } = getState();
     const statConfig = statsByKey.get(activeLeaderboardStat);
     updateLeaderboardMeta(statConfig);
-    renderLeaderboard(activeLeaderboardStat);
+    void renderLeaderboard(activeLeaderboardStat);
   }
 };
 
@@ -1808,6 +1993,17 @@ compareButton.addEventListener("click", async () => {
       rows = playerIds
         .map((playerId) => dataset.find((row) => row.player_id === playerId))
         .filter(Boolean);
+      if (statKeys.some((key) => isStatcastKeyForMode(key))) {
+        const seasonRange = getSeasonFallbackRange(yearSelect.value);
+        const rangeRows = await fetchRangeRows(
+          playerIds,
+          statKeys,
+          seasonRange
+        );
+        if (rangeRows.length) {
+          rows = mergeRangeRowsForKeys(playerIds, rangeRows, rows, statKeys);
+        }
+      }
     }
     console.log(rows);
     renderAsciiTable(rows, statKeys, outputCompare);
@@ -1840,6 +2036,22 @@ viewButton.addEventListener("click", async () => {
       }
       const merged = mergeRangeRows([activePlayerId], rangeRows, dataset);
       data = merged[0];
+    } else if (statKeys.some((key) => isStatcastKeyForMode(key))) {
+      const seasonRange = getSeasonFallbackRange(yearSelect.value);
+      const rangeRows = await fetchRangeRows(
+        [activePlayerId],
+        statKeys,
+        seasonRange
+      );
+      if (rangeRows.length) {
+        const merged = mergeRangeRowsForKeys(
+          [activePlayerId],
+          rangeRows,
+          [data].filter(Boolean),
+          statKeys
+        );
+        data = merged[0];
+      }
     }
     console.log(data);
     if (!data) {

@@ -350,7 +350,7 @@
     "format": "percent",
     "default": false,
     "description": "Fastball usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -360,7 +360,7 @@
     "format": "percent",
     "default": false,
     "description": "Slider usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -370,7 +370,7 @@
     "format": "percent",
     "default": false,
     "description": "Cutter usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -380,7 +380,7 @@
     "format": "percent",
     "default": false,
     "description": "Curveball usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -390,7 +390,7 @@
     "format": "percent",
     "default": false,
     "description": "Changeup usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -400,7 +400,7 @@
     "format": "percent",
     "default": false,
     "description": "Splitter usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -410,7 +410,7 @@
     "format": "percent",
     "default": false,
     "description": "Knuckleball usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -420,7 +420,7 @@
     "format": "percent",
     "default": false,
     "description": "Other pitch usage percentage.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -430,7 +430,7 @@
     "format": "float",
     "default": false,
     "description": "Average fastball velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -440,7 +440,7 @@
     "format": "float",
     "default": false,
     "description": "Average slider velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -450,7 +450,7 @@
     "format": "float",
     "default": false,
     "description": "Average cutter velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -460,7 +460,7 @@
     "format": "float",
     "default": false,
     "description": "Average curveball velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -470,7 +470,7 @@
     "format": "float",
     "default": false,
     "description": "Average changeup velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -480,7 +480,7 @@
     "format": "float",
     "default": false,
     "description": "Average splitter velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -490,7 +490,7 @@
     "format": "float",
     "default": false,
     "description": "Average knuckleball velocity.",
-    "range_supported": false,
+    "range_supported": true,
     "available": true
   },
   {
@@ -499,9 +499,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Average velocity (all pitches). Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Average velocity (all pitches).",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "max_velo",
@@ -509,9 +509,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Max velocity (all pitches). Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Max velocity (all pitches).",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "velo_sd",
@@ -519,9 +519,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Velocity standard deviation. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Velocity standard deviation.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "spin_rate",
@@ -529,9 +529,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Average spin rate. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Average spin rate.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "spin_sd",
@@ -539,9 +539,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Spin rate standard deviation. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Spin rate standard deviation.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "spin_axis",
@@ -549,9 +549,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Spin axis. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Spin axis.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "extension",
@@ -559,9 +559,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Extension. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Extension.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "release_height",
@@ -569,9 +569,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Release height. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Release height.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "release_side",
@@ -579,9 +579,9 @@
     "group": "Pitch Arsenal",
     "format": "float",
     "default": false,
-    "description": "Release side. Not in current dataset.",
-    "range_supported": false,
-    "available": false
+    "description": "Release side.",
+    "range_supported": true,
+    "available": true
   },
   {
     "key": "whiffpct",

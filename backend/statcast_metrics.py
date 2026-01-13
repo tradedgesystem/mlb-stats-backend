@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 STATCAST_BATTER_COLUMNS = [
@@ -35,12 +36,38 @@ STATCAST_BATTER_COLUMNS = [
     "sweet_spot_pct",
     "la",
     "la_sd",
+    "gbpct",
+    "ldpct",
+    "fbpct",
+    "iffbpct",
+    "gb_per_pa",
+    "fb_per_pa",
+    "ld_per_pa",
     "under_pct",
     "flare_burner_pct",
     "poorly_hit_pct",
     "poorly_under_pct",
     "poorly_topped_pct",
     "poorly_weak_pct",
+    "pullpct",
+    "centpct",
+    "oppopct",
+    "pull_air_pct",
+    "oppo_air_pct",
+    "straightaway_pct",
+    "shifted_pa_pct",
+    "non_shifted_pa_pct",
+    "ahead_in_count_pct",
+    "even_count_pct",
+    "behind_in_count_pct",
+    "two_strike_pa_pct",
+    "three_ball_pa_pct",
+    "late_close_pa",
+    "pli",
+    "xba",
+    "xslg",
+    "xobp",
+    "xwoba",
 ]
 
 SWING_DESCRIPTIONS = {
@@ -82,18 +109,90 @@ CALLED_STRIKE_DESCRIPTIONS = {
     "called_strike",
 }
 
+WALK_EVENTS = {"walk", "intent_walk"}
+HBP_EVENTS = {"hit_by_pitch"}
+SAC_FLY_EVENTS = {"sac_fly", "sac_fly_double_play"}
+SAC_BUNT_EVENTS = {"sac_bunt", "sac_bunt_double_play"}
+NON_AB_EVENTS = WALK_EVENTS | HBP_EVENTS | SAC_FLY_EVENTS | SAC_BUNT_EVENTS | {
+    "catcher_interference"
+}
+
 STATCAST_REQUIRED_COLUMNS = {
     "player_id",
+    "game_pk",
+    "at_bat_number",
     "description",
     "zone",
     "pitch_number",
+    "balls",
     "strikes",
+    "bb_type",
     "launch_speed",
     "launch_angle",
     "launch_speed_angle",
+    "hc_x",
+    "hc_y",
+    "stand",
     "type",
     "events",
+    "if_fielding_alignment",
+    "of_fielding_alignment",
+    "inning",
+    "bat_score",
+    "fld_score",
+    "delta_home_win_exp",
+    "estimated_ba_using_speedangle",
+    "estimated_slg_using_speedangle",
+    "estimated_woba_using_speedangle",
+    "woba_value",
+    "woba_denom",
 }
+
+STATCAST_PITCHER_COLUMNS = [
+    "fbpct_2",
+    "slpct",
+    "ctpct",
+    "cbpct",
+    "chpct",
+    "sfpct",
+    "knpct",
+    "xxpct",
+    "fbv",
+    "slv",
+    "ctv",
+    "cbv",
+    "chv",
+    "sfv",
+    "knv",
+    "avg_velo",
+    "max_velo",
+    "velo_sd",
+    "spin_rate",
+    "spin_sd",
+    "spin_axis",
+    "extension",
+    "release_height",
+    "release_side",
+]
+
+STATCAST_PITCHER_REQUIRED_COLUMNS = {
+    "pitcher",
+    "pitch_type",
+    "release_speed",
+    "release_spin_rate",
+    "spin_axis",
+    "release_extension",
+    "release_pos_x",
+    "release_pos_z",
+}
+
+FASTBALL_TYPES = {"FF", "FT", "SI", "FA"}
+SLIDER_TYPES = {"SL"}
+CUTTER_TYPES = {"FC"}
+CURVEBALL_TYPES = {"CU", "KC", "CS"}
+CHANGEUP_TYPES = {"CH"}
+SPLITTER_TYPES = {"FS", "FO", "SC"}
+KNUCKLE_TYPES = {"KN"}
 
 
 def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
@@ -125,6 +224,8 @@ def build_statcast_batter_metrics_from_df(
         statcast_df["player_id"].dropna().unique(), name="player_id"
     )
     metrics = pd.DataFrame(index=player_index)
+    pa_counts = None
+    pa_last = None
 
     if "description" in statcast_df.columns:
         desc = statcast_df["description"].fillna("")
@@ -229,6 +330,116 @@ def build_statcast_batter_metrics_from_df(
                 two_strike_whiffs, two_strike_swings
             )
 
+    if {
+        "game_pk",
+        "at_bat_number",
+        "pitch_number",
+        "balls",
+        "strikes",
+    }.issubset(statcast_df.columns):
+        pa_cols = statcast_df[
+            [
+                "player_id",
+                "game_pk",
+                "at_bat_number",
+                "pitch_number",
+                "balls",
+                "strikes",
+                "inning",
+                "bat_score",
+                "fld_score",
+                "delta_home_win_exp",
+                "if_fielding_alignment",
+                "of_fielding_alignment",
+            ]
+        ].copy()
+        pa_cols["game_pk"] = pd.to_numeric(pa_cols["game_pk"], errors="coerce")
+        pa_cols["at_bat_number"] = pd.to_numeric(
+            pa_cols["at_bat_number"], errors="coerce"
+        )
+        pa_cols["pitch_number"] = pd.to_numeric(
+            pa_cols["pitch_number"], errors="coerce"
+        )
+        pa_cols["balls"] = pd.to_numeric(pa_cols["balls"], errors="coerce")
+        pa_cols["strikes"] = pd.to_numeric(pa_cols["strikes"], errors="coerce")
+        pa_cols = pa_cols.dropna(subset=["game_pk", "at_bat_number", "pitch_number"])
+
+        if not pa_cols.empty:
+            group_cols = ["player_id", "game_pk", "at_bat_number"]
+            pa_group = pa_cols.groupby(group_cols, sort=False)
+            last_idx = pa_group["pitch_number"].idxmax()
+            pa_last = pa_cols.loc[last_idx].copy()
+            pa_counts = pa_last.groupby("player_id").size().reindex(
+                player_index, fill_value=0
+            )
+
+            max_balls = pa_group["balls"].max()
+            max_strikes = pa_group["strikes"].max()
+
+            ahead = (pa_last["balls"] > pa_last["strikes"]).groupby(
+                pa_last["player_id"]
+            ).sum()
+            even = (pa_last["balls"] == pa_last["strikes"]).groupby(
+                pa_last["player_id"]
+            ).sum()
+            behind = (pa_last["balls"] < pa_last["strikes"]).groupby(
+                pa_last["player_id"]
+            ).sum()
+            two_strike_pa = (max_strikes >= 2).groupby("player_id").sum()
+            three_ball_pa = (max_balls >= 3).groupby("player_id").sum()
+
+            metrics["ahead_in_count_pct"] = safe_divide(
+                ahead.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["even_count_pct"] = safe_divide(
+                even.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["behind_in_count_pct"] = safe_divide(
+                behind.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["two_strike_pa_pct"] = safe_divide(
+                two_strike_pa.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["three_ball_pa_pct"] = safe_divide(
+                three_ball_pa.reindex(player_index, fill_value=0), pa_counts
+            )
+
+            if {
+                "inning",
+                "bat_score",
+                "fld_score",
+            }.issubset(pa_last.columns):
+                inning = pd.to_numeric(pa_last["inning"], errors="coerce")
+                bat_score = pd.to_numeric(pa_last["bat_score"], errors="coerce")
+                fld_score = pd.to_numeric(pa_last["fld_score"], errors="coerce")
+                close_mask = (inning >= 7) & (bat_score - fld_score).abs().le(1)
+                late_close = close_mask.groupby(pa_last["player_id"]).sum()
+                metrics["late_close_pa"] = late_close.reindex(
+                    player_index, fill_value=0
+                )
+
+            alignment = None
+            if "if_fielding_alignment" in pa_last.columns:
+                alignment = pa_last["if_fielding_alignment"]
+            elif "of_fielding_alignment" in pa_last.columns:
+                alignment = pa_last["of_fielding_alignment"]
+            if alignment is not None:
+                shifted = alignment.notna() & (alignment != "Standard")
+                shifted_count = shifted.groupby(pa_last["player_id"]).sum()
+                non_shifted_count = (~shifted).groupby(pa_last["player_id"]).sum()
+                metrics["shifted_pa_pct"] = safe_divide(
+                    shifted_count.reindex(player_index, fill_value=0), pa_counts
+                )
+                metrics["non_shifted_pa_pct"] = safe_divide(
+                    non_shifted_count.reindex(player_index, fill_value=0), pa_counts
+                )
+
+            if "delta_home_win_exp" in pa_last.columns:
+                delta_we = pd.to_numeric(
+                    pa_last["delta_home_win_exp"], errors="coerce"
+                ).abs()
+                metrics["pli"] = delta_we.groupby(pa_last["player_id"]).mean()
+
     if "launch_speed" in statcast_df.columns:
         launch_speed = pd.to_numeric(statcast_df["launch_speed"], errors="coerce")
         batted_mask = launch_speed.notna()
@@ -305,8 +516,253 @@ def build_statcast_batter_metrics_from_df(
                 bip_counts = statcast_df.loc[bip_mask].groupby("player_id").size()
                 metrics["barrels_per_bip"] = safe_divide(barrels, bip_counts)
 
+    if "bb_type" in statcast_df.columns:
+        bb_type = statcast_df["bb_type"]
+        bb_mask = bb_type.notna()
+        batted = statcast_df.loc[bb_mask].copy()
+        total_batted = batted.groupby("player_id").size().reindex(
+            player_index, fill_value=0
+        )
+        gb = batted.loc[bb_type == "ground_ball"].groupby("player_id").size()
+        ld = batted.loc[bb_type == "line_drive"].groupby("player_id").size()
+        fb = batted.loc[bb_type == "fly_ball"].groupby("player_id").size()
+        pop = batted.loc[bb_type == "popup"].groupby("player_id").size()
+
+        metrics["gbpct"] = safe_divide(gb.reindex(player_index, fill_value=0), total_batted)
+        metrics["ldpct"] = safe_divide(ld.reindex(player_index, fill_value=0), total_batted)
+        metrics["fbpct"] = safe_divide(fb.reindex(player_index, fill_value=0), total_batted)
+        fly_total = fb.reindex(player_index, fill_value=0) + pop.reindex(
+            player_index, fill_value=0
+        )
+        metrics["iffbpct"] = safe_divide(pop.reindex(player_index, fill_value=0), fly_total)
+
+        if pa_counts is not None:
+            metrics["gb_per_pa"] = safe_divide(
+                gb.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["fb_per_pa"] = safe_divide(
+                fb.reindex(player_index, fill_value=0), pa_counts
+            )
+            metrics["ld_per_pa"] = safe_divide(
+                ld.reindex(player_index, fill_value=0), pa_counts
+            )
+
+        if {"hc_x", "hc_y", "stand"}.issubset(batted.columns):
+            coords = batted.dropna(subset=["hc_x", "hc_y", "stand"]).copy()
+            if not coords.empty:
+                angle = np.degrees(
+                    np.arctan2(coords["hc_x"] - 125.42, 198.27 - coords["hc_y"])
+                )
+                stand = coords["stand"]
+                pull_mask = (stand == "R") & (angle >= 25)
+                pull_mask |= (stand == "L") & (angle <= -25)
+                oppo_mask = (stand == "R") & (angle <= -25)
+                oppo_mask |= (stand == "L") & (angle >= 25)
+                center_mask = ~(pull_mask | oppo_mask)
+
+                total_dir = coords.groupby("player_id").size()
+                pull = coords.loc[pull_mask].groupby("player_id").size()
+                oppo = coords.loc[oppo_mask].groupby("player_id").size()
+                center = coords.loc[center_mask].groupby("player_id").size()
+
+                metrics["pullpct"] = safe_divide(
+                    pull.reindex(player_index, fill_value=0),
+                    total_dir.reindex(player_index, fill_value=0),
+                )
+                metrics["oppopct"] = safe_divide(
+                    oppo.reindex(player_index, fill_value=0),
+                    total_dir.reindex(player_index, fill_value=0),
+                )
+                metrics["centpct"] = safe_divide(
+                    center.reindex(player_index, fill_value=0),
+                    total_dir.reindex(player_index, fill_value=0),
+                )
+                metrics["straightaway_pct"] = metrics["centpct"]
+
+                air_mask = coords["bb_type"].isin(
+                    ["fly_ball", "line_drive", "popup"]
+                )
+                air_total = coords.loc[air_mask].groupby("player_id").size()
+                pull_air = coords.loc[air_mask & pull_mask].groupby("player_id").size()
+                oppo_air = coords.loc[air_mask & oppo_mask].groupby("player_id").size()
+                metrics["pull_air_pct"] = safe_divide(
+                    pull_air.reindex(player_index, fill_value=0),
+                    air_total.reindex(player_index, fill_value=0),
+                )
+                metrics["oppo_air_pct"] = safe_divide(
+                    oppo_air.reindex(player_index, fill_value=0),
+                    air_total.reindex(player_index, fill_value=0),
+                )
+
+    if "events" in statcast_df.columns:
+        events = statcast_df["events"]
+        ab_counts = events.loc[
+            events.notna() & ~events.isin(NON_AB_EVENTS)
+        ].groupby(statcast_df["player_id"]).size()
+        bb_counts = events.loc[
+            events.isin(WALK_EVENTS)
+        ].groupby(statcast_df["player_id"]).size()
+        hbp_counts = events.loc[
+            events.isin(HBP_EVENTS)
+        ].groupby(statcast_df["player_id"]).size()
+        sf_counts = events.loc[
+            events.isin(SAC_FLY_EVENTS)
+        ].groupby(statcast_df["player_id"]).size()
+
+        ab_counts = ab_counts.reindex(player_index, fill_value=0)
+        bb_counts = bb_counts.reindex(player_index, fill_value=0)
+        hbp_counts = hbp_counts.reindex(player_index, fill_value=0)
+        sf_counts = sf_counts.reindex(player_index, fill_value=0)
+
+        expected_hits = None
+        if "estimated_ba_using_speedangle" in statcast_df.columns:
+            expected_ba = pd.to_numeric(
+                statcast_df["estimated_ba_using_speedangle"], errors="coerce"
+            ).fillna(0)
+            expected_hits = expected_ba.groupby(statcast_df["player_id"]).sum(
+                min_count=1
+            ).reindex(player_index, fill_value=0)
+            metrics["xba"] = safe_divide(expected_hits, ab_counts)
+
+        if "estimated_slg_using_speedangle" in statcast_df.columns:
+            expected_slg = pd.to_numeric(
+                statcast_df["estimated_slg_using_speedangle"], errors="coerce"
+            ).fillna(0)
+            expected_tb = expected_slg.groupby(statcast_df["player_id"]).sum(
+                min_count=1
+            ).reindex(player_index, fill_value=0)
+            metrics["xslg"] = safe_divide(expected_tb, ab_counts)
+
+        if expected_hits is not None:
+            xobp_numer = expected_hits + bb_counts + hbp_counts
+            xobp_denom = ab_counts + bb_counts + hbp_counts + sf_counts
+            metrics["xobp"] = safe_divide(xobp_numer, xobp_denom)
+
+    if "woba_denom" in statcast_df.columns:
+        woba_denom = pd.to_numeric(statcast_df["woba_denom"], errors="coerce").fillna(0)
+        woba_value = pd.to_numeric(
+            statcast_df.get("woba_value"), errors="coerce"
+        )
+        xwoba_est = pd.to_numeric(
+            statcast_df.get("estimated_woba_using_speedangle"), errors="coerce"
+        )
+        xwoba_value = xwoba_est.where(xwoba_est.notna(), woba_value)
+        valid_mask = woba_denom > 0
+        xwoba_value = xwoba_value.where(valid_mask)
+        woba_denom = woba_denom.where(valid_mask, 0)
+
+        xwoba_sum = xwoba_value.groupby(statcast_df["player_id"]).sum(min_count=1)
+        denom_sum = woba_denom.groupby(statcast_df["player_id"]).sum()
+        metrics["xwoba"] = safe_divide(xwoba_sum, denom_sum)
+
     metrics = metrics.reset_index()
     for col in STATCAST_BATTER_COLUMNS:
+        if col not in metrics.columns:
+            metrics[col] = pd.NA
+    return metrics
+
+
+def build_statcast_pitcher_metrics_from_df(
+    statcast_df: pd.DataFrame,
+) -> pd.DataFrame:
+    if "pitcher" not in statcast_df.columns:
+        return pd.DataFrame(columns=["player_id"] + STATCAST_PITCHER_COLUMNS)
+
+    statcast_df = statcast_df.copy()
+    statcast_df["player_id"] = pd.to_numeric(
+        statcast_df["pitcher"], errors="coerce"
+    )
+    statcast_df = statcast_df[statcast_df["player_id"].notna()].copy()
+    if statcast_df.empty:
+        return pd.DataFrame(columns=["player_id"] + STATCAST_PITCHER_COLUMNS)
+
+    statcast_df["player_id"] = statcast_df["player_id"].astype(int)
+    player_index = pd.Index(
+        statcast_df["player_id"].dropna().unique(), name="player_id"
+    )
+    metrics = pd.DataFrame(index=player_index)
+
+    pitch_type = statcast_df.get("pitch_type")
+    total_pitches = statcast_df.groupby("player_id").size()
+
+    if pitch_type is not None:
+        pitch_type = pitch_type.fillna("UNK")
+        all_known = (
+            FASTBALL_TYPES
+            | SLIDER_TYPES
+            | CUTTER_TYPES
+            | CURVEBALL_TYPES
+            | CHANGEUP_TYPES
+            | SPLITTER_TYPES
+            | KNUCKLE_TYPES
+        )
+
+        def usage(mask):
+            counts = statcast_df.loc[mask].groupby("player_id").size()
+            return safe_divide(
+                counts.reindex(player_index, fill_value=0),
+                total_pitches.reindex(player_index, fill_value=0),
+            )
+
+        metrics["fbpct_2"] = usage(pitch_type.isin(FASTBALL_TYPES))
+        metrics["slpct"] = usage(pitch_type.isin(SLIDER_TYPES))
+        metrics["ctpct"] = usage(pitch_type.isin(CUTTER_TYPES))
+        metrics["cbpct"] = usage(pitch_type.isin(CURVEBALL_TYPES))
+        metrics["chpct"] = usage(pitch_type.isin(CHANGEUP_TYPES))
+        metrics["sfpct"] = usage(pitch_type.isin(SPLITTER_TYPES))
+        metrics["knpct"] = usage(pitch_type.isin(KNUCKLE_TYPES))
+        metrics["xxpct"] = usage(~pitch_type.isin(all_known))
+
+    if "release_speed" in statcast_df.columns:
+        release_speed = pd.to_numeric(
+            statcast_df["release_speed"], errors="coerce"
+        )
+        metrics["avg_velo"] = release_speed.groupby(statcast_df["player_id"]).mean()
+        metrics["max_velo"] = release_speed.groupby(statcast_df["player_id"]).max()
+        metrics["velo_sd"] = release_speed.groupby(statcast_df["player_id"]).std(
+            ddof=0
+        )
+
+        def velo_by_type(type_set):
+            mask = pitch_type.isin(type_set) if pitch_type is not None else False
+            subset = release_speed.where(mask)
+            return subset.groupby(statcast_df["player_id"]).mean()
+
+        metrics["fbv"] = velo_by_type(FASTBALL_TYPES)
+        metrics["slv"] = velo_by_type(SLIDER_TYPES)
+        metrics["ctv"] = velo_by_type(CUTTER_TYPES)
+        metrics["cbv"] = velo_by_type(CURVEBALL_TYPES)
+        metrics["chv"] = velo_by_type(CHANGEUP_TYPES)
+        metrics["sfv"] = velo_by_type(SPLITTER_TYPES)
+        metrics["knv"] = velo_by_type(KNUCKLE_TYPES)
+
+    if "release_spin_rate" in statcast_df.columns:
+        spin = pd.to_numeric(
+            statcast_df["release_spin_rate"], errors="coerce"
+        )
+        metrics["spin_rate"] = spin.groupby(statcast_df["player_id"]).mean()
+        metrics["spin_sd"] = spin.groupby(statcast_df["player_id"]).std(ddof=0)
+
+    if "spin_axis" in statcast_df.columns:
+        axis = pd.to_numeric(statcast_df["spin_axis"], errors="coerce")
+        metrics["spin_axis"] = axis.groupby(statcast_df["player_id"]).mean()
+
+    if "release_extension" in statcast_df.columns:
+        extension = pd.to_numeric(
+            statcast_df["release_extension"], errors="coerce"
+        )
+        metrics["extension"] = extension.groupby(statcast_df["player_id"]).mean()
+
+    if "release_pos_z" in statcast_df.columns:
+        release_z = pd.to_numeric(statcast_df["release_pos_z"], errors="coerce")
+        metrics["release_height"] = release_z.groupby(statcast_df["player_id"]).mean()
+
+    if "release_pos_x" in statcast_df.columns:
+        release_x = pd.to_numeric(statcast_df["release_pos_x"], errors="coerce")
+        metrics["release_side"] = release_x.groupby(statcast_df["player_id"]).mean()
+
+    metrics = metrics.reset_index()
+    for col in STATCAST_PITCHER_COLUMNS:
         if col not in metrics.columns:
             metrics[col] = pd.NA
     return metrics
