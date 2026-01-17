@@ -1,9 +1,9 @@
 {
   "meta": {
     "snapshot_date": "2026-01-17",
-    "generated_at": "2026-01-17T17:20:34.011934",
+    "generated_at": "2026-01-17T21:34:50.715845",
     "season": 2025,
-    "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs"
+    "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs-contracts + fangraphs"
   },
   "players": [
     {
@@ -172,6 +172,12 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 1.0,
+            "buyout_m": 1.0
+          },
+          {
+            "season": 2029,
+            "type": "CO",
+            "salary_m": 13.0,
             "buyout_m": null
           }
         ],
@@ -685,7 +691,14 @@
         "mlb_id": 605288,
         "player_name": "Adrian Houser",
         "contract_years": [],
-        "options": [],
+        "options": [
+          {
+            "season": 2028,
+            "type": "CO",
+            "salary_m": 12.5,
+            "buyout_m": 4.0
+          }
+        ],
         "aav_m": 11.0,
         "total_value_m": 22.0,
         "free_agent_year": null,
@@ -2233,7 +2246,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.621714",
+        "last_scraped_at": "2026-01-17T21:34:47.303473",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -3080,7 +3093,8 @@
         "options": [
           {
             "season": 2033,
-            "type": "CO"
+            "type": "CO",
+            "salary_m": 20.0
           }
         ],
         "aav_m": 21.2,
@@ -3850,7 +3864,8 @@
         "options": [
           {
             "season": 2030,
-            "type": "CO"
+            "type": "CO",
+            "salary_m": 10.0
           }
         ],
         "aav_m": 36.4,
@@ -3959,7 +3974,20 @@
         "mlb_id": 666182,
         "player_name": "Bo Bichette",
         "contract_years": [],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "PO",
+            "salary_m": 42.0,
+            "buyout_m": 5.0
+          },
+          {
+            "season": 2028,
+            "type": "PO",
+            "salary_m": 42.0,
+            "buyout_m": 5.0
+          }
+        ],
         "aav_m": 42.0,
         "total_value_m": 126.0,
         "free_agent_year": null,
@@ -4149,7 +4177,26 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2035,
+            "type": "CO",
+            "salary_m": 33.0,
+            "buyout_m": null
+          },
+          {
+            "season": 2036,
+            "type": "CO",
+            "salary_m": 28.0,
+            "buyout_m": null
+          },
+          {
+            "season": 2037,
+            "type": "CO",
+            "salary_m": 28.0,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 26.253,
         "total_value_m": 288.778,
         "free_agent_year": null,
@@ -4491,7 +4538,7 @@
             "season": 2025,
             "type": "CO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           },
           {
             "season": 2026,
@@ -6032,7 +6079,7 @@
             "season": 2031,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 13.344,
@@ -7031,7 +7078,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 0.5,
-            "buyout_m": null
+            "buyout_m": 0.5
           }
         ],
         "aav_m": 4.5,
@@ -7202,7 +7249,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.620711",
+        "last_scraped_at": "2026-01-17T21:34:47.302809",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -7382,7 +7429,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.925177",
+        "last_scraped_at": "2026-01-17T21:34:38.272899",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -7409,7 +7456,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.928670",
+        "last_scraped_at": "2026-01-17T21:34:38.277168",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -7729,7 +7776,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 1.5,
-            "buyout_m": null
+            "buyout_m": 1.5
           }
         ],
         "aav_m": 5.75,
@@ -8247,7 +8294,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 0.5,
-            "buyout_m": null
+            "buyout_m": 0.5
           }
         ],
         "aav_m": 7.0,
@@ -9385,7 +9432,7 @@
             "season": 2029,
             "type": "MO",
             "salary_m": 6.5,
-            "buyout_m": null
+            "buyout_m": 6.5
           }
         ],
         "aav_m": 26.929,
@@ -9858,7 +9905,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.925560",
+        "last_scraped_at": "2026-01-17T21:34:38.273189",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -10141,7 +10188,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 6.5,
@@ -10286,17 +10333,19 @@
             "season": 2030,
             "type": "CO",
             "salary_m": 2.643,
-            "buyout_m": null
+            "buyout_m": 2.643
           },
           {
             "season": 2031,
             "type": "CO",
-            "salary_m": 1.0
+            "salary_m": 1.0,
+            "buyout_m": 1.0
           },
           {
             "season": 2032,
             "type": "CO",
-            "salary_m": 2.0
+            "salary_m": 2.0,
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 4.774,
@@ -11422,7 +11471,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.621924",
+        "last_scraped_at": "2026-01-17T21:34:47.303680",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -11503,7 +11552,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.927769",
+        "last_scraped_at": "2026-01-17T21:34:38.276210",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -11571,7 +11620,14 @@
         "mlb_id": 643376,
         "player_name": "Danny Jansen",
         "contract_years": [],
-        "options": [],
+        "options": [
+          {
+            "season": 2028,
+            "type": "MO",
+            "salary_m": 8.0,
+            "buyout_m": 2.25
+          }
+        ],
         "aav_m": 7.25,
         "total_value_m": 14.5,
         "free_agent_year": null,
@@ -12491,7 +12547,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 0.125,
-            "buyout_m": null
+            "buyout_m": 0.125
           }
         ],
         "aav_m": 2.625,
@@ -12960,7 +13016,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 0.5,
-            "buyout_m": null
+            "buyout_m": 0.5
           }
         ],
         "aav_m": 4.25,
@@ -13161,7 +13217,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 0.5,
-            "buyout_m": null
+            "buyout_m": 0.5
           }
         ],
         "aav_m": 12.5,
@@ -13776,7 +13832,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.927895",
+        "last_scraped_at": "2026-01-17T21:34:38.276403",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -14275,12 +14331,13 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           },
           {
             "season": 2028,
             "type": "CO",
-            "salary_m": 1.0
+            "salary_m": 1.0,
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 4.0,
@@ -15029,7 +15086,7 @@
             "season": 2031,
             "type": "CO",
             "salary_m": 23.0,
-            "buyout_m": null
+            "buyout_m": 2.5
           }
         ],
         "aav_m": 9.071,
@@ -15660,7 +15717,7 @@
             "season": 2025,
             "type": "CO",
             "salary_m": 8.1,
-            "buyout_m": null
+            "buyout_m": 1.5
           },
           {
             "season": 2026,
@@ -16608,7 +16665,7 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 10.0,
-            "buyout_m": null
+            "buyout_m": 10.0
           }
         ],
         "aav_m": 25.0,
@@ -17866,7 +17923,7 @@
             "season": 2029,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 8.833,
@@ -17895,7 +17952,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "MO",
+            "salary_m": 8.0,
+            "buyout_m": 1.0
+          }
+        ],
         "aav_m": 6.0,
         "total_value_m": 6.0,
         "free_agent_year": null,
@@ -18050,6 +18114,12 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 1.5,
+            "buyout_m": 1.5
+          },
+          {
+            "season": 2029,
+            "type": "CO",
+            "salary_m": 5.0,
             "buyout_m": null
           }
         ],
@@ -18997,7 +19067,7 @@
             "season": 2032,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           },
           {
             "season": 2033,
@@ -19163,6 +19233,12 @@
             "type": "PO",
             "salary_m": 21.0,
             "buyout_m": null
+          },
+          {
+            "season": 2035,
+            "type": "CO",
+            "salary_m": 30.0,
+            "buyout_m": null
           }
         ],
         "aav_m": 15.0,
@@ -19198,7 +19274,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.615333",
+        "last_scraped_at": "2026-01-17T21:34:47.297569",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -19466,7 +19542,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 2.5,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 1.5,
         "total_value_m": 1.5,
         "free_agent_year": null,
@@ -19500,7 +19583,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.924923",
+        "last_scraped_at": "2026-01-17T21:34:38.272652",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -19573,6 +19656,12 @@
             "type": "PO",
             "salary_m": 37.0,
             "buyout_m": 30.0
+          },
+          {
+            "season": 2028,
+            "type": "CO",
+            "salary_m": 20.0,
+            "buyout_m": null
           }
         ],
         "aav_m": 37.0,
@@ -20542,7 +20631,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 3.3,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 1.8,
         "total_value_m": 1.8,
         "free_agent_year": null,
@@ -20895,7 +20991,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 18.0,
+            "buyout_m": 3.0
+          }
+        ],
         "aav_m": 15.667,
         "total_value_m": 47.0,
         "free_agent_year": null,
@@ -21498,6 +21601,12 @@
           {
             "season": 2026,
             "type": "PO",
+            "salary_m": 18.5,
+            "buyout_m": null
+          },
+          {
+            "season": 2027,
+            "type": "MO",
             "salary_m": 18.5,
             "buyout_m": null
           }
@@ -23966,7 +24075,7 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 5.75,
@@ -24064,7 +24173,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 1.25,
-            "buyout_m": null
+            "buyout_m": 1.25
           }
         ],
         "aav_m": 7.0,
@@ -24620,7 +24729,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.925818",
+        "last_scraped_at": "2026-01-17T21:34:38.275337",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -25514,7 +25623,7 @@
             "season": 2030,
             "type": "CO",
             "salary_m": 6.0,
-            "buyout_m": null
+            "buyout_m": 6.0
           }
         ],
         "aav_m": 8.75,
@@ -25778,7 +25887,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 11.0,
@@ -26220,7 +26329,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2028,
+            "type": "CO",
+            "salary_m": 15.0,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 15.0,
         "total_value_m": 75.0,
         "free_agent_year": null,
@@ -26668,7 +26784,7 @@
             "season": 2028,
             "type": "MO",
             "salary_m": 2.25,
-            "buyout_m": null
+            "buyout_m": 2.25
           }
         ],
         "aav_m": 9.5,
@@ -26820,7 +26936,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 0.2,
-            "buyout_m": null
+            "buyout_m": 0.2
           }
         ],
         "aav_m": 1.2,
@@ -26891,7 +27007,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 6.75,
@@ -28458,7 +28574,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.927576",
+        "last_scraped_at": "2026-01-17T21:34:38.275866",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -28728,7 +28844,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.621149",
+        "last_scraped_at": "2026-01-17T21:34:47.302981",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -29360,7 +29476,7 @@
             "season": 2031,
             "type": "CO",
             "salary_m": 3.2,
-            "buyout_m": null
+            "buyout_m": 3.2
           }
         ],
         "aav_m": 11.5,
@@ -30707,7 +30823,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 14.5,
@@ -31163,7 +31279,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.621355",
+        "last_scraped_at": "2026-01-17T21:34:47.303142",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -31422,12 +31538,13 @@
             "season": 2031,
             "type": "CO",
             "salary_m": 5.0,
-            "buyout_m": null
+            "buyout_m": 5.0
           },
           {
             "season": 2032,
             "type": "CO",
-            "salary_m": 5.0
+            "salary_m": 5.0,
+            "buyout_m": 5.0
           }
         ],
         "aav_m": 9.0,
@@ -31526,6 +31643,12 @@
             "type": "PO",
             "salary_m": 30.0,
             "buyout_m": null
+          },
+          {
+            "season": 2027,
+            "type": "PO",
+            "salary_m": 28.0,
+            "buyout_m": 5.0
           }
         ],
         "aav_m": 25.0,
@@ -31575,7 +31698,14 @@
         "mlb_id": 547179,
         "player_name": "Michael Lorenzen",
         "contract_years": [],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 9.0,
+            "buyout_m": 0.25
+          }
+        ],
         "aav_m": 8.0,
         "total_value_m": 8.0,
         "free_agent_year": null,
@@ -31877,7 +32007,7 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 17.0,
@@ -32156,7 +32286,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.930060",
+        "last_scraped_at": "2026-01-17T21:34:38.278454",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -32354,7 +32484,7 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 7.0,
-            "buyout_m": null
+            "buyout_m": 4.0
           }
         ],
         "aav_m": 11.5,
@@ -34809,6 +34939,12 @@
             "type": "CO",
             "salary_m": 4.0,
             "buyout_m": null
+          },
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 7.0,
+            "buyout_m": null
           }
         ],
         "aav_m": 5.0,
@@ -35508,7 +35644,7 @@
             "season": 2028,
             "type": "CO",
             "salary_m": 3.0,
-            "buyout_m": null
+            "buyout_m": 3.0
           }
         ],
         "aav_m": 7.25,
@@ -35574,7 +35710,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 6.5,
@@ -36100,7 +36236,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:21.928433",
+        "last_scraped_at": "2026-01-17T21:34:38.276936",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -37915,7 +38051,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 7.5,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 6.787,
         "total_value_m": 6.787,
         "free_agent_year": null,
@@ -38287,7 +38430,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 6.0,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 3.5,
         "total_value_m": 3.5,
         "free_agent_year": null,
@@ -38713,7 +38863,7 @@
             "season": 2034,
             "type": "CO",
             "salary_m": 7.0,
-            "buyout_m": null
+            "buyout_m": 7.0
           }
         ],
         "aav_m": 8.375,
@@ -38772,7 +38922,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 11.2,
@@ -39298,7 +39448,14 @@
             "is_guaranteed": true
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2029,
+            "type": "CO",
+            "salary_m": 15.0,
+            "buyout_m": null
+          }
+        ],
         "aav_m": 12.167,
         "total_value_m": 73.0,
         "free_agent_year": null,
@@ -39833,7 +39990,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 1.5,
-            "buyout_m": null
+            "buyout_m": 1.5
           }
         ],
         "aav_m": 5.5,
@@ -40434,7 +40591,7 @@
             "season": 2029,
             "type": "CO",
             "salary_m": 5.0,
-            "buyout_m": null
+            "buyout_m": 5.0
           }
         ],
         "aav_m": 12.5,
@@ -40945,7 +41102,7 @@
             "season": 2030,
             "type": "CO",
             "salary_m": 1.0,
-            "buyout_m": null
+            "buyout_m": 1.0
           }
         ],
         "aav_m": 9.6,
@@ -41123,7 +41280,8 @@
         "options": [
           {
             "season": 2029,
-            "type": "CO"
+            "type": "CO",
+            "salary_m": 5.0
           }
         ],
         "aav_m": 18.0,
@@ -41351,6 +41509,12 @@
             "season": 2026,
             "type": "CO",
             "salary_m": 0.05,
+            "buyout_m": null
+          },
+          {
+            "season": 2027,
+            "type": "CO",
+            "salary_m": 3.1,
             "buyout_m": null
           }
         ],
@@ -41881,7 +42045,7 @@
         "years_remaining": 0,
         "guaranteed_years_remaining": 0,
         "source_url": "derived:mlb-minimum",
-        "last_scraped_at": "2026-01-17T17:20:30.615705",
+        "last_scraped_at": "2026-01-17T21:34:47.297940",
         "snapshot_date": "2026-01-17"
       }
     },
@@ -42008,7 +42172,7 @@
             "season": 2030,
             "type": "CO",
             "salary_m": 3.0,
-            "buyout_m": null
+            "buyout_m": 3.0
           }
         ],
         "aav_m": 14.8,
@@ -43503,7 +43667,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 1.25,
-            "buyout_m": null
+            "buyout_m": 1.25
           }
         ],
         "aav_m": 4.25,
@@ -44145,7 +44309,7 @@
             "season": 2027,
             "type": "CO",
             "salary_m": 0.5,
-            "buyout_m": null
+            "buyout_m": 0.5
           }
         ],
         "aav_m": 4.875,
@@ -46125,6 +46289,12 @@
             "type": "CO",
             "salary_m": 7.0,
             "buyout_m": null
+          },
+          {
+            "season": 2028,
+            "type": "PO",
+            "salary_m": 7.0,
+            "buyout_m": null
           }
         ],
         "aav_m": 5.6,
@@ -46389,7 +46559,7 @@
             "season": 2027,
             "type": "MO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 10.0,

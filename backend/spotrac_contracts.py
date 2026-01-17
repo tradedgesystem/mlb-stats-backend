@@ -38,6 +38,7 @@ MLB_API_PEOPLE_CACHE_DIR = MLB_API_CACHE_DIR / "people"
 MLB_API_SEARCH_CACHE_DIR = MLB_API_CACHE_DIR / "people_search"
 FANGRAPHS_CACHE_DIR = Path(__file__).with_name("data") / "fangraphs_cache"
 FANGRAPHS_ROSTERRESOURCE_CACHE_DIR = FANGRAPHS_CACHE_DIR / "rosterresource"
+FANGRAPHS_CONTRACTS_PATH = REPO_ROOT / "output" / "scrape_all_contracts.json"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
 COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
@@ -493,6 +494,57 @@ def parse_fangraphs_rosterresource(html_text: str, team_abbrev: str) -> list[dic
                 }
             )
 
+    return results
+
+
+def load_fangraphs_contracts(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+
+def parse_fangraphs_options(rows: list[dict]) -> list[dict]:
+    results = []
+    for row in rows:
+        player_name = row.get("player_name")
+        team = row.get("team")
+        if not player_name or not team:
+            continue
+        options = []
+        for year in row.get("contract_years", []):
+            raw_type = (year.get("type") or "").upper()
+            if "OPTION" not in raw_type:
+                continue
+            if "PLAYER" in raw_type:
+                opt_type = "PO"
+            elif "MUTUAL" in raw_type:
+                opt_type = "MO"
+            else:
+                opt_type = "CO"
+            season = parse_int_value(year.get("season"))
+            if not season:
+                continue
+            salary = parse_int_value(year.get("salary"))
+            buyout = parse_int_value(year.get("option_buyout"))
+            option = {
+                "season": season,
+                "type": opt_type,
+                "salary_m": round(salary / 1_000_000, 3) if salary else None,
+                "buyout_m": round(buyout / 1_000_000, 3) if buyout else None,
+            }
+            options.append(option)
+        if not options:
+            continue
+        results.append(
+            {
+                "player_name": player_name,
+                "team": team,
+                "options": options,
+            }
+        )
     return results
 
 
@@ -1744,12 +1796,54 @@ def build_contract_outputs():
         if optout_added:
             print(f"Fangraphs: added {optout_added} opt-out entries")
 
+    fangraphs_contracts = load_fangraphs_contracts(FANGRAPHS_CONTRACTS_PATH)
+    fangraphs_options = parse_fangraphs_options(fangraphs_contracts)
+    if fangraphs_options:
+        options_added = 0
+        for entry in fangraphs_options:
+            match_entry, _ = match_player(
+                entry["player_name"], entry["team"], by_team, by_name
+            )
+            contract = None
+            if match_entry and match_entry.mlb_id:
+                contract = contracts_by_mlb_id.get(match_entry.mlb_id)
+            if not contract:
+                fallback_key = (
+                    normalize_name(entry["player_name"]),
+                    entry["team"].lower(),
+                )
+                contract = contracts_by_name_team.get(fallback_key)
+            if not contract:
+                continue
+            options = contract.get("options") or []
+            for opt in entry["options"]:
+                existing = next(
+                    (
+                        item
+                        for item in options
+                        if item.get("season") == opt["season"]
+                        and item.get("type") == opt["type"]
+                    ),
+                    None,
+                )
+                if existing:
+                    if existing.get("salary_m") is None and opt.get("salary_m"):
+                        existing["salary_m"] = opt["salary_m"]
+                    if existing.get("buyout_m") is None and opt.get("buyout_m"):
+                        existing["buyout_m"] = opt["buyout_m"]
+                    continue
+                options.append(opt)
+                options_added += 1
+            contract["options"] = options
+        if options_added:
+            print(f"Fangraphs contracts: added {options_added} option entries")
+
     contracts_payload = {
         "meta": {
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs-contracts",
         },
         "contracts": {str(k): v for k, v in contracts_by_mlb_id.items()},
         "unmatched_contracts": unmatched_contracts,
@@ -1763,7 +1857,7 @@ def build_contract_outputs():
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs-contracts + fangraphs",
         },
         "players": [],
         "missing_contracts": [],
