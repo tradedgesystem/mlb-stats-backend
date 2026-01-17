@@ -21,8 +21,12 @@ OUTPUT_DIR = Path(__file__).with_name("output")
 CACHE_DIR = Path(__file__).with_name("data") / "spotrac_cache"
 TEAM_CACHE_DIR = CACHE_DIR / "teams"
 PLAYER_CACHE_DIR = CACHE_DIR / "players"
+COTTS_CACHE_DIR = Path(__file__).with_name("data") / "cotts_cache"
+COTTS_TEAM_CACHE_DIR = COTTS_CACHE_DIR / "teams"
+COTTS_INDEX_CACHE = COTTS_CACHE_DIR / "cotts_index.html"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
+COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
 SNAPSHOT_DATE = "2025-11-01"
 SNAPSHOT_SEASON = 2025
 YEARS_REMAINING_BASE = 2026
@@ -98,8 +102,8 @@ def normalize_name(name: str) -> str:
     name = re.sub(r"\(.*?\)", "", name)
     name = name.replace(".", " ")
     name = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", name, flags=re.IGNORECASE)
-    name = re.sub(r"[^a-zA-Z\\s]", " ", name)
-    name = re.sub(r"\\s+", " ", name).strip().lower()
+    name = re.sub(r"[^a-zA-Z\s]", " ", name)
+    name = re.sub(r"\s+", " ", name).strip().lower()
     return name
 
 
@@ -135,6 +139,65 @@ def parse_year(value: str | None) -> Optional[int]:
     if not cleaned.isdigit():
         return None
     return int(cleaned)
+
+
+def normalize_team_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z\s]", " ", name)
+    return re.sub(r"\s+", " ", cleaned).strip().lower()
+
+
+def normalize_short_year(value: str) -> Optional[int]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned.isdigit():
+        return None
+    year = int(cleaned)
+    if year < 100:
+        return 2000 + year
+    if year < 1900 or year > 2100:
+        return None
+    return year
+
+
+def parse_year_range(text: str) -> tuple[Optional[int], Optional[int]]:
+    match = re.search(r"(\d{2,4})\s*-\s*(\d{2,4})", text)
+    if not match:
+        return None, None
+    start = normalize_short_year(match.group(1))
+    end = normalize_short_year(match.group(2))
+    return start, end
+
+
+def parse_contract_summary(summary: str) -> tuple[Optional[int], Optional[float], Optional[int], Optional[int], set[int]]:
+    years_match = re.search(r"(\d+)\s*year", summary, re.IGNORECASE)
+    years = int(years_match.group(1)) if years_match else None
+    value_match = re.search(r"\$[\d,.]+[MKmk]?", summary)
+    total_value_m = parse_money_to_m(value_match.group(0)) if value_match else None
+
+    start_year = None
+    end_year = None
+    range_match = re.search(r"\((\d{4})(?:-(\d{2,4}))?\)", summary)
+    if range_match:
+        start_year = normalize_short_year(range_match.group(1))
+        if range_match.group(2):
+            end_year = normalize_short_year(range_match.group(2))
+        else:
+            end_year = start_year
+    else:
+        year_match = re.search(r"\b(20\d{2})\b", summary)
+        if year_match:
+            start_year = int(year_match.group(1))
+            end_year = start_year
+
+    option_years: set[int] = set()
+    for match in re.finditer(r"(\d{4})\s+option", summary, re.IGNORECASE):
+        option_years.add(int(match.group(1)))
+
+    if years and start_year and end_year is None:
+        end_year = start_year + years - 1
+
+    return years, total_value_m, start_year, end_year, option_years
 
 
 def fetch_url(url: str, cache_path: Path) -> tuple[str, str]:
@@ -249,7 +312,7 @@ def extract_contract_notes(soup: BeautifulSoup) -> list[str]:
 def extract_option_notes(notes: list[str]) -> dict[int, dict]:
     options: dict[int, dict] = {}
     option_re = re.compile(
-        r"(?P<season>20\\d{2}).*(?P<type>Player|Club|Mutual) Option",
+        r"(?P<season>20\d{2}).*(?P<type>Player|Club|Mutual) Option",
         re.IGNORECASE,
     )
     for note in notes:
@@ -258,15 +321,15 @@ def extract_option_notes(notes: list[str]) -> dict[int, dict]:
             continue
         season = int(match.group("season"))
         option_type = OPTION_TYPE_MAP.get(match.group("type").lower())
-        money_values = re.findall(r"\\$[\\d,.]+[MKmk]?", note)
+        money_values = re.findall(r"\$[\d,.]+[MKmk]?", note)
         salary_m = parse_money_to_m(money_values[0]) if money_values else None
         buyout_m = None
         buyout_match = re.search(
-            r"buyout[^$]*\\$[\\d,.]+[MKmk]?", note, re.IGNORECASE
+            r"buyout[^$]*\$[\d,.]+[MKmk]?", note, re.IGNORECASE
         )
         if buyout_match:
             buyout_m = parse_money_to_m(
-                re.search(r"\\$[\\d,.]+[MKmk]?", buyout_match.group(0)).group(0)
+                re.search(r"\$[\d,.]+[MKmk]?", buyout_match.group(0)).group(0)
             )
 
         existing = options.get(season, {"season": season})
@@ -354,6 +417,254 @@ def parse_player_contract_page(html_text: str) -> tuple[list[dict], list[dict], 
 
     options_list = [options[key] for key in sorted(options)]
     return contract_years, options_list, free_agent_year
+
+
+def extract_cotts_team_urls() -> dict[str, str]:
+    html_text, _ = fetch_url(COTTS_BASE, COTTS_INDEX_CACHE)
+    soup = BeautifulSoup(html_text, "html.parser")
+    team_urls: dict[str, str] = {}
+    name_to_abbrev = {
+        normalize_team_name(info["name"]): info["abbrev"] for info in TEAM_SLUGS.values()
+    }
+
+    for link in soup.find_all("a"):
+        href = link.get("href")
+        text = link.get_text(" ", strip=True)
+        if not href or not text:
+            continue
+        normalized = normalize_team_name(text)
+        abbrev = name_to_abbrev.get(normalized)
+        if not abbrev:
+            continue
+        if abbrev not in team_urls:
+            team_urls[abbrev] = href
+
+    return team_urls
+
+
+def parse_cotts_details(details: list[str]) -> tuple[dict[int, float], dict[int, str], dict[int, float], set[int]]:
+    salary_by_year: dict[int, float] = {}
+    option_types: dict[int, str] = {}
+    buyouts: dict[int, float] = {}
+    option_years: set[int] = set()
+
+    for raw_line in details:
+        line = " ".join(raw_line.split())
+        if not line:
+            continue
+
+        range_match = re.search(
+            r"(\d{2,4})\s*[-–]\s*(\d{2,4}).*?\$([\d,.]+[MKmk]?)",
+            line,
+        )
+        if range_match and re.search(r"annual|per year", line, re.IGNORECASE):
+            start = normalize_short_year(range_match.group(1))
+            end = normalize_short_year(range_match.group(2))
+            salary_m = parse_money_to_m(f"${range_match.group(3)}")
+            if start and end and salary_m is not None:
+                for year in range(start, end + 1):
+                    salary_by_year.setdefault(year, salary_m)
+
+        for match in re.finditer(r"(\d{2,4})[^$]{0,40}\$([\d,.]+[MKmk]?)", line):
+            year = normalize_short_year(match.group(1))
+            salary_m = parse_money_to_m(f"${match.group(2)}")
+            if year and salary_m is not None:
+                salary_by_year.setdefault(year, salary_m)
+
+        option_found = False
+        range_option = re.search(
+            r"(\d{2,4})\s*[-–]\s*(\d{2,4})\s+(player|club|mutual) option",
+            line,
+            re.IGNORECASE,
+        )
+        if range_option:
+            start = normalize_short_year(range_option.group(1))
+            end = normalize_short_year(range_option.group(2))
+            option_type = OPTION_TYPE_MAP.get(range_option.group(3).lower())
+            if start and end and option_type:
+                for year in range(start, end + 1):
+                    option_types[year] = option_type
+                    option_years.add(year)
+                option_found = True
+
+        if not option_found:
+            single_option = re.search(
+                r"(\d{2,4})\s*[: ]\s*\$[^,]*?(player|club|mutual) option",
+                line,
+                re.IGNORECASE,
+            )
+            if not single_option:
+                single_option = re.search(
+                    r"(\d{2,4})\s+(player|club|mutual) option",
+                    line,
+                    re.IGNORECASE,
+                )
+            if single_option:
+                year = normalize_short_year(single_option.group(1))
+                option_type = OPTION_TYPE_MAP.get(single_option.group(2).lower())
+                if year and option_type:
+                    option_types[year] = option_type
+                    option_years.add(year)
+                option_found = True
+
+        if "option" in line.lower() and not option_found:
+            loose_match = re.search(r"(20\d{2})\s+option", line, re.IGNORECASE)
+            if loose_match:
+                year = normalize_short_year(loose_match.group(1))
+                if year:
+                    option_years.add(year)
+
+        if "buyout" in line.lower():
+            buyout_match = re.search(r"buyout[^$]*\$([\d,.]+[MKmk]?)", line, re.IGNORECASE)
+            if buyout_match:
+                buyout_m = parse_money_to_m(f"${buyout_match.group(1)}")
+                if buyout_m is not None:
+                    year_match = re.search(r"(\d{2,4})", line)
+                    year = normalize_short_year(year_match.group(1)) if year_match else None
+                    if year:
+                        buyouts[year] = buyout_m
+
+    return salary_by_year, option_types, buyouts, option_years
+
+
+def parse_cotts_contract(summary: str, details: list[str]) -> tuple[list[dict], list[dict], Optional[float], Optional[float], Optional[int]]:
+    years, total_value_m, start_year, end_year, option_years_from_summary = (
+        parse_contract_summary(summary)
+    )
+    salary_by_year, option_types, buyouts, option_years_from_details = parse_cotts_details(details)
+
+    option_years = set(option_years_from_summary)
+
+    if start_year and end_year:
+        option_years.update(
+            year
+            for year in option_years_from_details
+            if start_year <= year <= end_year
+        )
+        allowed_years = set(range(start_year, end_year + 1)) | option_years
+        salary_by_year = {
+            year: salary for year, salary in salary_by_year.items() if year in allowed_years
+        }
+        option_types = {
+            year: option_type for year, option_type in option_types.items() if year in allowed_years
+        }
+        buyouts = {year: buyout for year, buyout in buyouts.items() if year in allowed_years}
+
+    aav_m = None
+    if years and total_value_m is not None and years > 0:
+        aav_m = round(total_value_m / years, 3)
+
+    contract_years: list[dict] = []
+    if salary_by_year:
+        for year in sorted(salary_by_year):
+            contract_years.append(
+                {
+                    "season": year,
+                    "salary_m": salary_by_year[year],
+                    "is_guaranteed": year not in option_years,
+                }
+            )
+    elif start_year:
+        end_year = end_year or start_year
+        per_year_m = aav_m if aav_m is not None else total_value_m
+        for year in range(start_year, end_year + 1):
+            contract_years.append(
+                {
+                    "season": year,
+                    "salary_m": per_year_m,
+                    "is_guaranteed": year not in option_years,
+                }
+            )
+
+    if total_value_m is None and contract_years:
+        values = [entry["salary_m"] for entry in contract_years if entry["salary_m"]]
+        if values:
+            total_value_m = round(sum(values), 3)
+    if aav_m is None and contract_years:
+        values = [entry["salary_m"] for entry in contract_years if entry["salary_m"]]
+        if values:
+            aav_m = round(sum(values) / len(values), 3)
+
+    options_list = []
+    for year, option_type in option_types.items():
+        options_list.append(
+            {
+                "season": year,
+                "type": option_type,
+                "salary_m": salary_by_year.get(year),
+                "buyout_m": buyouts.get(year),
+            }
+        )
+
+    return contract_years, options_list, aav_m, total_value_m, None
+
+
+def parse_cotts_team_players(html_text: str) -> list[dict]:
+    soup = BeautifulSoup(html_text, "html.parser")
+    content = soup.find("div", class_="entry-content") or soup
+    players: list[dict] = []
+
+    for p in content.find_all("p"):
+        name_span = p.find(
+            "span", style=lambda s: s and "font-size: 130%" in s
+        )
+        if not name_span:
+            continue
+        name = name_span.get_text(" ", strip=True)
+        text = p.get_text(" ", strip=True)
+        if name not in text:
+            continue
+
+        remainder = text.replace(name, "", 1).strip()
+        if not remainder:
+            continue
+
+        parts = remainder.split()
+        summary_start = None
+        for idx, token in enumerate(parts):
+            lower = token.lower()
+            if "$" in token or re.search(r"\d{4}", token):
+                summary_start = idx
+                break
+            if token.isdigit() and idx + 1 < len(parts):
+                next_token = parts[idx + 1].lower()
+                if next_token.startswith("year"):
+                    summary_start = idx
+                    break
+            if lower.startswith("year"):
+                summary_start = idx
+                break
+
+        if summary_start is None:
+            continue
+
+        position = " ".join(parts[:summary_start]).strip()
+        summary = " ".join(parts[summary_start:]).strip()
+
+        if not summary or not re.search(r"\$|20\d{2}", summary):
+            continue
+        if not re.search(
+            r"\b(rhp|lhp|p|c|1b|2b|3b|ss|of|lf|cf|rf|dh|if|ut)\b",
+            position,
+            re.IGNORECASE,
+        ):
+            continue
+
+        details: list[str] = []
+        sibling = p.find_next_sibling()
+        if sibling and sibling.name == "ul":
+            details = [li.get_text(" ", strip=True) for li in sibling.find_all("li")]
+
+        players.append(
+            {
+                "player_name": name,
+                "position": position,
+                "summary": summary,
+                "details": details,
+            }
+        )
+
+    return players
 
 
 def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
@@ -486,6 +797,7 @@ def build_contract_outputs():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     TEAM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     PLAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    COTTS_TEAM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     player_index = load_player_index(SNAPSHOT_SEASON)
     apply_mlb_ids(player_index)
@@ -551,6 +863,62 @@ def build_contract_outputs():
                         "team": team_info["abbrev"],
                         "source_url": player_url,
                         "match_reason": match_reason,
+                        "source": "spotrac",
+                    }
+                )
+
+    cotts_team_urls = extract_cotts_team_urls()
+    for team_abbrev, team_url in cotts_team_urls.items():
+        team_cache = COTTS_TEAM_CACHE_DIR / f"{team_abbrev.lower()}.html"
+        html_text, scraped_at = fetch_url(team_url, team_cache)
+        cotts_players = parse_cotts_team_players(html_text)
+        print(f"Cotts: {team_abbrev} -> {len(cotts_players)} players")
+
+        for player in cotts_players:
+            contract_years, options, aav_m, total_value_m, free_agent_year = (
+                parse_cotts_contract(player["summary"], player["details"])
+            )
+            if not contract_years and not options and total_value_m is None:
+                continue
+
+            years_remaining, guaranteed_remaining = compute_years_remaining(
+                contract_years
+            )
+
+            contract = {
+                "mlb_id": None,
+                "player_name": player["player_name"],
+                "contract_years": contract_years,
+                "options": options,
+                "aav_m": aav_m,
+                "total_value_m": total_value_m,
+                "free_agent_year": free_agent_year,
+                "years_remaining": years_remaining,
+                "guaranteed_years_remaining": guaranteed_remaining,
+                "source_url": team_url,
+                "last_scraped_at": scraped_at,
+                "snapshot_date": SNAPSHOT_DATE,
+            }
+
+            entry, match_reason = match_player(
+                player["player_name"], team_abbrev, by_team, by_name
+            )
+            if entry and entry.mlb_id:
+                contract["mlb_id"] = entry.mlb_id
+                contract["player_name"] = entry.name
+                if entry.mlb_id not in contracts_by_mlb_id:
+                    contracts_by_mlb_id[entry.mlb_id] = contract
+            else:
+                contracts_by_name_team[
+                    (normalize_name(player["player_name"]), team_abbrev.lower())
+                ] = contract
+                unmatched_contracts.append(
+                    {
+                        "player_name": player["player_name"],
+                        "team": team_abbrev,
+                        "source_url": team_url,
+                        "match_reason": match_reason,
+                        "source": "cotts",
                     }
                 )
 
@@ -559,7 +927,7 @@ def build_contract_outputs():
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac",
+            "source": "spotrac + cotts",
         },
         "contracts": {str(k): v for k, v in contracts_by_mlb_id.items()},
         "unmatched_contracts": unmatched_contracts,
@@ -573,7 +941,7 @@ def build_contract_outputs():
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + fangraphs",
+            "source": "spotrac + cotts + fangraphs",
         },
         "players": [],
         "missing_contracts": [],
