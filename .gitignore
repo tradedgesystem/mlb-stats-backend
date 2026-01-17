@@ -5,3 +5,4 @@ backend/data/spotrac_cache/search/
 backend/data/spotrac_cache/search_players/
 backend/data/mlb_api_cache/
 backend/data/fangraphs_cache/
+output/
