@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import random
 import re
 import sqlite3
@@ -35,10 +36,13 @@ BREF_REGISTER_CACHE = BREF_CACHE_DIR / "chadwick_register.csv"
 MLB_API_CACHE_DIR = Path(__file__).with_name("data") / "mlb_api_cache"
 MLB_API_PEOPLE_CACHE_DIR = MLB_API_CACHE_DIR / "people"
 MLB_API_SEARCH_CACHE_DIR = MLB_API_CACHE_DIR / "people_search"
+FANGRAPHS_CACHE_DIR = Path(__file__).with_name("data") / "fangraphs_cache"
+FANGRAPHS_ROSTERRESOURCE_CACHE_DIR = FANGRAPHS_CACHE_DIR / "rosterresource"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
 COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
 BREF_BASE = "https://www.baseball-reference.com/players"
+FANGRAPHS_ROSTERRESOURCE_BASE = "https://www.fangraphs.com/roster-resource/payroll"
 SNAPSHOT_DATE = "2026-01-17"
 SNAPSHOT_SEASON = 2025
 YEARS_REMAINING_BASE = 2026
@@ -357,6 +361,139 @@ def extract_spotrac_player_url(html_text: str, name_key: str) -> Optional[str]:
         return href
 
     return None
+
+
+def is_cloudflare_block(html_text: str) -> bool:
+    lowered = html_text.lower()
+    if "just a moment" in lowered and "cloudflare" in lowered:
+        return True
+    if "cf-browser-verification" in lowered:
+        return True
+    return False
+
+
+def fetch_fangraphs_rosterresource(url: str, cache_path: Path) -> tuple[str, str]:
+    if cache_path.exists():
+        html_text = cache_path.read_text(encoding="utf-8", errors="replace")
+        scraped_at = datetime.utcfromtimestamp(cache_path.stat().st_mtime).isoformat()
+        return html_text, scraped_at
+
+    try:
+        from botasaurus.request import Request
+    except ImportError as exc:
+        raise RuntimeError("botasaurus is required for Fangraphs fallback") from exc
+
+    req = Request()
+    try:
+        response = req.get(url, browser="chrome", os="windows")
+        if response.status_code == 200 and not is_cloudflare_block(response.text):
+            html_text = response.text
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(html_text, encoding="utf-8")
+            time.sleep(BASE_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+            return html_text, datetime.utcnow().isoformat()
+    except Exception:
+        pass
+
+    if os.getenv("FANGRAPHS_USE_BROWSER") != "1":
+        raise RuntimeError("Cloudflare blocked Fangraphs request")
+
+    try:
+        from botasaurus.browser import Driver
+    except ImportError as exc:
+        raise RuntimeError("botasaurus browser is required for Fangraphs fallback") from exc
+
+    driver = Driver(headless=True, block_images=True)
+    try:
+        driver.get(url, bypass_cloudflare=False, timeout=120)
+        html_text = driver.page_html
+        if is_cloudflare_block(html_text):
+            raise RuntimeError("Cloudflare blocked Fangraphs request")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(html_text, encoding="utf-8")
+        time.sleep(BASE_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+        return html_text, datetime.utcnow().isoformat()
+    finally:
+        try:
+            driver.close()
+        except Exception:
+            pass
+
+
+def parse_fangraphs_opt_outs(notes: str) -> list[dict]:
+    if not notes:
+        return []
+    lowered = notes.lower()
+    if "opt out" not in lowered and "opt-out" not in lowered:
+        return []
+
+    opt_type = "PO"
+    if "team opt" in lowered or "club opt" in lowered:
+        opt_type = "CO"
+    elif "mutual opt" in lowered:
+        opt_type = "MO"
+    elif "player opt" in lowered:
+        opt_type = "PO"
+
+    years = {int(match.group(1)) for match in re.finditer(r"(20\\d{2})", notes)}
+    if not years:
+        return []
+
+    return [
+        {
+            "season": year,
+            "type": opt_type,
+            "salary_m": None,
+            "buyout_m": None,
+        }
+        for year in sorted(years)
+    ]
+
+
+def parse_fangraphs_rosterresource(html_text: str, team_abbrev: str) -> list[dict]:
+    soup = BeautifulSoup(html_text, "html.parser")
+    tables = soup.find_all("table")
+    results: list[dict] = []
+
+    for table in tables:
+        headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
+        if not headers:
+            continue
+        name_idx = None
+        notes_idx = None
+        for idx, header in enumerate(headers):
+            if "player" in header or header == "name":
+                name_idx = idx
+            if "note" in header or "opt" in header:
+                notes_idx = idx
+        if name_idx is None:
+            continue
+
+        for row in table.find_all("tr"):
+            cells = row.find_all(["td", "th"])
+            if len(cells) <= name_idx:
+                continue
+            name = cells[name_idx].get_text(" ", strip=True)
+            if not name or name.lower() in {"player", "name"}:
+                continue
+            notes = (
+                cells[notes_idx].get_text(" ", strip=True)
+                if notes_idx is not None and len(cells) > notes_idx
+                else ""
+            )
+            opt_outs = parse_fangraphs_opt_outs(notes)
+            if not opt_outs:
+                continue
+            results.append(
+                {
+                    "player_name": name,
+                    "team": team_abbrev,
+                    "opt_outs": opt_outs,
+                    "notes": notes,
+                }
+            )
+
+    return results
 
 
 def fetch_mlb_api_json(url: str, cache_path: Path) -> dict:
@@ -1171,6 +1308,7 @@ def build_contract_outputs():
     SPOTRAC_SEARCH_PLAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     MLB_API_PEOPLE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     MLB_API_SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    FANGRAPHS_ROSTERRESOURCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     player_index = load_player_index(SNAPSHOT_SEASON)
     chadwick_fangraphs, mlb_to_bbref, chadwick_names = build_chadwick_maps()
@@ -1561,12 +1699,57 @@ def build_contract_outputs():
     if derived_added:
         print(f"Derived minimum: added {derived_added} contracts")
 
+    fangraphs_optouts: list[dict] = []
+    for team_slug, team_info in TEAM_SLUGS.items():
+        rr_url = f"{FANGRAPHS_ROSTERRESOURCE_BASE}/{team_slug}"
+        rr_cache = FANGRAPHS_ROSTERRESOURCE_CACHE_DIR / f"{team_slug}.html"
+        try:
+            rr_html, _ = fetch_fangraphs_rosterresource(rr_url, rr_cache)
+        except RuntimeError as exc:
+            print(f"Fangraphs: failed {team_slug}: {exc}")
+            continue
+        if is_cloudflare_block(rr_html):
+            print(f"Fangraphs: blocked {team_slug}")
+            continue
+        entries = parse_fangraphs_rosterresource(rr_html, team_info["abbrev"])
+        fangraphs_optouts.extend(entries)
+
+    if fangraphs_optouts:
+        optout_added = 0
+        for entry in fangraphs_optouts:
+            match_entry, _ = match_player(
+                entry["player_name"], entry["team"], by_team, by_name
+            )
+            contract = None
+            if match_entry and match_entry.mlb_id:
+                contract = contracts_by_mlb_id.get(match_entry.mlb_id)
+            if not contract:
+                fallback_key = (
+                    normalize_name(entry["player_name"]),
+                    entry["team"].lower(),
+                )
+                contract = contracts_by_name_team.get(fallback_key)
+            if not contract:
+                continue
+            options = contract.get("options") or []
+            for opt_out in entry["opt_outs"]:
+                if not any(
+                    opt["season"] == opt_out["season"]
+                    and opt.get("type") == opt_out.get("type")
+                    for opt in options
+                ):
+                    options.append(opt_out)
+                    optout_added += 1
+            contract["options"] = options
+        if optout_added:
+            print(f"Fangraphs: added {optout_added} opt-out entries")
+
     contracts_payload = {
         "meta": {
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts + bref + spotrac-search + derived-min",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource",
         },
         "contracts": {str(k): v for k, v in contracts_by_mlb_id.items()},
         "unmatched_contracts": unmatched_contracts,
@@ -1580,7 +1763,7 @@ def build_contract_outputs():
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource + fangraphs",
         },
         "players": [],
         "missing_contracts": [],

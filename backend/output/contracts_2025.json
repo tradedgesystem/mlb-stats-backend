@@ -1,9 +1,9 @@
 {
   "meta": {
     "snapshot_date": "2026-01-17",
-    "generated_at": "2026-01-17T17:05:43.185817",
+    "generated_at": "2026-01-17T17:20:33.958876",
     "season": 2025,
-    "source": "spotrac + cotts + bref + spotrac-search + derived-min"
+    "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs-rosterresource"
   },
   "contracts": {
     "571448": {
@@ -35519,7 +35519,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.415321",
+      "last_scraped_at": "2026-01-17T17:20:21.924923",
       "snapshot_date": "2026-01-17"
     },
     "666126": {
@@ -35539,7 +35539,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.415569",
+      "last_scraped_at": "2026-01-17T17:20:21.925177",
       "snapshot_date": "2026-01-17"
     },
     "687515": {
@@ -35559,7 +35559,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.415929",
+      "last_scraped_at": "2026-01-17T17:20:21.925560",
       "snapshot_date": "2026-01-17"
     },
     "642759": {
@@ -35579,7 +35579,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.416164",
+      "last_scraped_at": "2026-01-17T17:20:21.925818",
       "snapshot_date": "2026-01-17"
     },
     "622379": {
@@ -35599,7 +35599,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.418060",
+      "last_scraped_at": "2026-01-17T17:20:21.927576",
       "snapshot_date": "2026-01-17"
     },
     "642016": {
@@ -35619,7 +35619,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.418355",
+      "last_scraped_at": "2026-01-17T17:20:21.927769",
       "snapshot_date": "2026-01-17"
     },
     "674285": {
@@ -35639,7 +35639,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.418487",
+      "last_scraped_at": "2026-01-17T17:20:21.927895",
       "snapshot_date": "2026-01-17"
     },
     "678495": {
@@ -35659,7 +35659,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.418931",
+      "last_scraped_at": "2026-01-17T17:20:21.928433",
       "snapshot_date": "2026-01-17"
     },
     "679922": {
@@ -35679,7 +35679,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.419132",
+      "last_scraped_at": "2026-01-17T17:20:21.928670",
       "snapshot_date": "2026-01-17"
     },
     "681347": {
@@ -35699,7 +35699,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:32.420463",
+      "last_scraped_at": "2026-01-17T17:20:21.930060",
       "snapshot_date": "2026-01-17"
     },
     "678022": {
@@ -35719,7 +35719,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.178961",
+      "last_scraped_at": "2026-01-17T17:20:30.615333",
       "snapshot_date": "2026-01-17"
     },
     "802419": {
@@ -35739,7 +35739,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.179412",
+      "last_scraped_at": "2026-01-17T17:20:30.615705",
       "snapshot_date": "2026-01-17"
     },
     "693645": {
@@ -35759,7 +35759,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.184912",
+      "last_scraped_at": "2026-01-17T17:20:30.620711",
       "snapshot_date": "2026-01-17"
     },
     "806960": {
@@ -35779,7 +35779,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.185103",
+      "last_scraped_at": "2026-01-17T17:20:30.621149",
       "snapshot_date": "2026-01-17"
     },
     "691185": {
@@ -35799,7 +35799,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.185241",
+      "last_scraped_at": "2026-01-17T17:20:30.621355",
       "snapshot_date": "2026-01-17"
     },
     "682657": {
@@ -35819,7 +35819,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.185594",
+      "last_scraped_at": "2026-01-17T17:20:30.621714",
       "snapshot_date": "2026-01-17"
     },
     "669288": {
@@ -35839,7 +35839,7 @@
       "years_remaining": 0,
       "guaranteed_years_remaining": 0,
       "source_url": "derived:mlb-minimum",
-      "last_scraped_at": "2026-01-17T17:05:43.185787",
+      "last_scraped_at": "2026-01-17T17:20:30.621924",
       "snapshot_date": "2026-01-17"
     }
   },
