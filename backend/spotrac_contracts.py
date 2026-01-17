@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+import csv
 import json
+import math
 import random
 import re
 import sqlite3
 import time
 import urllib.error
 import urllib.request
+import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(__file__).with_name("stats.db")
@@ -21,19 +24,32 @@ OUTPUT_DIR = Path(__file__).with_name("output")
 CACHE_DIR = Path(__file__).with_name("data") / "spotrac_cache"
 TEAM_CACHE_DIR = CACHE_DIR / "teams"
 PLAYER_CACHE_DIR = CACHE_DIR / "players"
+SPOTRAC_SEARCH_CACHE_DIR = CACHE_DIR / "search"
+SPOTRAC_SEARCH_PLAYER_CACHE_DIR = CACHE_DIR / "search_players"
 COTTS_CACHE_DIR = Path(__file__).with_name("data") / "cotts_cache"
 COTTS_TEAM_CACHE_DIR = COTTS_CACHE_DIR / "teams"
 COTTS_INDEX_CACHE = COTTS_CACHE_DIR / "cotts_index.html"
+BREF_CACHE_DIR = Path(__file__).with_name("data") / "bref_cache"
+BREF_PLAYER_CACHE_DIR = BREF_CACHE_DIR / "players"
+BREF_REGISTER_CACHE = BREF_CACHE_DIR / "chadwick_register.csv"
+MLB_API_CACHE_DIR = Path(__file__).with_name("data") / "mlb_api_cache"
+MLB_API_PEOPLE_CACHE_DIR = MLB_API_CACHE_DIR / "people"
+MLB_API_SEARCH_CACHE_DIR = MLB_API_CACHE_DIR / "people_search"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
 COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
+BREF_BASE = "https://www.baseball-reference.com/players"
 SNAPSHOT_DATE = "2025-11-01"
 SNAPSHOT_SEASON = 2025
 YEARS_REMAINING_BASE = 2026
+MLB_MIN_SALARY_2025_M = 0.76
 
 BASE_DELAY_SECONDS = 1.2
 DELAY_JITTER_SECONDS = 0.5
 MAX_RETRIES = 3
+BREF_DELAY_SECONDS = 4.0
+BREF_MAX_RETRIES = 6
+SPOTRAC_SEARCH_DELAY_SECONDS = 2.0
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -141,6 +157,24 @@ def parse_year(value: str | None) -> Optional[int]:
     return int(cleaned)
 
 
+def parse_int_value(value: object) -> Optional[int]:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if math.isnan(value):
+            return None
+        return int(value)
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return None
+    try:
+        return int(float(text))
+    except ValueError:
+        return None
+
+
 def normalize_team_name(name: str) -> str:
     cleaned = re.sub(r"[^a-zA-Z\s]", " ", name)
     return re.sub(r"\s+", " ", cleaned).strip().lower()
@@ -227,6 +261,186 @@ def fetch_url(url: str, cache_path: Path) -> tuple[str, str]:
             time.sleep(2 + attempt)
 
     raise RuntimeError(f"Failed to fetch {url}: {last_error}")
+
+
+def fetch_bref_url(url: str, cache_path: Path) -> tuple[str, str]:
+    if cache_path.exists():
+        html_text = cache_path.read_text(encoding="utf-8", errors="replace")
+        scraped_at = datetime.utcfromtimestamp(cache_path.stat().st_mtime).isoformat()
+        return html_text, scraped_at
+
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    last_error: Optional[Exception] = None
+    for attempt in range(BREF_MAX_RETRIES):
+        try:
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=30) as response:
+                html_text = response.read().decode("utf-8", errors="replace")
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(html_text, encoding="utf-8")
+            time.sleep(BREF_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+            return html_text, datetime.utcnow().isoformat()
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code == 429:
+                time.sleep(BREF_DELAY_SECONDS * (attempt + 2))
+                continue
+            time.sleep(2 + attempt)
+        except urllib.error.URLError as exc:
+            last_error = exc
+            time.sleep(2 + attempt)
+
+    raise RuntimeError(f"Failed to fetch {url}: {last_error}")
+
+
+def fetch_spotrac_search_url(url: str, cache_path: Path) -> tuple[str, str]:
+    if cache_path.exists():
+        html_text = cache_path.read_text(encoding="utf-8", errors="replace")
+        scraped_at = datetime.utcfromtimestamp(cache_path.stat().st_mtime).isoformat()
+        return html_text, scraped_at
+
+    try:
+        from botasaurus.request import Request
+    except ImportError as exc:
+        raise RuntimeError("botasaurus is required for Spotrac search fallback") from exc
+
+    req = Request()
+    last_error: Optional[Exception] = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = req.get(url)
+            if response.status_code != 200:
+                raise RuntimeError(f"HTTP {response.status_code}")
+            html_text = response.text
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(html_text, encoding="utf-8")
+            time.sleep(SPOTRAC_SEARCH_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+            return html_text, datetime.utcnow().isoformat()
+        except Exception as exc:
+            last_error = exc
+            time.sleep(2 + attempt)
+
+    raise RuntimeError(f"Failed to fetch {url}: {last_error}")
+
+
+def extract_spotrac_player_url(html_text: str, name_key: str) -> Optional[str]:
+    soup = BeautifulSoup(html_text, "html.parser")
+    meta = soup.find("meta", {"property": "og:url"})
+    if meta and meta.get("content") and "/mlb/player/" in meta["content"]:
+        return meta["content"]
+
+    candidates = []
+    for link in soup.select("a[href*=\"/mlb/player/\"]"):
+        href = link.get("href")
+        if not href:
+            continue
+        text = normalize_name(link.get_text(" ", strip=True))
+        if not text:
+            continue
+        candidates.append((text, href))
+
+    for text, href in candidates:
+        if name_key and name_key in text:
+            if href.startswith("/"):
+                return f"https://www.spotrac.com{href}"
+            return href
+
+    if candidates:
+        href = candidates[0][1]
+        if href.startswith("/"):
+            return f"https://www.spotrac.com{href}"
+        return href
+
+    return None
+
+
+def fetch_mlb_api_json(url: str, cache_path: Path) -> dict:
+    if cache_path.exists():
+        return json.loads(cache_path.read_text(encoding="utf-8"))
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": random.choice(USER_AGENTS),
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(payload), encoding="utf-8")
+    time.sleep(BASE_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+    return payload
+
+
+def resolve_mlb_id_from_search(name: str) -> Optional[int]:
+    query = urllib.parse.quote_plus(name)
+    cache_name = safe_cache_name(name)
+    url = f"https://statsapi.mlb.com/api/v1/people/search?names={query}"
+    cache_path = MLB_API_SEARCH_CACHE_DIR / f"{cache_name}.json"
+    data = fetch_mlb_api_json(url, cache_path)
+    people = data.get("people") or []
+    if not people:
+        return None
+
+    name_key = normalize_name(name)
+    exact = [
+        person for person in people if normalize_name(person.get("fullName", "")) == name_key
+    ]
+    if len(exact) == 1:
+        return parse_int_value(exact[0].get("id"))
+    if len(people) == 1:
+        return parse_int_value(people[0].get("id"))
+    return None
+
+
+def resolve_mlb_id_from_pybaseball(name: str) -> Optional[int]:
+    parts = name.split()
+    if len(parts) < 2:
+        return None
+    first = parts[0].lower()
+    last = parts[-1].lower()
+    first_variants = [first]
+    nicknames = {
+        "cameron": "cam",
+        "jackson": "jack",
+    }
+    if first in nicknames:
+        first_variants.append(nicknames[first])
+    if len(first) > 3:
+        first_variants.append(first[:3])
+
+    try:
+        from pybaseball import playerid_lookup
+    except ImportError:
+        return None
+
+    for variant in first_variants:
+        df = playerid_lookup(last, variant)
+        if df.empty:
+            continue
+        df = df.copy()
+        df["mlb_played_last"] = df["mlb_played_last"].fillna(0)
+        df = df.sort_values("mlb_played_last", ascending=False)
+        mlb_id = parse_int_value(df.iloc[0].get("key_mlbam"))
+        if mlb_id:
+            return mlb_id
+    return None
+
+
+def fetch_mlb_person(mlb_id: int) -> Optional[dict]:
+    cache_path = MLB_API_PEOPLE_CACHE_DIR / f"{mlb_id}.json"
+    url = f"https://statsapi.mlb.com/api/v1/people/{mlb_id}"
+    data = fetch_mlb_api_json(url, cache_path)
+    people = data.get("people") or []
+    if not people:
+        return None
+    return people[0]
 
 
 def safe_cache_name(url: str) -> str:
@@ -667,6 +881,138 @@ def parse_cotts_team_players(html_text: str) -> list[dict]:
     return players
 
 
+def load_chadwick_register_rows() -> list[dict]:
+    if BREF_REGISTER_CACHE.exists():
+        rows: list[dict] = []
+        with BREF_REGISTER_CACHE.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                rows.append(row)
+        return rows
+
+    from pybaseball import chadwick_register
+
+    df = chadwick_register()
+    columns = [
+        "name_last",
+        "name_first",
+        "key_mlbam",
+        "key_bbref",
+        "key_fangraphs",
+        "mlb_played_last",
+    ]
+    df = df[columns]
+    BREF_REGISTER_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(BREF_REGISTER_CACHE, index=False)
+    return df.to_dict(orient="records")
+
+
+def build_chadwick_maps() -> tuple[dict[int, int], dict[int, str], dict[str, list[dict]]]:
+    rows = load_chadwick_register_rows()
+    fg_to_mlb: dict[int, int] = {}
+    mlb_to_bbref: dict[int, str] = {}
+    name_to_rows: dict[str, list[dict]] = {}
+
+    for row in rows:
+        mlb_id = parse_int_value(row.get("key_mlbam"))
+        fg_id = parse_int_value(row.get("key_fangraphs"))
+        bbref_id = row.get("key_bbref") or None
+        last_played = parse_int_value(row.get("mlb_played_last"))
+
+        if fg_id and mlb_id and fg_id not in fg_to_mlb:
+            fg_to_mlb[fg_id] = mlb_id
+        if mlb_id and bbref_id:
+            mlb_to_bbref[mlb_id] = bbref_id
+
+        name_key = normalize_name(
+            f"{row.get('name_first', '')} {row.get('name_last', '')}"
+        )
+        if not name_key:
+            continue
+        name_to_rows.setdefault(name_key, []).append(
+            {
+                "mlb_id": mlb_id,
+                "bbref_id": bbref_id,
+                "mlb_played_last": last_played,
+            }
+        )
+
+    return fg_to_mlb, mlb_to_bbref, name_to_rows
+
+
+def select_chadwick_candidate(candidates: list[dict]) -> tuple[Optional[dict], str]:
+    if not candidates:
+        return None, "name_missing"
+
+    def score(row: dict) -> tuple[int, int]:
+        last_played = row.get("mlb_played_last") or 0
+        recent_flag = 1 if last_played >= SNAPSHOT_SEASON - 1 else 0
+        return recent_flag, last_played
+
+    sorted_candidates = sorted(candidates, key=score, reverse=True)
+    best = sorted_candidates[0]
+    if len(sorted_candidates) > 1 and score(sorted_candidates[0]) == score(
+        sorted_candidates[1]
+    ):
+        return best, "name_ambiguous"
+    return best, "name_match"
+
+
+def bref_player_url(bbref_id: str) -> str:
+    return f"{BREF_BASE}/{bbref_id[0]}/{bbref_id}.shtml"
+
+
+def parse_bref_salary_amount(cell: Optional[BeautifulSoup]) -> Optional[float]:
+    if not cell:
+        return None
+    amount = cell.get("data-amount")
+    if amount:
+        try:
+            return round(float(amount) / 1_000_000, 3)
+        except ValueError:
+            pass
+    text = cell.get_text(" ", strip=True)
+    return parse_money_to_m(text)
+
+
+def parse_bref_salaries(html_text: str) -> list[dict]:
+    soup = BeautifulSoup(html_text, "html.parser")
+    table_html = None
+    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+        if 'id="br-salaries"' in comment:
+            table_html = comment
+            break
+    if not table_html:
+        return []
+
+    comment_soup = BeautifulSoup(table_html, "html.parser")
+    table = comment_soup.find("table", {"id": "br-salaries"})
+    if not table:
+        return []
+
+    contract_years: list[dict] = []
+    for row in table.select("tbody tr"):
+        year_cell = row.find("th", {"data-stat": "year_ID"})
+        year = parse_year(year_cell.get_text(" ", strip=True)) if year_cell else None
+        if not year:
+            continue
+        salary_cell = row.find(
+            "td", attrs={"data-stat": re.compile(r"^salary$", re.IGNORECASE)}
+        )
+        salary_m = parse_bref_salary_amount(salary_cell)
+        if salary_m is None:
+            continue
+        contract_years.append(
+            {
+                "season": year,
+                "salary_m": salary_m,
+                "is_guaranteed": True,
+            }
+        )
+
+    return contract_years
+
+
 def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -727,7 +1073,11 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
     return index
 
 
-def apply_mlb_ids(index: dict[int, PlayerIndexEntry]) -> dict[int, int]:
+def apply_mlb_ids(
+    index: dict[int, PlayerIndexEntry],
+    chadwick_fangraphs: dict[int, int],
+    chadwick_names: dict[str, list[dict]],
+) -> list[dict]:
     mlb_to_fg = json.loads(ID_MAP_PATH.read_text())
     fg_to_mlb = {
         int(fg_id): int(mlb_id)
@@ -735,9 +1085,27 @@ def apply_mlb_ids(index: dict[int, PlayerIndexEntry]) -> dict[int, int]:
         if int(fg_id) > 0
     }
 
+    for fg_id, mlb_id in chadwick_fangraphs.items():
+        fg_to_mlb.setdefault(fg_id, mlb_id)
+
+    warnings: list[dict] = []
     for entry in index.values():
         entry.mlb_id = fg_to_mlb.get(entry.player_id)
-    return fg_to_mlb
+        if entry.mlb_id:
+            continue
+        candidates = chadwick_names.get(normalize_name(entry.name), [])
+        best, reason = select_chadwick_candidate(candidates)
+        if best and best.get("mlb_id"):
+            entry.mlb_id = best["mlb_id"]
+            if reason == "name_ambiguous":
+                warnings.append(
+                    {
+                        "player_name": entry.name,
+                        "team": entry.team,
+                        "match_reason": reason,
+                    }
+                )
+    return warnings
 
 
 def build_matching_indexes(index: dict[int, PlayerIndexEntry]):
@@ -798,9 +1166,17 @@ def build_contract_outputs():
     TEAM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     PLAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     COTTS_TEAM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    BREF_PLAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    SPOTRAC_SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    SPOTRAC_SEARCH_PLAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    MLB_API_PEOPLE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    MLB_API_SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     player_index = load_player_index(SNAPSHOT_SEASON)
-    apply_mlb_ids(player_index)
+    chadwick_fangraphs, mlb_to_bbref, chadwick_names = build_chadwick_maps()
+    id_match_warnings = apply_mlb_ids(
+        player_index, chadwick_fangraphs, chadwick_names
+    )
     by_team, by_name = build_matching_indexes(player_index)
 
     contracts_by_mlb_id: dict[int, dict] = {}
@@ -922,12 +1298,275 @@ def build_contract_outputs():
                     }
                 )
 
+    missing_entries: list[PlayerIndexEntry] = []
+    for entry in player_index.values():
+        if entry.mlb_id and entry.mlb_id in contracts_by_mlb_id:
+            continue
+        fallback_key = (normalize_name(entry.name), entry.team.lower())
+        if fallback_key in contracts_by_name_team:
+            continue
+        missing_entries.append(entry)
+
+    bref_added = 0
+    bref_fetches = 0
+    bref_cache_hits = 0
+    bref_reused = 0
+    bref_contracts: dict[str, dict] = {}
+    total_missing = len(missing_entries)
+    if total_missing:
+        print(f"BRef: processing {total_missing} missing players")
+    for idx, entry in enumerate(missing_entries, start=1):
+        bbref_id = None
+        if entry.mlb_id:
+            bbref_id = mlb_to_bbref.get(entry.mlb_id)
+        if not bbref_id:
+            candidates = chadwick_names.get(normalize_name(entry.name), [])
+            best, _ = select_chadwick_candidate(candidates)
+            if best:
+                bbref_id = best.get("bbref_id")
+                if entry.mlb_id is None and best.get("mlb_id"):
+                    entry.mlb_id = best["mlb_id"]
+        if not bbref_id:
+            continue
+        if bbref_id in bref_contracts:
+            contract_template = bref_contracts[bbref_id]
+            contract = json.loads(json.dumps(contract_template))
+            contract["mlb_id"] = entry.mlb_id
+            contract["player_name"] = entry.name
+            if entry.mlb_id:
+                contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
+                bref_added += 1
+            contracts_by_name_team[
+                (normalize_name(entry.name), entry.team.lower())
+            ] = contract
+            bref_reused += 1
+            continue
+
+        player_url = bref_player_url(bbref_id)
+        player_cache = BREF_PLAYER_CACHE_DIR / f"{bbref_id}.html"
+        cache_hit = player_cache.exists()
+        try:
+            player_html, scraped_at = fetch_bref_url(player_url, player_cache)
+        except RuntimeError as exc:
+            print(f"BRef: failed {bbref_id}: {exc}")
+            continue
+        if cache_hit:
+            bref_cache_hits += 1
+        else:
+            bref_fetches += 1
+        contract_years = parse_bref_salaries(player_html)
+        if not contract_years:
+            continue
+        contract_years = sorted(contract_years, key=lambda row: row["season"])
+        filtered_years = [
+            row for row in contract_years if row["season"] >= SNAPSHOT_SEASON
+        ]
+        if filtered_years:
+            contract_years = filtered_years
+        else:
+            contract_years = [contract_years[-1]]
+
+        total_value_m = sum(
+            entry_year["salary_m"]
+            for entry_year in contract_years
+            if entry_year.get("salary_m") is not None
+        )
+        aav_m = (
+            round(total_value_m / len(contract_years), 3)
+            if contract_years
+            else None
+        )
+        years_remaining, guaranteed_remaining = compute_years_remaining(contract_years)
+
+        contract_template = {
+            "mlb_id": None,
+            "player_name": None,
+            "contract_years": contract_years,
+            "options": [],
+            "aav_m": aav_m,
+            "total_value_m": round(total_value_m, 3) if contract_years else None,
+            "free_agent_year": None,
+            "years_remaining": years_remaining,
+            "guaranteed_years_remaining": guaranteed_remaining,
+            "source_url": player_url,
+            "last_scraped_at": scraped_at,
+            "snapshot_date": SNAPSHOT_DATE,
+        }
+        bref_contracts[bbref_id] = contract_template
+        contract = json.loads(json.dumps(contract_template))
+        contract["mlb_id"] = entry.mlb_id
+        contract["player_name"] = entry.name
+
+        if entry.mlb_id:
+            contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
+            bref_added += 1
+        contracts_by_name_team[
+            (normalize_name(entry.name), entry.team.lower())
+        ] = contract
+        if idx == 1 or idx % 25 == 0 or idx == total_missing:
+            print(
+                "BRef: "
+                f"{idx}/{total_missing} processed "
+                f"(added {bref_added}, fetched {bref_fetches}, "
+                f"cached {bref_cache_hits}, reused {bref_reused})"
+            )
+
+    if id_match_warnings:
+        print(f"Chadwick name matches ambiguous: {len(id_match_warnings)}")
+    if bref_added:
+        print(f"BRef: added {bref_added} contracts")
+
+    remaining_entries: list[PlayerIndexEntry] = []
+    for entry in missing_entries:
+        if entry.mlb_id and entry.mlb_id in contracts_by_mlb_id:
+            continue
+        fallback_key = (normalize_name(entry.name), entry.team.lower())
+        if fallback_key in contracts_by_name_team:
+            continue
+        remaining_entries.append(entry)
+
+    spotrac_search_added = 0
+    if remaining_entries:
+        print(f"Spotrac search: processing {len(remaining_entries)} players")
+    for idx, entry in enumerate(remaining_entries, start=1):
+        name_key = normalize_name(entry.name)
+        if not name_key:
+            continue
+        search_query = urllib.parse.quote_plus(entry.name)
+        search_url = f"https://www.spotrac.com/search/?q={search_query}"
+        search_cache = SPOTRAC_SEARCH_CACHE_DIR / f"{name_key}.html"
+        try:
+            search_html, _ = fetch_spotrac_search_url(search_url, search_cache)
+        except RuntimeError as exc:
+            print(f"Spotrac search: failed {entry.name}: {exc}")
+            continue
+
+        player_url = extract_spotrac_player_url(search_html, name_key)
+        player_html = None
+        scraped_at = None
+        if player_url:
+            cache_name = safe_cache_name(player_url)
+            player_cache = SPOTRAC_SEARCH_PLAYER_CACHE_DIR / f"{cache_name}.html"
+            try:
+                player_html, scraped_at = fetch_spotrac_search_url(
+                    player_url, player_cache
+                )
+            except RuntimeError as exc:
+                print(f"Spotrac search: failed {player_url}: {exc}")
+                continue
+        else:
+            player_html = search_html
+            scraped_at = datetime.utcnow().isoformat()
+
+        contract_years, options, free_agent_year = parse_player_contract_page(
+            player_html
+        )
+        if not contract_years:
+            continue
+
+        values = [
+            entry_year["salary_m"]
+            for entry_year in contract_years
+            if entry_year.get("salary_m") is not None
+        ]
+        total_value_m = round(sum(values), 3) if values else None
+        aav_m = round(total_value_m / len(values), 3) if values else None
+        years_remaining, guaranteed_remaining = compute_years_remaining(contract_years)
+
+        contract = {
+            "mlb_id": entry.mlb_id,
+            "player_name": entry.name,
+            "contract_years": contract_years,
+            "options": options,
+            "aav_m": aav_m,
+            "total_value_m": total_value_m,
+            "free_agent_year": free_agent_year,
+            "years_remaining": years_remaining,
+            "guaranteed_years_remaining": guaranteed_remaining,
+            "source_url": player_url or search_url,
+            "last_scraped_at": scraped_at,
+            "snapshot_date": SNAPSHOT_DATE,
+        }
+
+        if entry.mlb_id:
+            contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
+            spotrac_search_added += 1
+        contracts_by_name_team[
+            (normalize_name(entry.name), entry.team.lower())
+        ] = contract
+
+        if idx == 1 or idx % 25 == 0 or idx == len(remaining_entries):
+            print(
+                "Spotrac search: "
+                f"{idx}/{len(remaining_entries)} processed "
+                f"(added {spotrac_search_added})"
+            )
+
+    derived_added = 0
+    final_missing: list[PlayerIndexEntry] = []
+    for entry in remaining_entries:
+        if entry.mlb_id and entry.mlb_id in contracts_by_mlb_id:
+            continue
+        fallback_key = (normalize_name(entry.name), entry.team.lower())
+        if fallback_key in contracts_by_name_team:
+            continue
+        final_missing.append(entry)
+
+    if final_missing:
+        print(f"Derived minimum: processing {len(final_missing)} players")
+    for entry in final_missing:
+        if entry.mlb_id is None:
+            entry.mlb_id = resolve_mlb_id_from_search(entry.name)
+        if entry.mlb_id is None:
+            entry.mlb_id = resolve_mlb_id_from_pybaseball(entry.name)
+
+        if entry.mlb_id is None:
+            continue
+        person = fetch_mlb_person(entry.mlb_id)
+        debut_date = (person or {}).get("mlbDebutDate")
+        if not debut_date:
+            continue
+        if debut_date > SNAPSHOT_DATE:
+            continue
+
+        contract_years = [
+            {
+                "season": SNAPSHOT_SEASON,
+                "salary_m": MLB_MIN_SALARY_2025_M,
+                "is_guaranteed": True,
+            }
+        ]
+        years_remaining, guaranteed_remaining = compute_years_remaining(contract_years)
+        contract = {
+            "mlb_id": entry.mlb_id,
+            "player_name": entry.name,
+            "contract_years": contract_years,
+            "options": [],
+            "aav_m": MLB_MIN_SALARY_2025_M,
+            "total_value_m": MLB_MIN_SALARY_2025_M,
+            "free_agent_year": None,
+            "years_remaining": years_remaining,
+            "guaranteed_years_remaining": guaranteed_remaining,
+            "source_url": "derived:mlb-minimum",
+            "last_scraped_at": datetime.utcnow().isoformat(),
+            "snapshot_date": SNAPSHOT_DATE,
+        }
+
+        contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
+        contracts_by_name_team[
+            (normalize_name(entry.name), entry.team.lower())
+        ] = contract
+        derived_added += 1
+
+    if derived_added:
+        print(f"Derived minimum: added {derived_added} contracts")
+
     contracts_payload = {
         "meta": {
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min",
         },
         "contracts": {str(k): v for k, v in contracts_by_mlb_id.items()},
         "unmatched_contracts": unmatched_contracts,
@@ -941,7 +1580,7 @@ def build_contract_outputs():
             "snapshot_date": SNAPSHOT_DATE,
             "generated_at": datetime.utcnow().isoformat(),
             "season": SNAPSHOT_SEASON,
-            "source": "spotrac + cotts + fangraphs",
+            "source": "spotrac + cotts + bref + spotrac-search + derived-min + fangraphs",
         },
         "players": [],
         "missing_contracts": [],

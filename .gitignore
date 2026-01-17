@@ -1,2 +1,6 @@
 backend/data/spotrac_cache/
 backend/data/cotts_cache/
+backend/data/bref_cache/
+backend/data/spotrac_cache/search/
+backend/data/spotrac_cache/search_players/
+backend/data/mlb_api_cache/
