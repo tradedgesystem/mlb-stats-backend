@@ -381,6 +381,7 @@ def compute_option_ev(
     detail = {
         "t": t,
         "option_type": option_type,
+        "fwar": fwar,
         "value": value,
         "salary": salary,
         "buyout": buyout,

@@ -101,6 +101,24 @@ OPTION_TYPE_MAP = {
 }
 
 
+def parse_option_type(raw: str | None) -> Optional[str]:
+    if not raw:
+        return None
+    lowered = raw.strip().lower()
+    direct = OPTION_TYPE_MAP.get(lowered)
+    if direct:
+        return direct
+    if "mutual" in lowered:
+        return "MO"
+    if "club" in lowered:
+        return "CO"
+    if "player" in lowered:
+        return "PO"
+    if "vesting" in lowered or "conditional" in lowered or "option" in lowered:
+        return "CO"
+    return None
+
+
 @dataclass
 class PlayerIndexEntry:
     player_id: int
@@ -715,7 +733,7 @@ def extract_contract_notes(soup: BeautifulSoup) -> list[str]:
 def extract_option_notes(notes: list[str]) -> dict[int, dict]:
     options: dict[int, dict] = {}
     option_re = re.compile(
-        r"(?P<season>20\d{2}).*(?P<type>Player|Club|Mutual) Option",
+        r"(?P<season>20\d{2}).*?(?P<type>Player|Club|Mutual|Vesting|Conditional(?:-Mutual)?)?\s+Option",
         re.IGNORECASE,
     )
     for note in notes:
@@ -723,7 +741,7 @@ def extract_option_notes(notes: list[str]) -> dict[int, dict]:
         if not match:
             continue
         season = int(match.group("season"))
-        option_type = OPTION_TYPE_MAP.get(match.group("type").lower())
+        option_type = parse_option_type(match.group("type") or "option")
         money_values = re.findall(r"\$[\d,.]+[MKmk]?", note)
         salary_m = parse_money_to_m(money_values[0]) if money_values else None
         buyout_m = None
@@ -746,10 +764,68 @@ def extract_option_notes(notes: list[str]) -> dict[int, dict]:
     return options
 
 
+def parse_spotrac_payroll_options(soup: BeautifulSoup) -> dict[int, dict]:
+    options: dict[int, dict] = {}
+    payroll_table = None
+    for candidate in soup.find_all("table"):
+        headers = [th.get_text(" ", strip=True) for th in candidate.find_all("th")]
+        if headers and "Year" in headers and "Payroll Annual" in headers:
+            payroll_table = candidate
+            break
+    if not payroll_table:
+        return options
+
+    headers = [th.get_text(" ", strip=True) for th in payroll_table.find_all("th")]
+    header_map = {h: idx for idx, h in enumerate(headers)}
+    idx_year = header_map.get("Year")
+    idx_status = header_map.get("Status")
+    idx_payroll = header_map.get("Payroll Annual")
+    idx_cash = header_map.get("Cash Annual")
+
+    rows = [row for row in payroll_table.find_all("tr") if row.find_all("td")]
+    for row in rows:
+        tds = row.find_all("td")
+        if idx_year is None or idx_year >= len(tds):
+            continue
+        year_text = tds[idx_year].get_text(" ", strip=True)
+        if not year_text.isdigit():
+            continue
+        season = int(year_text)
+        status = tds[idx_status].get_text(" ", strip=True) if idx_status is not None else ""
+        status_lower = status.strip().lower()
+        option_type = parse_option_type(status)
+        if option_type is None and not any(
+            token in status_lower for token in ("option", "vesting", "conditional")
+        ):
+            continue
+
+        payroll_m = (
+            parse_money_to_m(tds[idx_payroll].get_text(" ", strip=True))
+            if idx_payroll is not None and idx_payroll < len(tds)
+            else None
+        )
+        cash_m = (
+            parse_money_to_m(tds[idx_cash].get_text(" ", strip=True))
+            if idx_cash is not None and idx_cash < len(tds)
+            else None
+        )
+        entry = options.get(season, {"season": season})
+        if option_type:
+            entry["type"] = option_type
+        if payroll_m is not None:
+            entry["salary_m"] = payroll_m
+        if cash_m is not None:
+            entry["buyout_m"] = cash_m
+        options[season] = entry
+
+    return options
+
+
 def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dict], Optional[int]]:
     contract_years: list[dict] = []
     options: dict[int, dict] = {}
     free_agent_year: Optional[int] = None
+    payroll_options = parse_spotrac_payroll_options(soup)
 
     table = None
     for candidate in soup.find_all("table"):
@@ -780,13 +856,21 @@ def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dic
             tds[idx_status].get_text(" ", strip=True) if idx_status is not None else ""
         )
         status_lower = status.strip().lower()
-        option_type = OPTION_TYPE_MAP.get(status_lower)
+        option_type = parse_option_type(status)
+        payroll_entry = payroll_options.get(season)
+        if option_type is None and payroll_entry and payroll_entry.get("type"):
+            option_type = payroll_entry.get("type")
         if status_lower in {"ufa", "fa"}:
             free_agent_year = season if free_agent_year is None else free_agent_year
         if salary_m is None:
             continue
 
-        is_guaranteed = option_type is None and "option" not in status_lower
+        is_option_like = option_type is not None or any(
+            token in status_lower for token in ("option", "vesting", "conditional", "buyout")
+        )
+        if payroll_entry:
+            is_option_like = True
+        is_guaranteed = not is_option_like
         contract_years.append(
             {
                 "season": season,
@@ -795,13 +879,18 @@ def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dic
             }
         )
 
-        if option_type:
-            options[season] = {
-                "season": season,
-                "type": option_type,
-                "salary_m": salary_m,
-                "buyout_m": None,
-            }
+        if is_option_like:
+            option_entry = options.get(season, {"season": season})
+            if option_type:
+                option_entry["type"] = option_type
+            if payroll_entry:
+                if payroll_entry.get("salary_m") is not None:
+                    option_entry["salary_m"] = payroll_entry["salary_m"]
+                if payroll_entry.get("buyout_m") is not None:
+                    option_entry["buyout_m"] = payroll_entry["buyout_m"]
+            if option_entry.get("salary_m") is None and salary_m is not None:
+                option_entry["salary_m"] = salary_m
+            options[season] = option_entry
 
     return contract_years, options, free_agent_year
 

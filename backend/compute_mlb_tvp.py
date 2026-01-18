@@ -286,7 +286,8 @@ def compute_weighted_fwar(
     if not season_war:
         return None, {"source": "missing_history", "seasons": seasons}
     used_weights = sum(item[1] for item in season_war)
-    weighted = sum(item[1] * item[2] for item in season_war) / used_weights
+    normalized = [(season, weight / used_weights, total, entry) for season, weight, total, entry in season_war]
+    weighted = sum(item[1] * item[2] for item in normalized)
     return weighted, {
         "source": "weighted_history",
         "seasons": [
@@ -297,9 +298,10 @@ def compute_weighted_fwar(
                 "bat_war": entry.get("bat", 0.0),
                 "pit_war": entry.get("pit", 0.0),
             }
-            for season, weight, total, entry in season_war
+            for season, weight, total, entry in normalized
         ],
-        "weights_sum": used_weights,
+        "seasons_count": len(normalized),
+        "weights_sum": 1.0,
     }
 
 
@@ -687,7 +689,11 @@ def compute_player_tvp(
 
     mlb_raw = mlb_result["raw_components"]
     t_to_year = {str(t): season for t, season in enumerate(seasons)}
-    fwar_by_t = {str(t): fwar for t, fwar in enumerate(fwar_by_year_base)}
+    guaranteed_fwar_by_t = {str(t): fwar for t, fwar in enumerate(fwar_by_year_base)}
+    option_fwar_by_t = {
+        str(season - snapshot_year): projected_fwar.get(season, 0.0)
+        for season in option_seasons
+    }
     aging_mult_by_t = {
         str(t): aging_mults.get(season, 1.0) for t, season in enumerate(seasons)
     }
@@ -715,6 +721,7 @@ def compute_player_tvp(
         {
             "t": opt.get("t"),
             "type": opt.get("option_type"),
+            "fwar": opt.get("fwar"),
             "S": opt.get("salary"),
             "B": opt.get("buyout"),
             "V": opt.get("value"),
@@ -734,9 +741,14 @@ def compute_player_tvp(
         contract_source = "sqlite_aav"
     else:
         contract_source = "contract_years"
-    fwar_source_label = (
-        "history_weighted" if fwar_source == "weighted_history" else "snapshot"
-    )
+    seasons_count = weighted_meta.get("seasons_count", 0)
+    if fwar_source == "weighted_history":
+        if seasons_count >= len(fwar_weights):
+            fwar_source_label = "history_weighted_full"
+        else:
+            fwar_source_label = "history_weighted_partial"
+    else:
+        fwar_source_label = "snapshot"
 
     return {
         "mlb_id": player.get("mlb_id"),
@@ -788,7 +800,8 @@ def compute_player_tvp(
                 "aging_mult_by_season": aging_mults,
                 "projected_fwar_by_season": projected_fwar,
                 "t_to_year": t_to_year,
-                "fwar_projection_by_t": fwar_by_t,
+                "guaranteed_projection_by_t": guaranteed_fwar_by_t,
+                "option_year_projection_by_t": option_fwar_by_t,
                 "aging_mult_by_t": aging_mult_by_t,
             },
             "contract": {
@@ -833,7 +846,8 @@ def compute_player_tvp(
                 "fwar_scale_used": fwar_scale_to_use,
                 "fwar_cap_used": fwar_cap_to_use,
                 "aging_mult_by_t": aging_mult_by_t,
-                "fwar_projection_by_t": fwar_by_t,
+                "guaranteed_projection_by_t": guaranteed_fwar_by_t,
+                "option_year_projection_by_t": option_fwar_by_t,
                 "years_projected": len(fwar_by_year_base),
                 "t_to_year": t_to_year,
             },
