@@ -754,19 +754,34 @@ def compute_player_tvp(
         missing_salary_seasons = set()
 
     control_salary_floor_seasons: set[int] = set()
+
+    control_fallback_data = {}
     if control_fallback_seasons:
-        for season in control_fallback_seasons:
+        salary_components_by_t = {}
+        for i, season in enumerate(sorted(control_fallback_seasons)):
             t = season - snapshot_year
             min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
-            current_salary = salary_by_season.get(season)
-            if current_salary is None:
-                salary_by_season[season] = min_salary
-                control_salary_floor_seasons.add(season)
-                continue
-            clamped_salary = max(current_salary, min_salary)
-            if clamped_salary != current_salary:
-                salary_by_season[season] = clamped_salary
-                control_salary_floor_seasons.add(season)
+            projected_value = (
+                projected_fwar.get(season, 0.0)
+                * config.dollars_per_war
+                * ((1.0 + config.war_price_growth) ** t)
+            )
+            arb_salary = compute_arb_salary(
+                projected_value, i, min_salary, config.arb_share
+            )
+            salary_components_by_t[str(t)] = {
+                "min_salary_t": min_salary,
+                "arb_share": config.arb_share[i]
+                if i < len(config.arb_share)
+                else config.arb_share[-1],
+                "arb_salary_t": arb_salary,
+                "projected_value_t": projected_value,
+                "final_salary_t": arb_salary,
+            }
+            salary_by_season[season] = arb_salary
+        control_fallback_data = {"salary_components_by_t": salary_components_by_t}
+
+    salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
 
     salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
     fwar_by_year_base: list[float] = []
@@ -843,30 +858,6 @@ def compute_player_tvp(
     pv_surplus_by_t = {
         str(t): value for t, value in enumerate(mlb_raw.get("pv_surplus_by_year", []))
     }
-
-    control_fallback_data = {}
-    if control_fallback_seasons:
-        salary_components_by_t = {}
-        for i, season in enumerate(sorted(control_fallback_seasons)):
-            t = season - snapshot_year
-            min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
-            projected_value = projected_fwar.get(season, 0.0) * price_by_t.get(
-                str(t), 0.0
-            )
-            arb_salary = compute_arb_salary(
-                projected_value, i, min_salary, config.arb_share
-            )
-            salary_components_by_t[str(t)] = {
-                "min_salary_t": min_salary,
-                "arb_share": config.arb_share[i]
-                if i < len(config.arb_share)
-                else config.arb_share[-1],
-                "arb_salary_t": arb_salary,
-                "projected_value_t": projected_value,
-                "final_salary_t": arb_salary,
-            }
-            salary_by_season[season] = arb_salary
-        control_fallback_data = {"salary_components_by_t": salary_components_by_t}
 
     options_detail = mlb_raw.get("options", [])
     options_pv_total = sum((opt.get("pv_ev") or 0.0) for opt in options_detail)
