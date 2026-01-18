@@ -281,7 +281,7 @@
       "boost_value": 54.93502147806605
     },
     "war_inputs": {
-      "fwar_source": "snapshot",
+      "fwar_source_label": "snapshot",
       "fwar_source_raw": "snapshot_fwar",
       "war_history_used": [],
       "war_history_seasons_used": 0,
@@ -416,5 +416,5 @@
     }
   },
   "snapshot_year": 2026,
-  "last_updated_timestamp": "2026-01-18T21:55:27Z"
+  "last_updated_timestamp": "2026-01-18T22:04:29Z"
 }

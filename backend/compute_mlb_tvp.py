@@ -833,8 +833,13 @@ def compute_player_tvp(
         mlb_result["tvp_mlb"] += long_control_boost_value
 
     mlb_raw = mlb_result["raw_components"]
+    guaranteed_seasons = [season for season in seasons if season not in option_seasons]
     t_to_year = {str(t): season for t, season in enumerate(seasons)}
-    guaranteed_fwar_by_t = {str(t): fwar for t, fwar in enumerate(fwar_by_year_base)}
+    guaranteed_fwar_by_t = {
+        str(t): fwar
+        for t, fwar in enumerate(fwar_by_year_base)
+        if seasons[t] not in option_seasons
+    }
     option_fwar_by_t = {
         str(season - snapshot_year): projected_fwar.get(season, 0.0)
         for season in option_seasons
@@ -981,7 +986,7 @@ def compute_player_tvp(
                 "boost_value": long_control_boost_value,
             },
             "war_inputs": {
-                "fwar_source": fwar_source_label,
+                "fwar_source_label": fwar_source_label,
                 "fwar_source_raw": fwar_source,
                 "war_history_used": weighted_meta.get("seasons"),
                 "war_history_seasons_used": len(weighted_meta.get("seasons", [])),

@@ -137,7 +137,7 @@ class TestMlbTvpQuality(unittest.TestCase):
         option_t = option_year - snapshot_year
         guaranteed_by_t = projection["guaranteed_projection_by_t"]
         option_by_t = projection["option_year_projection_by_t"]
-        self.assertTrue(math.isclose(guaranteed_by_t[str(option_t)], 0.0))
+        self.assertNotIn(str(option_t), guaranteed_by_t)
         self.assertIn(str(option_t), option_by_t)
         self.assertGreater(option_by_t[str(option_t)], 0.0)
 
@@ -317,7 +317,7 @@ class TestMlbTvpQuality(unittest.TestCase):
         control_fb = rc["contract"].get("control_fallback", {})
         self.assertIn("salary_components_by_t", control_fb)
 
-        self.assertIsNotNone(tvp_current)
+        self.assertIsNot(tvp_current)
         self.assertGreater(tvp_current, 0)
 
     def _load_players(self) -> dict:
