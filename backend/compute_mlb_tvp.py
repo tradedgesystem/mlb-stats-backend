@@ -628,8 +628,14 @@ def compute_player_tvp(
         for season in control_fallback_seasons:
             t = season - snapshot_year
             min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
-            if salary_by_season.get(season) != min_salary:
+            current_salary = salary_by_season.get(season)
+            if current_salary is None:
                 salary_by_season[season] = min_salary
+                control_salary_floor_seasons.add(season)
+                continue
+            clamped_salary = max(current_salary, min_salary)
+            if clamped_salary != current_salary:
+                salary_by_season[season] = clamped_salary
                 control_salary_floor_seasons.add(season)
 
     salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
@@ -792,6 +798,7 @@ def compute_player_tvp(
                 "salary_by_season": salary_by_season,
                 "salary_missing_seasons": sorted(missing_salary_seasons),
                 "salary_fallback_seasons": sorted(salary_fallback_seasons),
+                "control_salary_floor_seasons": sorted(control_salary_floor_seasons),
                 "option_seasons": sorted(option_seasons),
                 "control_years_fallback_applied": control_years_applied,
                 "contracts_2026_fallback_used": fallback_used,

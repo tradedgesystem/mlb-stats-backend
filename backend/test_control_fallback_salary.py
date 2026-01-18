@@ -7,12 +7,11 @@ from tvp_engine import load_config
 
 
 class TestControlFallbackSalary(unittest.TestCase):
-    def test_control_fallback_min_salary_floor(self) -> None:
+    def _compute_for_aav(self, aav_m: float) -> tuple[dict, dict]:
         repo_root = Path(__file__).resolve().parent
         config_path = repo_root / "tvp_config.json"
         config = load_config(config_path)
         snapshot_year = config.snapshot_year
-
         player = {
             "mlb_id": 1,
             "player_name": "Test Player",
@@ -21,11 +20,10 @@ class TestControlFallbackSalary(unittest.TestCase):
             "contract": {
                 "contract_years": [],
                 "options": [],
-                "aav_m": 0.75,
+                "aav_m": aav_m,
                 "years_remaining": 0,
             },
         }
-
         result = compute_player_tvp(
             player,
             snapshot_year,
@@ -54,18 +52,48 @@ class TestControlFallbackSalary(unittest.TestCase):
             young_player_max_age=24,
             young_player_scale=1.0,
         )
+        return result, config
 
+    def test_control_fallback_sub_min_clamps_up(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        aav_m = config.min_salary_m * 0.9
+        result, config = self._compute_for_aav(aav_m)
         contract = result["raw_components"]["contract"]
         self.assertEqual(contract["contract_source"], "control_fallback")
         salary_by_season = contract["salary_by_season"]
         self.assertTrue(salary_by_season)
+        self.assertEqual(
+            sorted(contract["control_salary_floor_seasons"]),
+            sorted(salary_by_season.keys()),
+        )
 
         for season, salary in salary_by_season.items():
-            t = season - snapshot_year
+            t = season - config.snapshot_year
             min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
             self.assertTrue(
                 math.isclose(salary, min_salary, rel_tol=0.0, abs_tol=1e-9),
                 msg=f"season={season} salary={salary} min_salary={min_salary}",
+            )
+
+    def test_control_fallback_above_min_not_reduced(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        aav_m = config.min_salary_m * 2.0
+        result, config = self._compute_for_aav(aav_m)
+        contract = result["raw_components"]["contract"]
+        self.assertEqual(contract["contract_source"], "control_fallback")
+        self.assertEqual(contract["control_salary_floor_seasons"], [])
+        salary_by_season = contract["salary_by_season"]
+        self.assertTrue(salary_by_season)
+
+        for season, salary in salary_by_season.items():
+            t = season - config.snapshot_year
+            min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
+            self.assertGreaterEqual(salary, min_salary)
+            self.assertTrue(
+                math.isclose(salary, aav_m, rel_tol=0.0, abs_tol=1e-9),
+                msg=f"season={season} salary={salary} aav_m={aav_m}",
             )
 
 
