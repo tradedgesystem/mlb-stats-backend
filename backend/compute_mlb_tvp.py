@@ -563,8 +563,10 @@ def compute_player_tvp(
 
     last_season = max(all_seasons)
     seasons = list(range(snapshot_year, last_season + 1))
+    control_fallback_seasons: set[int] = set(seasons) if control_years_seeded else set()
 
     if not fallback_used:
+        existing_seasons = set(seasons)
         seasons, salary_by_season, missing_salary_seasons, control_years_extended = (
             apply_control_year_fallback(
                 seasons,
@@ -576,6 +578,11 @@ def compute_player_tvp(
                 control_years_age_max,
             )
         )
+        if control_years_extended:
+            if control_years_seeded:
+                control_fallback_seasons = set(seasons)
+            else:
+                control_fallback_seasons = set(seasons) - existing_seasons
     else:
         control_years_extended = False
     control_years_applied = control_years_seeded or control_years_extended
@@ -616,7 +623,16 @@ def compute_player_tvp(
         salary_by_season = {season: float(override_salary) for season in seasons}
         missing_salary_seasons = set()
 
-    salary_fallback_seasons: set[int] = set()
+    control_salary_floor_seasons: set[int] = set()
+    if control_fallback_seasons:
+        for season in control_fallback_seasons:
+            t = season - snapshot_year
+            min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
+            if salary_by_season.get(season) != min_salary:
+                salary_by_season[season] = min_salary
+                control_salary_floor_seasons.add(season)
+
+    salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
     fwar_by_year_base: list[float] = []
     salary_by_year_base: list[float] = []
     for season in seasons:
