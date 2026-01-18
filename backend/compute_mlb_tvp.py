@@ -567,10 +567,12 @@ def compute_player_tvp(
         fwar_pre_regress = weighted_fwar
 
     is_pitcher = name_key in pitcher_names and not is_two_way
+    pitcher_regress_applied = False
     if is_pitcher and pitcher_regress_weight > 0:
         fwar_post_regress = (
             1.0 - pitcher_regress_weight
         ) * fwar_pre_regress + pitcher_regress_weight * pitcher_regress_target
+        pitcher_regress_applied = fwar_post_regress != fwar_pre_regress
     else:
         fwar_post_regress = fwar_pre_regress
 
@@ -983,11 +985,13 @@ def compute_player_tvp(
                 "fwar_source_raw": fwar_source,
                 "war_history_used": weighted_meta.get("seasons"),
                 "war_history_seasons_used": len(weighted_meta.get("seasons", [])),
-                "weights_sum": weighted_meta.get("weights_sum"),
+                "weights_sum": weighted_meta.get("weights_sum")
+                if weighted_fwar is not None
+                else None,
                 "weighted_fwar": weighted_fwar,
                 "is_pitcher": is_pitcher,
                 "pitcher_qualified": is_pitcher,
-                "pitcher_regress_applied": is_pitcher and pitcher_regress_weight > 0,
+                "pitcher_regress_applied": pitcher_regress_applied,
                 "is_reliever": is_reliever,
                 "is_two_way": is_two_way,
                 "pitcher_regress_weight": pitcher_regress_weight,
