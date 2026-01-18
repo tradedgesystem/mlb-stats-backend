@@ -622,3 +622,103 @@ def get_statcast_leaderboard(
         payload[stat_key] = metric.get(stat_key) if metric else None
         results.append(payload)
     return results
+
+
+# Prospect endpoints
+@app.get("/prospects")
+def get_prospects_api(
+    team: str = Query(None),
+    limit: int = Query(None, ge=1, le=1000),
+) -> list[dict]:
+    """Get all prospects, optionally filtered by team"""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        
+        if team:
+            rows = conn.execute(
+                "SELECT * FROM prospects WHERE team = ? ORDER BY system_rank ASC",
+                (team,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM prospects ORDER BY team, system_rank ASC",
+            ).fetchall()
+        
+        if limit:
+            rows = rows[:limit]
+    
+    return [dict(row) for row in rows]
+
+
+@app.get("/prospects/top100")
+def get_top_100_prospects_api() -> list[dict]:
+    """Get all prospects in the Top 100"""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM prospects WHERE top_100_rank IS NOT NULL ORDER BY top_100_rank ASC",
+        ).fetchall()
+    
+    return [dict(row) for row in rows]
+
+
+@app.get("/prospects/search")
+def search_prospects_api(
+    q: str = Query(..., min_length=1),
+) -> list[dict]:
+    """Search prospects by name"""
+    term = q.strip()
+    if not term:
+        return []
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM prospects WHERE player_name LIKE ? ORDER BY team, system_rank ASC",
+            (f"%{term}%",),
+        ).fetchall()
+    
+    return [dict(row) for row in rows]
+
+
+@app.get("/prospects/team")
+def get_team_prospects_api(
+    team: str = Query(..., min_length=1),
+    limit: int = Query(None, ge=1, le=100),
+) -> list[dict]:
+    """Get prospects for a specific team"""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        
+        query = "SELECT * FROM prospects WHERE team = ? ORDER BY system_rank ASC"
+        params = [team]
+        
+        if limit:
+            query += " LIMIT ?"
+            params.append(limit)
+        
+        rows = conn.execute(query, params).fetchall()
+    
+    return [dict(row) for row in rows]
+
+
+@app.get("/prospects/compare")
+def compare_prospects_api(
+    player_names: str = Query(...),
+) -> list[dict]:
+    """Compare multiple prospects by name"""
+    names = [name.strip() for name in player_names.split(",") if name.strip()]
+    
+    if not names:
+        return []
+    
+    placeholders = ",".join("?" for _ in names)
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            f"SELECT * FROM prospects WHERE player_name IN ({placeholders}) ORDER BY composite_value DESC",
+            names,
+        ).fetchall()
+    
+    return [dict(row) for row in rows]

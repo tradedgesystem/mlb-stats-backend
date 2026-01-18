@@ -1,0 +1,21 @@
+{
+  "snapshot_year": 2026,
+  "max_years": 10,
+  "fwar_scale": 0.7,
+  "fwar_cap": 6.0,
+  "fwar_weights": [0.5, 0.3, 0.2],
+  "pitcher_regress_weight": 0.35,
+  "pitcher_regress_target": 2.0,
+  "aging_curve": true,
+  "prime_age": 29,
+  "decline_per_year": 0.035,
+  "aging_floor": 0.65,
+  "reliever_mult": 1.5,
+  "two_way_fwar_cap": 8.0,
+  "two_way_min_war": 1.0,
+  "two_way_mult": 1.5,
+  "two_way_rule": "Ohtani-only (must have >=1.0 WAR in batting and pitching in snapshot season)",
+  "control_years_fallback": 4,
+  "control_years_age_max": 27,
+  "contracts_2026_fallback": "mlb_2026_contracts_all_teams.sqlite"
+}

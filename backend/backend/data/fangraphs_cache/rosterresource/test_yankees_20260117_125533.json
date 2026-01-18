@@ -1,0 +1,26 @@
+[
+    {
+        "player_name": "Gerrit Cole",
+        "team": "NYY",
+        "opt_outs": [
+            {
+                "season": 2025,
+                "type": "PO"
+            }
+        ]
+    },
+    {
+        "player_name": "Ryan McMahon",
+        "team": "NYY",
+        "opt_outs": [
+            {
+                "season": 2026,
+                "type": "PO"
+            },
+            {
+                "season": 2025,
+                "type": "PO"
+            }
+        ]
+    }
+]

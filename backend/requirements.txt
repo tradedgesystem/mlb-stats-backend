@@ -3,3 +3,6 @@ duckdb
 pyarrow
 pybaseball
 uvicorn
+botasaurus
+beautifulsoup4
+selenium

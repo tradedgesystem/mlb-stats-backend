@@ -1,0 +1,319 @@
+{
+  "mlb_id": 691718,
+  "player_name": "Pete Crow-Armstrong",
+  "age": 24,
+  "status": "mlb",
+  "tvp_prospect": null,
+  "tvp_mlb": 210.01992300484923,
+  "tvp_current": 210.01992300484923,
+  "raw_components": {
+    "projection": {
+      "method": "flat_from_latest_fwar_scaled",
+      "base_fwar": 5.4,
+      "fwar_source": "weighted_history",
+      "fwar_source_label": "history_weighted_partial",
+      "fwar_weight_seasons": [
+        2025,
+        2024,
+        2023
+      ],
+      "fwar_weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "weighted_fwar": 5.4,
+      "weighted_fwar_meta": {
+        "source": "weighted_history",
+        "seasons": [
+          {
+            "season": 2025,
+            "weight": 1.0,
+            "war": 5.4,
+            "bat_war": 5.4,
+            "pit_war": 0.0
+          }
+        ],
+        "seasons_count": 1,
+        "weights_sum": 1.0
+      },
+      "is_pitcher": false,
+      "is_reliever": false,
+      "is_two_way": false,
+      "pitcher_regress_weight": 0.35,
+      "pitcher_regress_target": 2.0,
+      "pitcher_regress_applied": false,
+      "pitcher_qualified": false,
+      "fwar_pre_regress": 5.4,
+      "fwar_post_regress": 5.4,
+      "reliever_mult": 1.5,
+      "reliever_mult_applied": 1.0,
+      "two_way_qualified": false,
+      "two_way_mult": 1.5,
+      "two_way_mult_applied": 1.0,
+      "fwar_scale": 0.7,
+      "fwar_cap": 6.0,
+      "fwar_cap_applied": 6.0,
+      "fwar_scale_applied": 1.0,
+      "fwar_scale_used": 1.0,
+      "fwar_cap_used": 6.0,
+      "young_player_max_age": 24,
+      "young_player_scale": 1.0,
+      "young_player_applied": true,
+      "apply_aging": true,
+      "prime_age": 29,
+      "decline_per_year": 0.035,
+      "aging_floor": 0.65,
+      "age_by_season": {
+        "2026": 24,
+        "2027": 25,
+        "2028": 26,
+        "2029": 27
+      },
+      "aging_mult_by_season": {
+        "2026": 1.0,
+        "2027": 1.0,
+        "2028": 1.0,
+        "2029": 1.0
+      },
+      "projected_fwar_by_season": {
+        "2026": 5.4,
+        "2027": 5.4,
+        "2028": 5.4,
+        "2029": 5.4
+      },
+      "t_to_year": {
+        "0": 2026,
+        "1": 2027,
+        "2": 2028,
+        "3": 2029
+      },
+      "guaranteed_projection_by_t": {
+        "0": 5.4,
+        "1": 5.4,
+        "2": 5.4,
+        "3": 5.4
+      },
+      "option_year_projection_by_t": {},
+      "aging_mult_by_t": {
+        "0": 1.0,
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0
+      }
+    },
+    "contract": {
+      "seasons": [
+        2026,
+        2027,
+        2028,
+        2029
+      ],
+      "salary_source": "aav_m",
+      "contract_source": "control_fallback",
+      "salary_by_season": {
+        "2026": 0.8,
+        "2027": 0.8240000000000001,
+        "2028": 0.84872,
+        "2029": 0.8741816
+      },
+      "salary_missing_seasons": [],
+      "salary_fallback_seasons": [
+        2026,
+        2027,
+        2028,
+        2029
+      ],
+      "control_salary_floor_seasons": [
+        2026,
+        2027,
+        2028,
+        2029
+      ],
+      "option_seasons": [],
+      "control_years_fallback_applied": true,
+      "contracts_2026_fallback_used": false,
+      "contracts_2026_contract": null
+    },
+    "mlb": {
+      "fwar_by_year": [
+        5.4,
+        5.4,
+        5.4,
+        5.4
+      ],
+      "price_by_year": [
+        12.0,
+        12.0,
+        12.0,
+        12.0
+      ],
+      "value_by_year": [
+        64.80000000000001,
+        64.80000000000001,
+        64.80000000000001,
+        64.80000000000001
+      ],
+      "salary_by_year_input": [
+        0.8,
+        0.8240000000000001,
+        0.84872,
+        0.8741816
+      ],
+      "salary_retained_by_year": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cash_sent_by_year": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "salary_by_year": [
+        0.8,
+        0.8240000000000001,
+        0.84872,
+        0.8741816
+      ],
+      "surplus_by_year": [
+        64.00000000000001,
+        63.97600000000001,
+        63.95128000000001,
+        63.92581840000001
+      ],
+      "discount_factors": [
+        1.0,
+        0.8695652173913044,
+        0.7561436672967865,
+        0.6575162324319883
+      ],
+      "pv_surplus_by_year": [
+        64.00000000000001,
+        55.6313043478261,
+        48.35635538752364,
+        42.03226326949948
+      ],
+      "rel_mult": 1.0,
+      "options": []
+    },
+    "long_control_low_aav": {
+      "applied": false,
+      "years_remaining": 4,
+      "years_over_baseline": 0,
+      "baseline_years": 4,
+      "avg_salary_m": 0.8367254000000001,
+      "boost_pct": 0.0,
+      "boost_value": 0.0
+    },
+    "war_inputs": {
+      "fwar_source": "history_weighted_partial",
+      "war_history_used": [
+        {
+          "season": 2025,
+          "weight": 1.0,
+          "war": 5.4,
+          "bat_war": 5.4,
+          "pit_war": 0.0
+        }
+      ],
+      "weighted_fwar": 5.4,
+      "is_pitcher": false,
+      "is_reliever": false,
+      "is_two_way": false,
+      "pitcher_regress_weight": 0.35,
+      "pitcher_regress_target": 2.0,
+      "fwar_pre_regress": 5.4,
+      "fwar_post_regress": 5.4,
+      "reliever_mult_applied": 1.0,
+      "two_way_mult_applied": 1.0,
+      "cap_used": 6.0
+    },
+    "projection_scaling_aging": {
+      "fwar_scale_used": 1.0,
+      "fwar_cap_used": 6.0,
+      "aging_mult_by_t": {
+        "0": 1.0,
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0
+      },
+      "guaranteed_projection_by_t": {
+        "0": 5.4,
+        "1": 5.4,
+        "2": 5.4,
+        "3": 5.4
+      },
+      "option_year_projection_by_t": {},
+      "years_projected": 4,
+      "t_to_year": {
+        "0": 2026,
+        "1": 2027,
+        "2": 2028,
+        "3": 2029
+      }
+    },
+    "contract_salaries": {
+      "contract_source": "control_fallback",
+      "salary_source_raw": "aav_m",
+      "salary_by_year_m": {
+        "0": 0.8,
+        "1": 0.8240000000000001,
+        "2": 0.84872,
+        "3": 0.8741816
+      },
+      "missing_salary_filled_min_count": 4,
+      "avg_salary_m": 0.8367254000000001,
+      "years_remaining": 4
+    },
+    "economics_pv": {
+      "price_by_year_m": {
+        "0": 12.0,
+        "1": 12.0,
+        "2": 12.0,
+        "3": 12.0
+      },
+      "value_by_year_m": {
+        "0": 64.80000000000001,
+        "1": 64.80000000000001,
+        "2": 64.80000000000001,
+        "3": 64.80000000000001
+      },
+      "surplus_by_year_m": {
+        "0": 64.00000000000001,
+        "1": 63.97600000000001,
+        "2": 63.95128000000001,
+        "3": 63.92581840000001
+      },
+      "discount_by_year": {
+        "0": 1.0,
+        "1": 0.8695652173913044,
+        "2": 0.7561436672967865,
+        "3": 0.6575162324319883
+      },
+      "pv_surplus_by_year_m": {
+        "0": 64.00000000000001,
+        "1": 55.6313043478261,
+        "2": 48.35635538752364,
+        "3": 42.03226326949948
+      },
+      "tvp_mlb_base": 210.01992300484923,
+      "options_pv_total": 0
+    },
+    "options": [],
+    "long_control_boost": {
+      "boost_applied": false,
+      "boost_pct": 0.0,
+      "boost_amount": 0.0
+    },
+    "fallbacks": {
+      "control_years_fallback_applied": true,
+      "contracts_2026_fallback_used": false,
+      "contracts_2026_contract": null
+    }
+  },
+  "snapshot_year": 2026,
+  "last_updated_timestamp": "2026-01-18T18:59:34Z"
+}

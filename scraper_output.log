@@ -1,0 +1,259 @@
+/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Traceback (most recent call last):
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus/browser_decorator.py", line 199, in run_task
+    result = func(driver, data)
+  File "/Users/andresmartinez/MLB Stats/backend/scraper/fangraphs_optout_scraper.py", line 117, in scrape_team_page
+    html = driver.page_html
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/driver.py", line 727, in page_html
+    return self._tab.get_content()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/tab.py", line 1109, in get_content
+    doc: cdp.dom.Node = self.send(cdp.dom.get_document(-1, True))
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 286, in send
+    self.open()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 167, in open
+    self.wait_for_socket_connection()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 190, in wait_for_socket_connection
+    self.raise_connection_failure_exception()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 182, in raise_connection_failure_exception
+    raise Exception(self._connection_failure_message)
+Exception: The target tab or iframe is no longer available. This may have occurred because you navigated to a different page, reloaded the current page, or closed the tab.
+================================================================================
+                    FANGRAPHS OPT-OUT SCRAPER
+================================================================================
+Starting scrape for all 30 MLB teams at 2026-01-17 14:18:21
+================================================================================
+
+################################################################################
+[1/30] Processing: Los Angeles Angels
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Los Angeles Angels (LAA)
+============================================================
+Running
+[*] Scraping Los Angeles Angels (LAA)
+    URL: https://www.fangraphs.com/roster-resource/payroll/angels
+    [*] Page loaded: 212843 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_angels_20260117_141834.html
+Written
+     output/scrape_team_page.json
+    [*] Found 20 player contracts
+[✓] Successfully scraped Los Angeles Angels
+    Found 0 players with opt-outs
+
+[✓] Los Angeles Angels: 0 players, 0 opt-outs
+
+################################################################################
+[2/30] Processing: Houston Astros
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Houston Astros (HOU)
+============================================================
+[*] Scraping Houston Astros (HOU)
+    URL: https://www.fangraphs.com/roster-resource/payroll/astros
+    [*] Page loaded: 247003 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_astros_20260117_141848.html
+Written
+     output/scrape_team_page.json
+    [*] Found 28 player contracts
+[✓] Successfully scraped Houston Astros
+    Found 0 players with opt-outs
+
+[✓] Houston Astros: 0 players, 0 opt-outs
+
+################################################################################
+[3/30] Processing: Oakland Athletics
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Oakland Athletics (OAK)
+============================================================
+[*] Scraping Oakland Athletics (OAK)
+    URL: https://www.fangraphs.com/roster-resource/payroll/athletics
+    [*] Page loaded: 210288 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_athletics_20260117_141901.html
+Written
+     output/scrape_team_page.json
+    [*] Found 17 player contracts
+[✓] Successfully scraped Oakland Athletics
+    Found 0 players with opt-outs
+
+[✓] Oakland Athletics: 0 players, 0 opt-outs
+
+################################################################################
+[4/30] Processing: Toronto Blue Jays
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Toronto Blue Jays (TOR)
+============================================================
+[*] Scraping Toronto Blue Jays (TOR)
+    URL: https://www.fangraphs.com/roster-resource/payroll/bluejays
+    [*] Page loaded: 85568 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_bluejays_20260117_141914.html
+Written
+     output/scrape_team_page.json
+    [!] No queries found in dehydrated state
+[✓] Successfully scraped Toronto Blue Jays
+    Found 0 players with opt-outs
+
+[✓] Toronto Blue Jays: 0 players, 0 opt-outs
+
+################################################################################
+[5/30] Processing: Atlanta Braves
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Atlanta Braves (ATL)
+============================================================
+[*] Scraping Atlanta Braves (ATL)
+    URL: https://www.fangraphs.com/roster-resource/payroll/braves
+    [*] Page loaded: 269521 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_braves_20260117_141927.html
+Written
+     output/scrape_team_page.json
+    [*] Found 29 player contracts
+[✓] Successfully scraped Atlanta Braves
+    Found 0 players with opt-outs
+
+[✓] Atlanta Braves: 0 players, 0 opt-outs
+
+################################################################################
+[6/30] Processing: Milwaukee Brewers
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Milwaukee Brewers (MIL)
+============================================================
+[*] Scraping Milwaukee Brewers (MIL)
+    URL: https://www.fangraphs.com/roster-resource/payroll/brewers
+    [*] Page loaded: 246585 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_brewers_20260117_141941.html
+Written
+     output/scrape_team_page.json
+    [*] Found 25 player contracts
+[✓] Successfully scraped Milwaukee Brewers
+    Found 0 players with opt-outs
+
+[✓] Milwaukee Brewers: 0 players, 0 opt-outs
+
+################################################################################
+[7/30] Processing: St. Louis Cardinals
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping St. Louis Cardinals (STL)
+============================================================
+[*] Scraping St. Louis Cardinals (STL)
+    URL: https://www.fangraphs.com/roster-resource/payroll/cardinals
+    [*] Page loaded: 201608 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_cardinals_20260117_141954.html
+Written
+     output/scrape_team_page.json
+    [*] Found 16 player contracts
+[✓] Successfully scraped St. Louis Cardinals
+    Found 0 players with opt-outs
+
+[✓] St. Louis Cardinals: 0 players, 0 opt-outs
+
+################################################################################
+[8/30] Processing: Chicago Cubs
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Chicago Cubs (CHC)
+============================================================
+[*] Scraping Chicago Cubs (CHC)
+    URL: https://www.fangraphs.com/roster-resource/payroll/cubs
+    [*] Page loaded: 240257 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_cubs_20260117_142007.html
+Written
+     output/scrape_team_page.json
+    [*] Found 25 player contracts
+[✓] Successfully scraped Chicago Cubs
+    Found 0 players with opt-outs
+
+[✓] Chicago Cubs: 0 players, 0 opt-outs
+
+################################################################################
+[9/30] Processing: Arizona Diamondbacks
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Arizona Diamondbacks (ARI)
+============================================================
+[*] Scraping Arizona Diamondbacks (ARI)
+    URL: https://www.fangraphs.com/roster-resource/payroll/dbacks
+    [*] Page loaded: 87140 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_dbacks_20260117_142020.html
+Written
+     output/scrape_team_page.json
+    [!] No queries found in dehydrated state
+[✓] Successfully scraped Arizona Diamondbacks
+    Found 0 players with opt-outs
+
+[✓] Arizona Diamondbacks: 0 players, 0 opt-outs
+
+################################################################################
+[10/30] Processing: Los Angeles Dodgers
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Los Angeles Dodgers (LAD)
+============================================================
+[*] Scraping Los Angeles Dodgers (LAD)
+    URL: https://www.fangraphs.com/roster-resource/payroll/dodgers
+    [*] Page loaded: 275506 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_dodgers_20260117_142033.html
+Written
+     output/scrape_team_page.json
+    [*] Found 31 player contracts
+    [*] Checking payroll note for Blake Snell: deferrals lower AAV; option exists only if still with LAD and injured for 90+ days (specific injury unknown) 
+    [*] Checking payroll note for Tyler Glasnow: option is available if Dodgers decline $30M club option
+    [*] Checking payroll note for Yoshinobu Yamamoto: can opt out after 2029 or 2031
+    [*] Found 2 opt-out(s) for Yoshinobu Yamamoto
+    [*] Checking payroll note for Edwin Díaz: option is conditional; deferrals lower AAV
+    [*] Checking payroll note for Tanner Scott: option only if "qualifying injury"; deferrals lower AAV
+    [*] Checking payroll note for Hyeseong Kim: one-time option decision after 2027
+    [*] Found 1 opt-out(s) for Hyeseong Kim
+[✓] Successfully scraped Los Angeles Dodgers
+    Found 2 players with opt-outs
+
+[✓] Los Angeles Dodgers: 2 players, 3 opt-outs
+
+################################################################################
+[11/30] Processing: San Francisco Giants
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping San Francisco Giants (SFG)
+============================================================
+[*] Scraping San Francisco Giants (SFG)
+    URL: https://www.fangraphs.com/roster-resource/payroll/giants
+    [*] Page loaded: 230745 characters
+    [*] Cached HTML to: backend/data/fangraphs_cache/rosterresource/fangraphs_optout_giants_20260117_142047.html
+Written
+     output/scrape_team_page.json
+    [*] Found 20 player contracts
+    [*] Checking payroll note for Jung Hoo Lee: can opt out after 2027
+    [*] Found 1 opt-out(s) for Jung Hoo Lee
+[✓] Successfully scraped San Francisco Giants
+    Found 1 players with opt-outs
+
+[✓] San Francisco Giants: 1 players, 1 opt-outs
+
+################################################################################
+[12/30] Processing: Cleveland Guardians
+################################################################################
+
+============================================================
+[Attempt 1/3] Scraping Cleveland Guardians (CLE)
+============================================================
+[*] Scraping Cleveland Guardians (CLE)
+    URL: https://www.fangraphs.com/roster-resource/payroll/guardians
+Task failed for input: {'team_name': 'Cleveland Guardians', 'team_url': 'guardians'}
+Error getting page source: The target tab or iframe is no longer available. This may have occurred because you navigated to a different page, reloaded the current page, or closed the tab.
+Error saving screenshot: The target tab or iframe is no longer available. This may have occurred because you navigated to a different page, reloaded the current page, or closed the tab.
+We've paused the browser to help you debug. Press 'Enter' to close.

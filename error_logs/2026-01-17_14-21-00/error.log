@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus/browser_decorator.py", line 199, in run_task
+    result = func(driver, data)
+  File "/Users/andresmartinez/MLB Stats/backend/scraper/fangraphs_optout_scraper.py", line 117, in scrape_team_page
+    html = driver.page_html
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/driver.py", line 727, in page_html
+    return self._tab.get_content()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/tab.py", line 1109, in get_content
+    doc: cdp.dom.Node = self.send(cdp.dom.get_document(-1, True))
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 286, in send
+    self.open()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 167, in open
+    self.wait_for_socket_connection()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 190, in wait_for_socket_connection
+    self.raise_connection_failure_exception()
+  File "/Users/andresmartinez/Library/Python/3.9/lib/python/site-packages/botasaurus_driver/core/connection.py", line 182, in raise_connection_failure_exception
+    raise Exception(self._connection_failure_message)
+Exception: The target tab or iframe is no longer available. This may have occurred because you navigated to a different page, reloaded the current page, or closed the tab.

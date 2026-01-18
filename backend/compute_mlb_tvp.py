@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -286,7 +287,10 @@ def compute_weighted_fwar(
     if not season_war:
         return None, {"source": "missing_history", "seasons": seasons}
     used_weights = sum(item[1] for item in season_war)
-    normalized = [(season, weight / used_weights, total, entry) for season, weight, total, entry in season_war]
+    normalized = [
+        (season, weight / used_weights, total, entry)
+        for season, weight, total, entry in season_war
+    ]
     weighted = sum(item[1] * item[2] for item in normalized)
     return weighted, {
         "source": "weighted_history",
@@ -463,16 +467,15 @@ def compute_player_tvp(
     is_pitcher = name_key in pitcher_names and not is_two_way
     if is_pitcher and pitcher_regress_weight > 0:
         fwar_post_regress = (
-            (1.0 - pitcher_regress_weight) * fwar_pre_regress
-            + pitcher_regress_weight * pitcher_regress_target
-        )
+            1.0 - pitcher_regress_weight
+        ) * fwar_pre_regress + pitcher_regress_weight * pitcher_regress_target
     else:
         fwar_post_regress = fwar_pre_regress
 
     reliever_mult_applied = reliever_mult if is_reliever else 1.0
     two_way_mult_applied = two_way_mult if is_two_way else 1.0
     base_fwar = fwar_post_regress * reliever_mult_applied * two_way_mult_applied
-    
+
     fwar_cap_to_use = fwar_cap
     if (
         is_two_way
@@ -529,7 +532,9 @@ def compute_player_tvp(
         )
         all_seasons = [season for season in all_seasons if season >= snapshot_year]
         if max_years and all_seasons:
-            all_seasons = [season for season in all_seasons if season < snapshot_year + max_years]
+            all_seasons = [
+                season for season in all_seasons if season < snapshot_year + max_years
+            ]
 
     control_years_seeded = False
     if not all_seasons:
@@ -558,7 +563,10 @@ def compute_player_tvp(
                 "tvp_prospect": None,
                 "tvp_mlb": None,
                 "tvp_current": None,
-                "raw_components": {"error": "missing_contract_years"},
+                "raw_components": {
+                    "error": "missing_contract_years",
+                    "quality_flags": {},
+                },
                 "snapshot_year": snapshot_year,
                 "last_updated_timestamp": now_timestamp(),
             }
@@ -874,6 +882,42 @@ def compute_player_tvp(
                 "boost_pct": long_control_boost_pct,
                 "boost_amount": long_control_boost_value,
             },
+            "quality_flags": {
+                "war_history_partial": fwar_source_label == "history_weighted_partial",
+                "war_history_seasons_used": weighted_meta.get("seasons_count", 0),
+                "war_history_weights_sum": weighted_meta.get("weights_sum")
+                if fwar_source == "weighted_history"
+                else None,
+                "projected_war_hits_cap": any(
+                    math.isclose(projected_fwar.get(s, 0.0), fwar_cap_to_use)
+                    if fwar_cap_to_use is not None
+                    else False
+                    for s in seasons
+                ),
+                "projected_war_years": len(seasons),
+                "salary_below_min_detected": len(control_salary_floor_seasons) > 0,
+                "control_fallback_used": contract_source == "control_fallback",
+                "option_years_detected": sorted(option_seasons),
+                "options_present": len(option_years_raw) > 0,
+                "option_year_mismatch": (len(option_years_raw) > 0)
+                != (len(option_seasons) > 0),
+                "salary_below_min_detected": (
+                    len(control_salary_floor_seasons) > 0
+                    or any(
+                        salary_by_season.get(season) is not None
+                        and salary_by_season.get(season)
+                        < config.min_salary_m
+                        * ((1.0 + config.min_salary_growth) ** (season - snapshot_year))
+                        for season in seasons
+                    )
+                ),
+                "guaranteed_includes_option_year": any(
+                    season in option_seasons
+                    and salary_by_season.get(season) is not None
+                    and salary_by_season.get(season) > 0.0
+                    for season in seasons
+                ),
+            },
             "fallbacks": {
                 "control_years_fallback_applied": control_years_applied,
                 "contracts_2026_fallback_used": fallback_used,
@@ -887,9 +931,7 @@ def compute_player_tvp(
 
 def now_timestamp() -> str:
     return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z")
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
 
 
@@ -903,7 +945,9 @@ def parse_weights(raw: str) -> list[float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compute MLB TVP outputs.")
     parser.add_argument("--config", type=Path, help="Path to tvp_config.json")
-    parser.add_argument("--players", type=Path, help="Path to players_with_contracts_*.json")
+    parser.add_argument(
+        "--players", type=Path, help="Path to players_with_contracts_*.json"
+    )
     parser.add_argument("--output", type=Path, help="Output JSON path")
     parser.add_argument(
         "--max-years",
@@ -1016,7 +1060,9 @@ def main() -> None:
 
     repo_root = Path(__file__).resolve().parents[1]
     config_path = args.config or (repo_root / "backend" / "tvp_config.json")
-    players_path = args.players or (repo_root / "backend" / "output" / "players_with_contracts_2025.json")
+    players_path = args.players or (
+        repo_root / "backend" / "output" / "players_with_contracts_2025.json"
+    )
 
     payload = load_players(players_path)
     snapshot_year = load_config(config_path).snapshot_year
@@ -1106,7 +1152,9 @@ def main() -> None:
             "reliever_mult": args.reliever_mult,
             "reliever_count": len(reliever_names),
             "pitcher_count": len(pitcher_names),
-            "two_way_fwar_cap": None if args.two_way_fwar_cap <= 0 else args.two_way_fwar_cap,
+            "two_way_fwar_cap": None
+            if args.two_way_fwar_cap <= 0
+            else args.two_way_fwar_cap,
             "two_way_min_war": args.two_way_min_war,
             "two_way_count": len(two_way_names),
             "two_way_mult": args.two_way_mult,

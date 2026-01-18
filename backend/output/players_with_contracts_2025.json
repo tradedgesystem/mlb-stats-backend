@@ -6883,15 +6883,22 @@
           {
             "season": 2031,
             "salary_m": 2.0,
-            "is_guaranteed": true
+            "is_guaranteed": false
           }
         ],
-        "options": [],
+        "options": [
+          {
+            "season": 2031,
+            "type": "CO",
+            "salary_m": 2.0,
+            "buyout_m": 2.0
+          }
+        ],
         "aav_m": 17.5,
         "total_value_m": 105.0,
         "free_agent_year": null,
         "years_remaining": 6,
-        "guaranteed_years_remaining": 6,
+        "guaranteed_years_remaining": 5,
         "source_url": "https://www.spotrac.com/mlb/player/_/id/26119/cal-raleigh",
         "last_scraped_at": "2026-01-17T05:29:08.844340",
         "snapshot_date": "2026-01-17"
@@ -43957,7 +43964,7 @@
             "season": 2033,
             "type": "CO",
             "salary_m": 2.0,
-            "buyout_m": null
+            "buyout_m": 2.0
           }
         ],
         "aav_m": 12.286,

@@ -40,7 +40,9 @@ class TvpConfig:
     @staticmethod
     def from_dict(data: dict[str, Any]) -> "TvpConfig":
         top100_ranges = _parse_range_map(data.get("top100_mult", {}))
-        position_mult = {k.upper(): float(v) for k, v in data.get("position_mult", {}).items()}
+        position_mult = {
+            k.upper(): float(v) for k, v in data.get("position_mult", {}).items()
+        }
         war6_base = _parse_int_float_map(data.get("war6_base", {}))
         fv_probabilities = _parse_probability_map(data.get("fv_probabilities", {}))
         fv_war_rate_prior = _parse_int_float_map(data.get("fv_war_rate_prior", {}))
@@ -68,7 +70,9 @@ class TvpConfig:
             war6_base=war6_base,
             fv_probabilities=fv_probabilities,
             war_profile_weights=[float(v) for v in data.get("war_profile_weights", [])],
-            pitcher_profile_weights=[float(v) for v in data.get("pitcher_profile_weights", [])],
+            pitcher_profile_weights=[
+                float(v) for v in data.get("pitcher_profile_weights", [])
+            ],
             fv_war_rate_prior=fv_war_rate_prior,
         )
 
@@ -181,7 +185,7 @@ def compute_prospect_tvp(prospect: dict[str, Any], config: TvpConfig) -> dict[st
     if prospect.get("age") is not None and prospect.get("age") <= 19:
         p_bust, p_star = _shift_probability(p_bust, p_star, 0.03)
 
-    p_survive = config.eta_survive_base ** years_to_mlb
+    p_survive = config.eta_survive_base**years_to_mlb
     p_bust = 1.0 - p_survive * (1.0 - p_bust)
     remaining = max(0.0, 1.0 - p_bust)
     prior_remaining = max(1e-9, p_role + p_star)
@@ -209,7 +213,9 @@ def compute_prospect_tvp(prospect: dict[str, Any], config: TvpConfig) -> dict[st
         price = war_price(config, t)
         value = war * price
         salary_min = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
-        arb_share = config.arb_share[idx - 1] if idx - 1 < len(config.arb_share) else 0.0
+        arb_share = (
+            config.arb_share[idx - 1] if idx - 1 < len(config.arb_share) else 0.0
+        )
         salary = max(salary_min, arb_share * value)
         surplus = value - salary
         disc = discount_factor(t, config.discount_rate)
@@ -222,7 +228,9 @@ def compute_prospect_tvp(prospect: dict[str, Any], config: TvpConfig) -> dict[st
         pv_surplus_by_year.append(pv)
 
     tvp_raw = sum(pv_surplus_by_year)
-    org_bonus = _org_rank_bonus(prospect.get("system_rank"), prospect.get("top_100_rank"))
+    org_bonus = _org_rank_bonus(
+        prospect.get("system_rank"), prospect.get("top_100_rank")
+    )
     tvp = tvp_raw + org_bonus
     if config.prospect_floor:
         tvp = max(0.0, tvp)
@@ -381,17 +389,19 @@ def compute_option_ev(
     detail = {
         "t": t,
         "option_type": option_type,
-        "fwar": fwar,
-        "value": value,
-        "salary": salary,
-        "buyout": buyout,
+        "fwar_used_for_option": fwar,
+        "V": value,
+        "S": salary,
+        "B": buyout,
         "market": market,
         "sigmoid_input_exercise": sigmoid_input_ex,
         "sigmoid_input_in": sigmoid_input_in,
-        "p_ex": p_ex,
-        "p_in": p_in,
-        "p_team": p_team,
-        "p_player": p_player,
+        "probabilities": {
+            "P_ex": p_ex,
+            "P_in": p_in,
+            "P_team": p_team,
+            "P_player": p_player,
+        },
         "ev": ev,
         "pv_ev": pv,
     }
@@ -484,7 +494,7 @@ def apply_step_package_rule(values: list[float], config: TvpConfig) -> float:
 
 
 def apply_power_package_rule(values: list[float], config: TvpConfig) -> float:
-    return sum(value ** config.package_power_p for value in values)
+    return sum(value**config.package_power_p for value in values)
 
 
 def cap_cash_value(
@@ -549,7 +559,9 @@ def _parse_probability_map(raw: dict[str, Any]) -> dict[int, dict[str, float]]:
     return result
 
 
-def _shift_probability(p_bust: float, p_star: float, shift: float) -> tuple[float, float]:
+def _shift_probability(
+    p_bust: float, p_star: float, shift: float
+) -> tuple[float, float]:
     shift = min(shift, p_star)
     return p_bust + shift, p_star - shift
 
@@ -585,7 +597,5 @@ def _prospect_error_result(
 
 def _now_timestamp() -> str:
     return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z")
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )

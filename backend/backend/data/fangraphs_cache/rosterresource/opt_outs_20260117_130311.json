@@ -1,0 +1,170 @@
+[
+  {
+    "player_name": "Javier B\u00e1ez",
+    "team": "DET",
+    "opt_outs": [
+      {
+        "season": 2023,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Bobby Witt Jr.",
+    "team": "KCR",
+    "opt_outs": [
+      {
+        "season": 2030,
+        "type": "PO"
+      },
+      {
+        "season": 2031,
+        "type": "PO"
+      },
+      {
+        "season": 2032,
+        "type": "PO"
+      },
+      {
+        "season": 2033,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Hyeseong Kim",
+    "team": "LAD",
+    "opt_outs": [
+      {
+        "season": 2027,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Yoshinobu Yamamoto",
+    "team": "LAD",
+    "opt_outs": [
+      {
+        "season": 2029,
+        "type": "PO"
+      },
+      {
+        "season": 2031,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Gerrit Cole",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Gerrit Cole",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Gerrit Cole",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Ryan McMahon",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2026,
+        "type": "PO"
+      },
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Ryan McMahon",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2026,
+        "type": "PO"
+      },
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Ryan McMahon",
+    "team": "NYY",
+    "opt_outs": [
+      {
+        "season": 2026,
+        "type": "PO"
+      },
+      {
+        "season": 2025,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Yuki Matsui",
+    "team": "SDP",
+    "opt_outs": [
+      {
+        "season": 2026,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Julio Rodr\u00edguez",
+    "team": "SEA",
+    "opt_outs": [
+      {
+        "season": 2029,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Luis Castillo",
+    "team": "SEA",
+    "opt_outs": [
+      {
+        "season": 2027,
+        "type": "PO"
+      }
+    ]
+  },
+  {
+    "player_name": "Jung Hoo Lee",
+    "team": "SFG",
+    "opt_outs": [
+      {
+        "season": 2027,
+        "type": "PO"
+      }
+    ]
+  }
+]
