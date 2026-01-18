@@ -4,34 +4,20 @@
   "age": 28,
   "status": "mlb",
   "tvp_prospect": null,
-  "tvp_mlb": 1.033703809259424,
-  "tvp_current": 1.033703809259424,
+  "tvp_mlb": 239.4985493272541,
+  "tvp_current": 239.4985493272541,
   "raw_components": {
     "projection": {
       "method": "flat_from_latest_fwar_scaled",
-      "base_fwar": 2.0,
-      "fwar_source": "weighted_history",
-      "fwar_source_label": "history_weighted_full",
-      "fwar_weight_seasons": [
-        2025
-      ],
-      "fwar_weights": [
-        1.0
-      ],
-      "weighted_fwar": 2.0,
+      "base_fwar": 9.1,
+      "fwar_source": "snapshot_fwar",
+      "fwar_source_label": "snapshot",
+      "fwar_weight_seasons": [],
+      "fwar_weights": [],
+      "weighted_fwar": null,
       "weighted_fwar_meta": {
-        "source": "weighted_history",
-        "seasons": [
-          {
-            "season": 2025,
-            "weight": 1.0,
-            "war": 2.0,
-            "bat_war": 2.0,
-            "pit_war": 0.0
-          }
-        ],
-        "seasons_count": 1,
-        "weights_sum": 1.0
+        "source": "missing_history",
+        "seasons": []
       },
       "is_pitcher": false,
       "is_reliever": false,
@@ -40,8 +26,8 @@
       "pitcher_regress_target": 2.0,
       "pitcher_regress_applied": false,
       "pitcher_qualified": false,
-      "fwar_pre_regress": 2.0,
-      "fwar_post_regress": 2.0,
+      "fwar_pre_regress": 9.1,
+      "fwar_post_regress": 9.1,
       "reliever_mult": 1.5,
       "reliever_mult_applied": 1.0,
       "two_way_qualified": false,
@@ -77,12 +63,20 @@
         "2031": 0.86
       },
       "projected_fwar_by_season": {
-        "2026": 1.4,
-        "2027": 1.4,
-        "2028": 1.351,
-        "2029": 1.3019999999999998,
-        "2030": 1.253,
-        "2031": 1.204
+        "2026": 6.0,
+        "2027": 6.0,
+        "2028": 6.0,
+        "2029": 5.924099999999999,
+        "2030": 5.701149999999999,
+        "2031": 5.478199999999999
+      },
+      "fwar_projection_by_t": {
+        "0": 6.0,
+        "1": 6.0,
+        "2": 6.0,
+        "3": 5.924099999999999,
+        "4": 5.701149999999999,
+        "5": 0.0
       },
       "t_to_year": {
         "0": 2026,
@@ -93,15 +87,15 @@
         "5": 2031
       },
       "guaranteed_projection_by_t": {
-        "0": 1.4,
-        "1": 1.4,
-        "2": 1.351,
-        "3": 1.3019999999999998,
-        "4": 1.253,
+        "0": 6.0,
+        "1": 6.0,
+        "2": 6.0,
+        "3": 5.924099999999999,
+        "4": 5.701149999999999,
         "5": 0.0
       },
       "option_year_projection_by_t": {
-        "5": 1.204
+        "5": 5.478199999999999
       },
       "aging_mult_by_t": {
         "0": 1.0,
@@ -115,7 +109,7 @@
         "mean_reversion_applied": false,
         "reason": "age>26"
       },
-      "fwar_used_for_projection": 2.0
+      "fwar_used_for_projection": 9.1
     },
     "contract": {
       "seasons": [
@@ -148,11 +142,11 @@
     },
     "mlb": {
       "fwar_by_year": [
-        1.4,
-        1.4,
-        1.351,
-        1.3019999999999998,
-        1.253,
+        6.0,
+        6.0,
+        6.0,
+        5.924099999999999,
+        5.701149999999999,
         0.0
       ],
       "price_by_year": [
@@ -164,11 +158,11 @@
         12.0
       ],
       "value_by_year": [
-        16.799999999999997,
-        16.799999999999997,
-        16.212,
-        15.623999999999999,
-        15.035999999999998,
+        72.0,
+        72.0,
+        72.0,
+        71.08919999999999,
+        68.4138,
         0.0
       ],
       "salary_by_year_input": [
@@ -204,11 +198,11 @@
         0.0
       ],
       "surplus_by_year": [
-        5.799999999999997,
-        4.799999999999997,
-        -6.788,
-        -7.376000000000001,
-        -7.964000000000002,
+        61.0,
+        60.0,
+        49.0,
+        48.08919999999999,
+        45.413799999999995,
         0.0
       ],
       "discount_factors": [
@@ -220,11 +214,11 @@
         0.4971767352982899
       ],
       "pv_surplus_by_year": [
-        5.799999999999997,
-        4.173913043478259,
-        -5.132703213610587,
-        -4.8498397304183465,
-        -4.553442847902919,
+        61.0,
+        52.173913043478265,
+        37.051039697542535,
+        31.619429604668365,
+        25.965487544712897,
         0.0
       ],
       "rel_mult": 1.0,
@@ -232,21 +226,21 @@
         {
           "t": 5,
           "option_type": "CO",
-          "fwar_used_for_option": 1.204,
-          "V": 14.448,
+          "fwar_used_for_option": 5.478199999999999,
+          "V": 65.73839999999998,
           "S": 2.0,
           "B": 2.0,
           "market": null,
-          "sigmoid_input_exercise": 2.408,
+          "sigmoid_input_exercise": 10.956399999999997,
           "sigmoid_input_in": null,
           "probabilities": {
-            "P_ex": 0.9174353127768611,
+            "P_ex": 0.9999825543015322,
             "P_in": null,
             "P_team": null,
             "P_player": null
           },
-          "ev": 11.25510539900009,
-          "pv_ev": 5.595776557713021
+          "ev": 63.737253147695824,
+          "pv_ev": 31.68867943685206
         }
       ]
     },
@@ -260,24 +254,22 @@
       "boost_value": 0.0
     },
     "war_inputs": {
-      "fwar_source": "history_weighted_full",
-      "war_history_used": [
-        {
-          "season": 2025,
-          "weight": 1.0,
-          "war": 2.0,
-          "bat_war": 2.0,
-          "pit_war": 0.0
-        }
-      ],
-      "weighted_fwar": 2.0,
+      "fwar_source": "snapshot",
+      "fwar_source_raw": "snapshot_fwar",
+      "war_history_used": [],
+      "war_history_seasons_used": 0,
+      "weights_sum": null,
+      "weighted_fwar": null,
       "is_pitcher": false,
+      "pitcher_qualified": false,
+      "pitcher_regress_applied": false,
       "is_reliever": false,
       "is_two_way": false,
       "pitcher_regress_weight": 0.0,
       "pitcher_regress_target": 2.0,
-      "fwar_pre_regress": 2.0,
-      "fwar_post_regress": 2.0,
+      "fwar_pre_regress": 9.1,
+      "fwar_post_regress": 9.1,
+      "snapshot_fwar_used": 9.1,
       "reliever_mult_applied": 1.0,
       "two_way_mult_applied": 1.0,
       "cap_used": 6.0
@@ -294,15 +286,15 @@
         "5": 0.86
       },
       "guaranteed_projection_by_t": {
-        "0": 1.4,
-        "1": 1.4,
-        "2": 1.351,
-        "3": 1.3019999999999998,
-        "4": 1.253,
+        "0": 6.0,
+        "1": 6.0,
+        "2": 6.0,
+        "3": 5.924099999999999,
+        "4": 5.701149999999999,
         "5": 0.0
       },
       "option_year_projection_by_t": {
-        "5": 1.204
+        "5": 5.478199999999999
       },
       "years_projected": 6,
       "t_to_year": {
@@ -339,19 +331,19 @@
         "5": 12.0
       },
       "value_by_year_m": {
-        "0": 16.799999999999997,
-        "1": 16.799999999999997,
-        "2": 16.212,
-        "3": 15.623999999999999,
-        "4": 15.035999999999998,
+        "0": 72.0,
+        "1": 72.0,
+        "2": 72.0,
+        "3": 71.08919999999999,
+        "4": 68.4138,
         "5": 0.0
       },
       "surplus_by_year_m": {
-        "0": 5.799999999999997,
-        "1": 4.799999999999997,
-        "2": -6.788,
-        "3": -7.376000000000001,
-        "4": -7.964000000000002,
+        "0": 61.0,
+        "1": 60.0,
+        "2": 49.0,
+        "3": 48.08919999999999,
+        "4": 45.413799999999995,
         "5": 0.0
       },
       "discount_by_year": {
@@ -363,31 +355,31 @@
         "5": 0.4971767352982899
       },
       "pv_surplus_by_year_m": {
-        "0": 5.799999999999997,
-        "1": 4.173913043478259,
-        "2": -5.132703213610587,
-        "3": -4.8498397304183465,
-        "4": -4.553442847902919,
+        "0": 61.0,
+        "1": 52.173913043478265,
+        "2": 37.051039697542535,
+        "3": 31.619429604668365,
+        "4": 25.965487544712897,
         "5": 0.0
       },
-      "tvp_mlb_base": 1.033703809259424,
-      "options_pv_total": 5.595776557713021
+      "tvp_mlb_base": 239.4985493272541,
+      "options_pv_total": 31.68867943685206
     },
     "options": [
       {
         "t": 5,
         "type": "CO",
-        "fwar": 1.204,
+        "fwar": 5.478199999999999,
         "S": 2.0,
         "B": 2.0,
-        "V": 14.448,
+        "V": 65.73839999999998,
         "M": null,
-        "sigmoid_input_ex": 2.408,
+        "sigmoid_input_ex": 10.956399999999997,
         "sigmoid_input_in": null,
-        "P_ex": 0.9174353127768611,
+        "P_ex": 0.9999825543015322,
         "P_in": null,
-        "EV": 11.25510539900009,
-        "pv_EV": 5.595776557713021
+        "EV": 63.737253147695824,
+        "pv_EV": 31.68867943685206
       }
     ],
     "long_control_boost": {
@@ -397,9 +389,9 @@
     },
     "quality_flags": {
       "war_history_partial": false,
-      "war_history_seasons_used": 1,
-      "war_history_weights_sum": 1.0,
-      "projected_war_hits_cap": false,
+      "war_history_seasons_used": 0,
+      "war_history_weights_sum": null,
+      "projected_war_hits_cap": true,
       "projected_war_years": 6,
       "salary_below_min_detected": false,
       "control_fallback_used": false,
@@ -417,5 +409,5 @@
     }
   },
   "snapshot_year": 2026,
-  "last_updated_timestamp": "2026-01-18T21:22:20Z"
+  "last_updated_timestamp": "2026-01-18T21:40:07Z"
 }

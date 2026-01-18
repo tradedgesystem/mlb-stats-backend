@@ -943,6 +943,9 @@ def compute_player_tvp(
                 "age_by_season": age_by_season,
                 "aging_mult_by_season": aging_mults,
                 "projected_fwar_by_season": projected_fwar,
+                "fwar_projection_by_t": {
+                    str(t): fwar for t, fwar in enumerate(fwar_by_year_base)
+                },
                 "t_to_year": t_to_year,
                 "guaranteed_projection_by_t": guaranteed_fwar_by_t,
                 "option_year_projection_by_t": option_fwar_by_t,
@@ -977,15 +980,23 @@ def compute_player_tvp(
             },
             "war_inputs": {
                 "fwar_source": fwar_source_label,
+                "fwar_source_raw": fwar_source,
                 "war_history_used": weighted_meta.get("seasons"),
+                "war_history_seasons_used": len(weighted_meta.get("seasons", [])),
+                "weights_sum": weighted_meta.get("weights_sum"),
                 "weighted_fwar": weighted_fwar,
                 "is_pitcher": is_pitcher,
+                "pitcher_qualified": is_pitcher,
+                "pitcher_regress_applied": is_pitcher and pitcher_regress_weight > 0,
                 "is_reliever": is_reliever,
                 "is_two_way": is_two_way,
                 "pitcher_regress_weight": pitcher_regress_weight,
                 "pitcher_regress_target": pitcher_regress_target,
                 "fwar_pre_regress": fwar_pre_regress,
                 "fwar_post_regress": fwar_post_regress,
+                "snapshot_fwar_used": player.get("fwar")
+                if weighted_fwar is None
+                else None,
                 "reliever_mult_applied": reliever_mult_applied,
                 "two_way_mult_applied": two_way_mult_applied,
                 "cap_used": fwar_cap_to_use,
