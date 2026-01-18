@@ -15,7 +15,10 @@
   "two_way_min_war": 1.0,
   "two_way_mult": 1.5,
   "two_way_rule": "Ohtani-only (must have >=1.0 WAR in batting and pitching in snapshot season)",
-  "control_years_fallback": 4,
+  "control_years_fallback": 6,
   "control_years_age_max": 27,
-  "contracts_2026_fallback": "mlb_2026_contracts_all_teams.sqlite"
+  "contracts_2026_fallback": "mlb_2026_contracts_all_teams.sqlite",
+  "hitter_mean_revert_age_max": 26,
+  "hitter_mean_revert_target_war": 2.5,
+  "hitter_mean_revert_weight": 0.35
 }

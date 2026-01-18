@@ -365,7 +365,37 @@ def build_salary_map(
             salary_by_season[season] = salary_value
         else:
             salary_by_season[season] = max(existing, salary_value)
-    return salary_by_season, missing_salary_seasons
+        return salary_by_season, missing_salary_seasons
+
+
+def compute_arb_salary(
+    projected_value: float,
+    control_year_index: int,
+    min_salary: float,
+    arb_shares: list[float],
+) -> float:
+    """
+    Compute arbitration salary using ARB_SHARE from tvp_config.json.
+
+    Years 1-3: Pre-arbitration, use minimum salary.
+    Years 4-6: ARB_SHARE[y-1] of market value.
+
+    Args:
+        projected_value: WAR * price(t)
+        control_year_index: 0-based index (1-6 for arb years)
+        min_salary: MIN_SALARY_M * (1 + growth)^t
+        arb_shares: ARB_SHARE values from tvp_config.json
+
+    Returns:
+        max(min_salary, arb_share * projected_value)
+    """
+    if control_year_index < 0 or control_year_index >= len(arb_shares):
+        arb_share = arb_shares[-1]
+    else:
+        arb_share = arb_shares[control_year_index]
+
+    arb_salary = arb_share * projected_value
+    return max(min_salary, arb_salary)
 
 
 def apply_control_year_fallback(
@@ -376,7 +406,9 @@ def apply_control_year_fallback(
     age: float | None,
     control_years: int,
     age_max: int,
-) -> tuple[list[int], dict[int, float | None], set[int], bool]:
+    config: TvpConfig,
+    arb_shares: list[float] = None,
+) -> tuple[list[int], dict[int, float | None], set[int], dict[int, dict[str, Any]]]:
     if control_years <= 0 or age is None or age > age_max:
         return seasons, salary_by_season, missing_salary_seasons, False
     if len(seasons) >= control_years:
@@ -386,7 +418,96 @@ def apply_control_year_fallback(
     for year in fallback_years:
         salary_by_season.setdefault(year, None)
         missing_salary_seasons.add(year)
-    return fallback_years, salary_by_season, missing_salary_seasons, True
+
+    salary_components_by_t = {}
+    
+    for i, season in enumerate(fallback_years):
+        t = season - snapshot_year
+        min_salary = config.min_salary * ((1.0 + config.min_salary_growth) ** t)
+        
+        projected_value = projected_fwar.get(season, 0.0) * price_by_t[t]
+        
+        arb_salary = compute_arb_salary(projected_value, i, min_salary, config.arb_share)
+        salary_by_season[season] = arb_salary
+        control_salary_floor_seasons.add(year)
+        
+        salary_components_by_t[t] = {
+            "min_salary_t": min_salary,
+            "arb_share": config.arb_share[i] if i > 0 and i < len(config.arb_share) - 1 else config.arb_share[-1],
+            "arb_salary_t": arb_salary,
+            "projected_value_t": projected_value,
+            "final_salary_t": arb_salary
+        }
+    
+    return fallback_years, salary_by_season, missing_salary_seasons, salary_components_by_t
+        salary_by_season[season] = arb_salary
+        control_salary_floor_seasons.add(year)
+
+        salary_components_by_t[t] = {
+            "min_salary_t": min_salary,
+            "arb_share": config.arb_share[i]
+            if i > 0 and i < len(config.arb_share) - 1
+            else config.arb_share[-1],
+            "arb_salary_t": arb_salary,
+            "projected_value_t": projected_value,
+            "final_salary_t": arb_salary,
+        }
+
+    return (
+        fallback_years,
+        salary_by_season,
+        missing_salary_seasons,
+        salary_components_by_t,
+    )
+
+
+def apply_mean_reversion(
+    base_fwar: float,
+    is_hitter: bool,
+    player_age: int | None,
+    mlb_defaults: dict[str, Any],
+) -> tuple[float, dict[str, Any]]:
+    """
+    Apply regression-to-mean for young hitters (age ≤ 26).
+
+    Args:
+        base_fwar: Selected fWAR (history_weighted or snapshot)
+        is_hitter: False for pitchers (skip regression)
+        player_age: Player age at snapshot
+        mlb_defaults: tvp_mlb_defaults.json configuration
+
+    Returns:
+        (regressed_fwar, regression_meta dict)
+    """
+    mean_revert_params = mlb_defaults.get("hitter_mean_reversion", {})
+    mean_revert_age_max = mean_revert_params.get("age_max", 26)
+    mean_revert_target_war = mean_revert_params.get("target_war", 2.5)
+    mean_revert_weight = mean_revert_params.get("weight", 0.35)
+
+    if not is_hitter:
+        return base_fwar, {"mean_reversion_applied": False, "reason": "pitcher"}
+
+    if player_age is None or player_age > mean_revert_age_max:
+        return base_fwar, {
+            "mean_reversion_applied": False,
+            "reason": f"age>{mean_revert_age_max}",
+        }
+
+    regressed_fwar = (
+        1.0 - mean_revert_weight
+    ) * base_fwar + mean_revert_weight * mean_revert_target_war
+
+    regression_meta = {
+        "mean_reversion_applied": True,
+        "base_fwar": base_fwar,
+        "regressed_fwar": regressed_fwar,
+        "mean_revert_target_war": mean_revert_target_war,
+        "mean_revert_weight": mean_revert_weight,
+        "player_age": player_age,
+        "age_threshold": mean_revert_age_max,
+    }
+
+    return regressed_fwar, regression_meta
 
 
 def build_option_years(
@@ -445,6 +566,11 @@ def compute_player_tvp(
     young_player_scale: float,
 ) -> dict[str, Any]:
     config = load_config(config_path)
+
+    repo_root = Path(__file__).resolve().parent
+    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    with mlb_defaults_path.open("r") as handle:
+        mlb_defaults = json.load(handle)
     base_fwar = player.get("fwar")
     if base_fwar is None:
         base_fwar = 0.0
@@ -452,6 +578,17 @@ def compute_player_tvp(
         base_fwar = float(base_fwar)
     name_key = normalize_name(player.get("player_name"))
     is_reliever = name_key in reliever_names
+    is_two_way = name_key in two_way_names
+    player_age = player.get("age")
+
+    repo_root = Path(__file__).resolve().parent
+    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    with mlb_defaults_path.open("r") as handle:
+        mlb_defaults = json.load(handle)
+
+    weighted_fwar, weighted_meta = compute_weighted_fwar(
+        name_key, fwar_weight_seasons, fwar_weights, war_history
+    )
     is_two_way = name_key in two_way_names
     player_age = player.get("age")
     weighted_fwar, weighted_meta = compute_weighted_fwar(
@@ -475,6 +612,17 @@ def compute_player_tvp(
     reliever_mult_applied = reliever_mult if is_reliever else 1.0
     two_way_mult_applied = two_way_mult if is_two_way else 1.0
     base_fwar = fwar_post_regress * reliever_mult_applied * two_way_mult_applied
+
+    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    with mlb_defaults_path.open("r") as handle:
+        mlb_defaults = json.load(handle)
+
+    regressed_fwar, mean_reversion_meta = apply_mean_reversion(
+        base_fwar=base_fwar,
+        is_hitter=not is_pitcher,
+        player_age=player_age,
+        mlb_defaults=mlb_defaults,
+    )
 
     fwar_cap_to_use = fwar_cap
     if (
