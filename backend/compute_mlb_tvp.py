@@ -365,7 +365,7 @@ def build_salary_map(
             salary_by_season[season] = salary_value
         else:
             salary_by_season[season] = max(existing, salary_value)
-        return salary_by_season, missing_salary_seasons
+    return salary_by_season, missing_salary_seasons
 
 
 def compute_arb_salary(
@@ -406,9 +406,8 @@ def apply_control_year_fallback(
     age: float | None,
     control_years: int,
     age_max: int,
-    config: TvpConfig,
-    arb_shares: list[float] = None,
-) -> tuple[list[int], dict[int, float | None], set[int], dict[int, dict[str, Any]]]:
+    config: Any,
+) -> tuple[list[int], dict[int, float | None], set[int], bool]:
     if control_years <= 0 or age is None or age > age_max:
         return seasons, salary_by_season, missing_salary_seasons, False
     if len(seasons) >= control_years:
@@ -419,45 +418,11 @@ def apply_control_year_fallback(
         salary_by_season.setdefault(year, None)
         missing_salary_seasons.add(year)
 
-    salary_components_by_t = {}
-    
-    for i, season in enumerate(fallback_years):
-        t = season - snapshot_year
-        min_salary = config.min_salary * ((1.0 + config.min_salary_growth) ** t)
-        
-        projected_value = projected_fwar.get(season, 0.0) * price_by_t[t]
-        
-        arb_salary = compute_arb_salary(projected_value, i, min_salary, config.arb_share)
-        salary_by_season[season] = arb_salary
-        control_salary_floor_seasons.add(year)
-        
-        salary_components_by_t[t] = {
-            "min_salary_t": min_salary,
-            "arb_share": config.arb_share[i] if i > 0 and i < len(config.arb_share) - 1 else config.arb_share[-1],
-            "arb_salary_t": arb_salary,
-            "projected_value_t": projected_value,
-            "final_salary_t": arb_salary
-        }
-    
-    return fallback_years, salary_by_season, missing_salary_seasons, salary_components_by_t
-        salary_by_season[season] = arb_salary
-        control_salary_floor_seasons.add(year)
-
-        salary_components_by_t[t] = {
-            "min_salary_t": min_salary,
-            "arb_share": config.arb_share[i]
-            if i > 0 and i < len(config.arb_share) - 1
-            else config.arb_share[-1],
-            "arb_salary_t": arb_salary,
-            "projected_value_t": projected_value,
-            "final_salary_t": arb_salary,
-        }
-
     return (
         fallback_years,
         salary_by_season,
         missing_salary_seasons,
-        salary_components_by_t,
+        True,
     )
 
 
@@ -568,7 +533,7 @@ def compute_player_tvp(
     config = load_config(config_path)
 
     repo_root = Path(__file__).resolve().parent
-    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    mlb_defaults_path = repo_root / "tvp_mlb_defaults.json"
     with mlb_defaults_path.open("r") as handle:
         mlb_defaults = json.load(handle)
     base_fwar = player.get("fwar")
@@ -582,7 +547,7 @@ def compute_player_tvp(
     player_age = player.get("age")
 
     repo_root = Path(__file__).resolve().parent
-    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    mlb_defaults_path = repo_root / "tvp_mlb_defaults.json"
     with mlb_defaults_path.open("r") as handle:
         mlb_defaults = json.load(handle)
 
@@ -613,7 +578,7 @@ def compute_player_tvp(
     two_way_mult_applied = two_way_mult if is_two_way else 1.0
     base_fwar = fwar_post_regress * reliever_mult_applied * two_way_mult_applied
 
-    mlb_defaults_path = repo_root / "backend" / "tvp_mlb_defaults.json"
+    mlb_defaults_path = repo_root / "tvp_mlb_defaults.json"
     with mlb_defaults_path.open("r") as handle:
         mlb_defaults = json.load(handle)
 
@@ -623,6 +588,8 @@ def compute_player_tvp(
         player_age=player_age,
         mlb_defaults=mlb_defaults,
     )
+
+    fwar_for_projection = regressed_fwar
 
     fwar_cap_to_use = fwar_cap
     if (
@@ -693,9 +660,10 @@ def compute_player_tvp(
             missing_salary_seasons = set()
             fallback_used = True
     if not all_seasons:
+        player_age = player.get("age")
         if (
-            player.get("age") is not None
-            and player.get("age") <= control_years_age_max
+            player_age is not None
+            and player_age <= control_years_age_max
             and control_years_fallback > 0
         ):
             all_seasons = list(
@@ -734,6 +702,7 @@ def compute_player_tvp(
                 player.get("age"),
                 control_years_fallback,
                 control_years_age_max,
+                config,
             )
         )
         if control_years_extended:
@@ -745,7 +714,7 @@ def compute_player_tvp(
         control_years_extended = False
     control_years_applied = control_years_seeded or control_years_extended
     projected_fwar, age_by_season, aging_mults = project_fwar_flat(
-        base_fwar,
+        fwar_for_projection,
         seasons,
         fwar_scale_to_use,
         fwar_cap_to_use,
@@ -774,7 +743,10 @@ def compute_player_tvp(
         salary_by_season = {season: float(aav_m) for season in seasons}
         missing_salary_seasons = set()
 
-    override_salary = SPECIAL_SALARY_OVERRIDES_M.get(player.get("player_name"))
+    player_name = player.get("player_name")
+    override_salary = (
+        SPECIAL_SALARY_OVERRIDES_M.get(player_name) if player_name else None
+    )
     if override_salary is not None and seasons:
         # Treat deferrals as tax AAV for TVP valuation.
         salary_source = "manual_override_aav"
@@ -871,21 +843,46 @@ def compute_player_tvp(
     pv_surplus_by_t = {
         str(t): value for t, value in enumerate(mlb_raw.get("pv_surplus_by_year", []))
     }
+
+    control_fallback_data = {}
+    if control_fallback_seasons:
+        salary_components_by_t = {}
+        for i, season in enumerate(sorted(control_fallback_seasons)):
+            t = season - snapshot_year
+            min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
+            projected_value = projected_fwar.get(season, 0.0) * price_by_t.get(
+                str(t), 0.0
+            )
+            arb_salary = compute_arb_salary(
+                projected_value, i, min_salary, config.arb_share
+            )
+            salary_components_by_t[str(t)] = {
+                "min_salary_t": min_salary,
+                "arb_share": config.arb_share[i]
+                if i < len(config.arb_share)
+                else config.arb_share[-1],
+                "arb_salary_t": arb_salary,
+                "projected_value_t": projected_value,
+                "final_salary_t": arb_salary,
+            }
+            salary_by_season[season] = arb_salary
+        control_fallback_data = {"salary_components_by_t": salary_components_by_t}
+
     options_detail = mlb_raw.get("options", [])
     options_pv_total = sum((opt.get("pv_ev") or 0.0) for opt in options_detail)
     options_audit = [
         {
             "t": opt.get("t"),
             "type": opt.get("option_type"),
-            "fwar": opt.get("fwar"),
-            "S": opt.get("salary"),
-            "B": opt.get("buyout"),
-            "V": opt.get("value"),
+            "fwar": opt.get("fwar_used_for_option"),
+            "S": opt.get("S", 0.0),
+            "B": opt.get("B", 0.0),
+            "V": opt.get("V"),
             "M": opt.get("market"),
             "sigmoid_input_ex": opt.get("sigmoid_input_exercise"),
             "sigmoid_input_in": opt.get("sigmoid_input_in"),
-            "P_ex": opt.get("p_ex"),
-            "P_in": opt.get("p_in"),
+            "P_ex": opt.get("probabilities", {}).get("P_ex"),
+            "P_in": opt.get("probabilities", {}).get("P_in"),
             "EV": opt.get("ev"),
             "pv_EV": opt.get("pv_ev"),
         }
@@ -959,6 +956,9 @@ def compute_player_tvp(
                 "guaranteed_projection_by_t": guaranteed_fwar_by_t,
                 "option_year_projection_by_t": option_fwar_by_t,
                 "aging_mult_by_t": aging_mult_by_t,
+                "mean_reversion": mean_reversion_meta,
+                "base_fwar": base_fwar,
+                "fwar_used_for_projection": fwar_for_projection,
             },
             "contract": {
                 "seasons": seasons,
@@ -972,6 +972,7 @@ def compute_player_tvp(
                 "control_years_fallback_applied": control_years_applied,
                 "contracts_2026_fallback_used": fallback_used,
                 "contracts_2026_contract": fallback_contract,
+                "control_fallback": control_fallback_data,
             },
             "mlb": mlb_result["raw_components"],
             "long_control_low_aav": {
@@ -1052,8 +1053,8 @@ def compute_player_tvp(
                 "salary_below_min_detected": (
                     len(control_salary_floor_seasons) > 0
                     or any(
-                        salary_by_season.get(season) is not None
-                        and salary_by_season.get(season)
+                        (salary := salary_by_season.get(season)) is not None
+                        and salary
                         < config.min_salary_m
                         * ((1.0 + config.min_salary_growth) ** (season - snapshot_year))
                         for season in seasons
@@ -1061,8 +1062,8 @@ def compute_player_tvp(
                 ),
                 "guaranteed_includes_option_year": any(
                     season in option_seasons
-                    and salary_by_season.get(season) is not None
-                    and salary_by_season.get(season) > 0.0
+                    and (salary := salary_by_season.get(season)) is not None
+                    and salary > 0.0
                     for season in seasons
                 ),
             },

@@ -1,13 +1,21 @@
+import json
 import math
 import unittest
 from pathlib import Path
+from typing import Optional
 
 from compute_mlb_tvp import compute_player_tvp, normalize_name, load_players
 from tvp_engine import load_config
 
 
 class TestMlbTvpQuality(unittest.TestCase):
-    def _compute(self, player: dict, war_history: dict, fwar_weights: list[float]):
+    def _compute(
+        self,
+        player: dict,
+        war_history: dict,
+        fwar_weights: list[float],
+        pitcher_names: Optional[set[str]] = None,
+    ):
         repo_root = Path(__file__).resolve().parent
         config_path = repo_root / "tvp_config.json"
         config = load_config(config_path)
@@ -36,7 +44,7 @@ class TestMlbTvpQuality(unittest.TestCase):
             war_history=war_history,
             fwar_weights=fwar_weights,
             fwar_weight_seasons=fwar_weight_seasons,
-            pitcher_names=set(),
+            pitcher_names=pitcher_names if pitcher_names is not None else set(),
             pitcher_regress_weight=0.0,
             pitcher_regress_target=2.0,
             contracts_2026_map={},
@@ -100,7 +108,11 @@ class TestMlbTvpQuality(unittest.TestCase):
             "contract": {
                 "contract_years": [
                     {"season": snapshot_year, "salary_m": 5.0, "is_guaranteed": True},
-                    {"season": snapshot_year + 1, "salary_m": 6.0, "is_guaranteed": True},
+                    {
+                        "season": snapshot_year + 1,
+                        "salary_m": 6.0,
+                        "is_guaranteed": True,
+                    },
                     {"season": option_year, "salary_m": 10.0, "is_guaranteed": False},
                 ],
                 "options": [
@@ -108,7 +120,7 @@ class TestMlbTvpQuality(unittest.TestCase):
                         "season": option_year,
                         "type": "CO",
                         "salary_m": 10.0,
-                        "buyout": 2.0,
+                        "buyout_m": 2.0,
                     }
                 ],
                 "aav_m": None,
@@ -137,9 +149,9 @@ class TestMlbTvpQuality(unittest.TestCase):
         option = options[0]
         self.assertEqual(option["t"], option_t)
         self.assertEqual(option["type"], "CO")
-        self.assertTrue(math.isclose(option["buyout"], 2.0))
-        self.assertTrue(math.isclose(option["salary"], 10.0))
-        self.assertIn("fwar_used_for_option", option)
+        self.assertTrue(math.isclose(option["B"], 2.0))
+        self.assertTrue(math.isclose(option["S"], 10.0))
+        self.assertIn("fwar", option)
         self.assertIsNotNone(option["fwar"])
 
     def test_arbitration_salary_model(self) -> None:
@@ -177,14 +189,22 @@ class TestMlbTvpQuality(unittest.TestCase):
         self.assertIn("salary_components_by_t", control_fallback)
         salary_components = control_fallback["salary_components_by_t"]
 
-        self.assertEqual("0", salary_components)
+        self.assertIn("0", salary_components)
 
         year_0 = salary_components["0"]
         self.assertEqual(year_0["min_salary_t"], year_0["final_salary_t"])
-        
+
+        year_3 = salary_components["3"]
+        self.assertGreater(year_3["arb_salary_t"], year_3["min_salary_t"])
+        self.assertEqual(year_3["arb_share"], 0.3)
+
         year_4 = salary_components["4"]
-        self.assertEqual(year_4["min_salary_t"], year_4["arb_salary_t"])
         self.assertGreater(year_4["arb_salary_t"], year_4["min_salary_t"])
+        self.assertEqual(year_4["arb_share"], 0.5)
+
+        year_5 = salary_components["5"]
+        self.assertGreater(year_5["arb_salary_t"], year_5["min_salary_t"])
+        self.assertEqual(year_5["arb_share"], 0.7)
 
     def test_mean_reversion_applied(self) -> None:
         """Verify mean reversion is applied to young hitter."""
@@ -215,6 +235,7 @@ class TestMlbTvpQuality(unittest.TestCase):
         result = self._compute(player, war_history, [1.0])
 
         mr = result["raw_components"]["projection"]["mean_reversion"]
+        projection = result["raw_components"]["projection"]
 
         self.assertTrue(mr["mean_reversion_applied"])
         self.assertLess(mr["regressed_fwar"], mr["base_fwar"])
@@ -222,6 +243,9 @@ class TestMlbTvpQuality(unittest.TestCase):
         self.assertEqual(mr["mean_revert_weight"], 0.35)
         self.assertEqual(mr["player_age"], 25)
         self.assertEqual(mr["age_threshold"], 26)
+
+        self.assertEqual(projection["base_fwar"], 4.5)
+        self.assertEqual(projection["fwar_used_for_projection"], mr["regressed_fwar"])
 
     def test_pitchers_skip_mean_reversion(self) -> None:
         """Verify pitchers don't get mean reversion."""
@@ -232,7 +256,7 @@ class TestMlbTvpQuality(unittest.TestCase):
         player_name = "Pitcher No Mean Revert"
         name_key = normalize_name(player_name)
 
-        war_history = {name_key: {snapshot_year: {"bat": 0.0, "pit": 4.0}}
+        war_history = {name_key: {snapshot_year: {"bat": 0.0, "pit": 4.0}}}
 
         player = {
             "mlb_id": 997,
@@ -241,7 +265,7 @@ class TestMlbTvpQuality(unittest.TestCase):
             "fwar": 4.0,
             "contract": {
                 "contract_years": [
-                    {"season": snapshot_year, "salary": 10.0, "is_guaranteed": True}
+                    {"season": snapshot_year, "salary_m": 10.0, "is_guaranteed": True}
                 ],
                 "options": [],
                 "aav_m": None,
@@ -249,7 +273,7 @@ class TestMlbTvpQuality(unittest.TestCase):
             },
         }
 
-        result = self._compute(player, war_history, [1.0])
+        result = self._compute(player, war_history, [1.0], pitcher_names={name_key})
 
         mr = result["raw_components"]["projection"]["mean_reversion"]
 
@@ -268,8 +292,10 @@ class TestMlbTvpQuality(unittest.TestCase):
             self.skipTest("Pete Crow-Armstrong data not available for integration test")
 
         all_players = load_players(pca_path)
-        pca_player = next((p for p in all_players.get("players", []) 
-                           if p.get("mlb_id") == 691718), None)
+        pca_player = next(
+            (p for p in all_players.get("players", []) if p.get("mlb_id") == 691718),
+            None,
+        )
 
         if not pca_player:
             self.skipTest("Pete Crow-Armstrong not found in players file")
@@ -287,7 +313,6 @@ class TestMlbTvpQuality(unittest.TestCase):
         mr = rc["projection"]["mean_reversion"]
         self.assertTrue(mr["mean_reversion_applied"])
         self.assertLess(mr["regressed_fwar"], mr["base_fwar"])
-        self.assertEqual(mr["base_fwar"], 4.5)
 
         control_fb = rc["contract"].get("control_fallback", {})
         self.assertIn("salary_components_by_t", control_fb)
