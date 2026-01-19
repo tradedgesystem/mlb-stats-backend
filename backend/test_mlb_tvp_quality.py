@@ -1,8 +1,10 @@
 import math
 import unittest
 from pathlib import Path
+import json
 
 from compute_mlb_tvp import compute_player_tvp, normalize_name
+import compute_mlb_tvp
 from tvp_engine import load_config
 
 
@@ -90,7 +92,11 @@ class TestMlbTvpQuality(unittest.TestCase):
             "contract": {
                 "contract_years": [
                     {"season": snapshot_year, "salary_m": 5.0, "is_guaranteed": True},
-                    {"season": snapshot_year + 1, "salary_m": 6.0, "is_guaranteed": True},
+                    {
+                        "season": snapshot_year + 1,
+                        "salary_m": 6.0,
+                        "is_guaranteed": True,
+                    },
                     {"season": option_year, "salary_m": 10.0, "is_guaranteed": False},
                 ],
                 "options": [
@@ -146,7 +152,11 @@ class TestMlbTvpQuality(unittest.TestCase):
             "contract": {
                 "contract_years": [
                     {"season": snapshot_year, "salary_m": 4.0, "is_guaranteed": True},
-                    {"season": snapshot_year + 1, "salary_m": 5.0, "is_guaranteed": True},
+                    {
+                        "season": snapshot_year + 1,
+                        "salary_m": 5.0,
+                        "is_guaranteed": True,
+                    },
                 ],
                 "options": [],
                 "aav_m": None,
@@ -162,6 +172,208 @@ class TestMlbTvpQuality(unittest.TestCase):
         self.assertEqual(len(guaranteed_by_t), 2)
         mlb_raw = result["raw_components"]["mlb"]
         self.assertEqual(len(mlb_raw["salary_by_year"]), 2)
+        mlb_raw = result["raw_components"]["mlb"]
+        self.assertEqual(len(mlb_raw["salary_by_year"]), 2)
+
+
+class TestCatcherWarHaircut(unittest.TestCase):
+    def _compute(
+        self, player: dict, position: str, war_history: dict, fwar_weights: list[float]
+    ):
+        repo_root = Path(__file__).resolve().parent
+        config_path = repo_root / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        fwar_weight_seasons = [
+            snapshot_year - offset for offset in range(len(fwar_weights))
+        ]
+
+        # Create mock players_with_contracts file with position data
+        players_data = {
+            "players": [
+                {"player_name": player.get("player_name"), "position": position}
+            ]
+        }
+        players_path = repo_root / "output" / "test_players_with_position.json"
+        players_path.parent.mkdir(parents=True, exist_ok=True)
+        with players_path.open("w", encoding="utf-8") as handle:
+            json.dump(players_data, handle)
+
+        # Load catcher names
+        db_path = Path(__file__).resolve().parent / "stats.db"
+        catcher_names = compute_mlb_tvp.load_catcher_names(
+            players_path, db_path, snapshot_year
+        )
+
+        return compute_player_tvp(
+            player,
+            snapshot_year,
+            config_path,
+            max_years=10,
+            fwar_scale=0.7,
+            fwar_cap=6.0,
+            apply_aging=True,
+            prime_age=29,
+            decline_per_year=0.035,
+            aging_floor=0.65,
+            reliever_names=set(),
+            reliever_mult=1.5,
+            control_years_fallback=0,
+            control_years_age_max=27,
+            two_way_names=set(),
+            two_way_fwar_cap=8.0,
+            two_way_mult=1.5,
+            war_history=war_history,
+            fwar_weights=fwar_weights,
+            fwar_weight_seasons=fwar_weight_seasons,
+            pitcher_names=set(),
+            pitcher_regress_weight=0.0,
+            pitcher_regress_target=2.0,
+            contracts_2026_map={},
+            young_player_max_age=24,
+            young_player_scale=1.0,
+            catcher_names=catcher_names,
+        )
+
+    def test_catcher_war_haircut_applied(self) -> None:
+        """Test that catcher TVP is reduced by catcher_war_mult"""
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        player_name = "Test Catcher"
+        name_key = normalize_name(player_name)
+
+        # Create catcher player with same stats as non-catcher
+        catcher_player = {
+            "mlb_id": 900,
+            "player_name": player_name,
+            "age": 28,
+            "fwar": 5.0,
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 5.0, "is_guaranteed": True}
+                ]
+                * 5,
+                "options": [],
+                "aav_m": 5.0,
+                "years_remaining": 5,
+            },
+        }
+
+        non_catcher_player = {
+            "mlb_id": 901,
+            "player_name": "Test Non-Catcher",
+            "age": 28,
+            "fwar": 5.0,
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 5.0, "is_guaranteed": True}
+                ]
+                * 5,
+                "options": [],
+                "aav_m": 5.0,
+                "years_remaining": 5,
+            },
+        }
+
+        war_history = {
+            name_key: {snapshot_year: {"bat": 5.0, "pit": 0.0}},
+            normalize_name("Test Non-Catcher"): {
+                snapshot_year: {"bat": 5.0, "pit": 0.0}
+            },
+        }
+
+        catcher_result = self._compute(
+            catcher_player, "C", war_history, [0.5, 0.3, 0.2]
+        )
+        non_catcher_result = self._compute(
+            non_catcher_player, "1B", war_history, [0.5, 0.3, 0.2]
+        )
+
+        # Verify catcher TVP is lower than non-catcher TVP
+        catcher_tvp = catcher_result.get("tvp_mlb")
+        non_catcher_tvp = non_catcher_result.get("tvp_mlb")
+
+        self.assertIsNotNone(catcher_tvp)
+        self.assertIsNotNone(non_catcher_tvp)
+
+        # With 0.90 multiplier, catcher TVP should be ~10% lower
+        # Allow some tolerance for PV differences
+        expected_ratio = 0.90
+        actual_ratio = catcher_tvp / non_catcher_tvp if non_catcher_tvp > 0 else 0
+
+        self.assertLess(
+            actual_ratio, 1.0, "Catcher TVP should be less than non-catcher TVP"
+        )
+        self.assertGreater(
+            actual_ratio,
+            expected_ratio * 0.95,
+            "Catcher TVP reduction should be close to expected multiplier",
+        )
+
+        # Verify audit trail
+        projection = catcher_result["raw_components"]["projection"]
+        self.assertTrue(projection.get("is_catcher"), "Catcher flag should be true")
+        self.assertEqual(
+            projection.get("catcher_war_mult_applied"),
+            True,
+            "Catcher multiplier should be applied",
+        )
+        self.assertIsNotNone(
+            projection.get("fwar_before_catcher_mult"),
+            "Should have pre-catcher fWAR",
+        )
+
+    def test_non_catcher_unchanged(self) -> None:
+        """Test that non-catcher TVP is unchanged when multiplier exists"""
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        player_name = "Test Non-Catcher 2"
+
+        player = {
+            "mlb_id": 902,
+            "player_name": player_name,
+            "age": 28,
+            "fwar": 5.0,
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 5.0, "is_guaranteed": True}
+                ]
+                * 5,
+                "options": [],
+                "aav_m": 5.0,
+                "years_remaining": 5,
+            },
+        }
+
+        name_key = normalize_name(player_name)
+        war_history = {
+            name_key: {snapshot_year: {"bat": 5.0, "pit": 0.0}},
+        }
+
+        result = self._compute(player, "SS", war_history, [0.5, 0.3, 0.2])
+
+        # Verify non-catcher TVP is computed correctly
+        tvp_mlb = result.get("tvp_mlb")
+        self.assertIsNotNone(tvp_mlb)
+
+        # Verify audit trail shows catcher is false
+        projection = result["raw_components"]["projection"]
+        self.assertFalse(
+            projection.get("is_catcher"), "Non-catcher flag should be false"
+        )
+        self.assertEqual(
+            projection.get("catcher_war_mult_applied"),
+            False,
+            "Catcher multiplier should not be applied",
+        )
+
+        # Verify no pre-catcher fWAR (multiplier not applied)
+        self.assertIsNone(
+            projection.get("fwar_before_catcher_mult"),
+            "Should not have pre-catcher fWAR when multiplier not applied",
+        )
 
 
 if __name__ == "__main__":

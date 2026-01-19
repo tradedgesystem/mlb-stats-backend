@@ -99,10 +99,11 @@ def load_pitcher_names(season: int, db_path: Path) -> set[str]:
     return pitchers
 
 
-def load_catcher_names(players_path: Path, db_path: Path, season: int) -> set[str]:
+def load_catcher_names(players_path: Path) -> set[str]:
     catchers: set[str] = set()
 
-    # First try: Load from players_with_contracts.json for deterministic position data
+    # Load from players_with_contracts.json for deterministic position data
+    # NO fallback to stats.db - pos field is not a position code
     if players_path.exists():
         with players_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -113,35 +114,6 @@ def load_catcher_names(players_path: Path, db_path: Path, season: int) -> set[st
                     if name_key:
                         catchers.add(name_key)
 
-    # Fallback: Infer from stats.db pos field for players not found above
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT DISTINCT name, pos
-        FROM batting_stats
-        WHERE season = ? AND name IS NOT NULL
-        """,
-        (season,),
-    )
-
-    for name, pos in cursor.fetchall():
-        if pos is None or name is None:
-            continue
-        name_key = normalize_name(name)
-        if name_key in catchers:
-            continue  # Already have from contracts file
-        # Check if position suggests catcher (pos typically 5-9 for catchers based on data)
-        # Based on observed data: Cal Raleigh=5.1, Will Smith=7.3, etc.
-        # Use range 5.0 to 10.0 as catcher indicator
-        try:
-            pos_val = float(pos)
-            if 5.0 <= pos_val <= 10.0:
-                catchers.add(name_key)
-        except (ValueError, TypeError):
-            pass
-
-    conn.close()
     return catchers
 
 
@@ -1630,7 +1602,7 @@ def main() -> None:
         stats_db_path,
         args.two_way_min_war,
     )
-    catcher_names = load_catcher_names(players_path, stats_db_path, snapshot_season)
+    catcher_names = load_catcher_names(players_path)
     fwar_weights = parse_weights(args.fwar_weights)
     if not fwar_weights:
         fwar_weights = [1.0]
