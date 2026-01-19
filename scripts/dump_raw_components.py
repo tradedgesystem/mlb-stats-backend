@@ -14,10 +14,13 @@ sys.path.insert(0, str(REPO_ROOT / "backend"))
 from compute_mlb_tvp import (  # noqa: E402
     adjust_player_age,
     compute_player_tvp,
+    enrich_players,
     load_contracts_2026_map,
     load_pitcher_names,
     load_players,
     load_reliever_names,
+    load_prospect_anchors,
+    load_sample_counts,
     load_two_way_names,
     load_war_history,
     normalize_name,
@@ -257,7 +260,15 @@ def main() -> None:
         snapshot_season - offset for offset in range(len(fwar_weights))
     ]
     war_history = load_war_history(fwar_weight_seasons, stats_db_path)
+    sample_counts = load_sample_counts(snapshot_season, stats_db_path)
+    prospects_by_id, prospects_by_name = load_prospect_anchors(REPO_ROOT)
     contracts_2026_map = load_contracts_2026_map(contracts_2026_path, snapshot_year)
+    enrich_players(
+        payload.get("players", []),
+        sample_counts,
+        prospects_by_id,
+        prospects_by_name,
+    )
 
     names = parse_player_list(args.players)
     mlb_ids = parse_mlb_ids(args.mlb_ids)

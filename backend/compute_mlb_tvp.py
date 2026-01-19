@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import sqlite3
 import re
 
-from tvp_engine import compute_mlb_tvp, load_config
+from tvp_engine import compute_mlb_tvp, compute_rookie_alpha, load_config
 
 
 SPECIAL_SALARY_OVERRIDES_M = {
@@ -39,7 +40,18 @@ def adjust_player_age(player: dict[str, Any], age_offset: int) -> dict[str, Any]
 
 
 def normalize_name(name: str | None) -> str:
-    return re.sub(r"[^a-z]", "", (name or "").lower())
+    if not name:
+        return ""
+    normalized = unicodedata.normalize("NFKD", name)
+    stripped = "".join(
+        char for char in normalized if not unicodedata.combining(char)
+    )
+    stripped = re.sub(r"\(.*?\)", "", stripped)
+    stripped = stripped.replace(".", " ")
+    stripped = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", stripped, flags=re.IGNORECASE)
+    stripped = re.sub(r"[^a-zA-Z\s]", " ", stripped)
+    stripped = re.sub(r"\s+", " ", stripped).strip().lower()
+    return re.sub(r"[^a-z]", "", stripped)
 
 
 def load_reliever_names(season: int, db_path: Path) -> set[str]:
@@ -267,6 +279,115 @@ def load_war_history(
             pit = pit_seasons.get(season, 0.0)
             history[key][season] = {"bat": bat, "pit": pit}
     return history
+
+
+def load_sample_counts(season: int, db_path: Path) -> dict[str, dict[str, float | None]]:
+    if not db_path.exists():
+        return {}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    batting: dict[str, dict[str, float | None]] = {}
+    pitching: dict[str, dict[str, float | None]] = {}
+
+    cursor.execute(
+        """
+        SELECT name, pa, war
+        FROM batting_stats
+        WHERE season = ?
+        """,
+        (season,),
+    )
+    for name, pa, war in cursor.fetchall():
+        if name is None:
+            continue
+        key = normalize_name(name)
+        batting[key] = {
+            "pa": float(pa) if pa is not None else None,
+            "bat_war": float(war) if war is not None else None,
+        }
+
+    cursor.execute(
+        """
+        SELECT name, ip, war
+        FROM pitching_stats
+        WHERE season = ?
+        """,
+        (season,),
+    )
+    for name, ip, war in cursor.fetchall():
+        if name is None:
+            continue
+        key = normalize_name(name)
+        pitching[key] = {
+            "ip": float(ip) if ip is not None else None,
+            "pit_war": float(war) if war is not None else None,
+        }
+
+    conn.close()
+
+    sample_counts: dict[str, dict[str, float | None]] = {}
+    for key in set(batting) | set(pitching):
+        entry: dict[str, float | None] = {}
+        entry.update(batting.get(key, {}))
+        entry.update(pitching.get(key, {}))
+        sample_counts[key] = entry
+    return sample_counts
+
+
+def load_prospect_anchors(repo_root: Path) -> tuple[dict[int, dict[str, Any]], dict[str, dict[str, Any]]]:
+    output_dir = repo_root / "backend" / "output"
+    candidates = sorted(output_dir.glob("tvp_prospects_*.json"))
+    preferred = output_dir / "tvp_prospects_2026_final.json"
+    if preferred.exists() and preferred not in candidates:
+        candidates.append(preferred)
+    if not candidates:
+        return {}, {}
+    anchor_path = candidates[-1]
+    with anchor_path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    by_mlb_id: dict[int, dict[str, Any]] = {}
+    by_name: dict[str, dict[str, Any]] = {}
+    for prospect in data.get("prospects", []):
+        tvp_prospect = prospect.get("tvp_prospect")
+        raw = prospect.get("raw_components") or {}
+        fv_value = raw.get("fv_value")
+        if tvp_prospect is None or fv_value is None:
+            continue
+        anchor = {
+            "tvp_prospect": float(tvp_prospect),
+            "fv_value": int(fv_value),
+            "source_file": anchor_path.name,
+            "raw_components": raw,
+        }
+        mlb_id = prospect.get("mlb_id")
+        if isinstance(mlb_id, int):
+            by_mlb_id[mlb_id] = anchor
+        name_key = normalize_name(prospect.get("player_name"))
+        if name_key:
+            by_name[name_key] = anchor
+    return by_mlb_id, by_name
+
+
+def enrich_players(
+    players: list[dict[str, Any]],
+    sample_counts: dict[str, dict[str, float | None]],
+    prospects_by_id: dict[int, dict[str, Any]],
+    prospects_by_name: dict[str, dict[str, Any]],
+) -> None:
+    for player in players:
+        name_key = normalize_name(player.get("player_name"))
+        sample = sample_counts.get(name_key, {})
+        for field in ("pa", "ip", "bat_war", "pit_war"):
+            if field in sample and player.get(field) is None:
+                player[field] = sample.get(field)
+        prospect_anchor = None
+        mlb_id = player.get("mlb_id")
+        if isinstance(mlb_id, int):
+            prospect_anchor = prospects_by_id.get(mlb_id)
+        if prospect_anchor is None and name_key:
+            prospect_anchor = prospects_by_name.get(name_key)
+        if prospect_anchor and player.get("prospect_anchor") is None:
+            player["prospect_anchor"] = prospect_anchor
 
 
 def compute_weighted_fwar(
@@ -826,6 +947,119 @@ def compute_player_tvp(
         long_control_boost_value = mlb_result["tvp_mlb"] * long_control_boost_pct
         mlb_result["tvp_mlb"] += long_control_boost_value
 
+    # Apply rookie transition blend when prospect anchors and early MLB samples are available.
+    tvp_mlb_value = mlb_result["tvp_mlb"]
+    tvp_current = tvp_mlb_value
+    rookie_transition: dict[str, Any] = {
+        "applied": False,
+        "tvp_mlb_pre_blend": tvp_mlb_value,
+        "tvp_current_post_blend": tvp_mlb_value,
+    }
+    prospect_anchor = player.get("prospect_anchor")
+    fv_value = None
+    prospect_tvp = None
+    if isinstance(prospect_anchor, dict):
+        prospect_tvp = prospect_anchor.get("tvp_prospect")
+        fv_value = prospect_anchor.get("fv_value")
+        if fv_value is None:
+            fv_value = (prospect_anchor.get("raw_components") or {}).get("fv_value")
+    if isinstance(fv_value, (int, float)) and isinstance(prospect_tvp, (int, float)):
+        sample_pa = player.get("pa")
+        sample_ip = player.get("ip")
+        sample_bat_war = player.get("bat_war")
+        sample_pit_war = player.get("pit_war")
+        pa_value = float(sample_pa) if isinstance(sample_pa, (int, float)) else None
+        ip_value = float(sample_ip) if isinstance(sample_ip, (int, float)) else None
+        if is_pitcher:
+            fwar_to_date = (
+                float(sample_pit_war)
+                if isinstance(sample_pit_war, (int, float))
+                else float(player.get("fwar") or 0.0)
+            )
+        else:
+            fwar_to_date = (
+                float(sample_bat_war)
+                if isinstance(sample_bat_war, (int, float))
+                else float(player.get("fwar") or 0.0)
+            )
+        seasons_used = weighted_meta.get("seasons_count", 0)
+        used_sample_gate = False
+        apply_rookie_transition = False
+        if is_pitcher:
+            if ip_value is not None:
+                used_sample_gate = True
+                apply_rookie_transition = ip_value < 500
+        else:
+            if pa_value is not None:
+                used_sample_gate = True
+                apply_rookie_transition = pa_value < 2000
+        if not used_sample_gate:
+            if player_age is not None and player_age <= 25 and seasons_used <= 2:
+                apply_rookie_transition = True
+
+        alpha_info = None
+        if apply_rookie_transition:
+            alpha_info = compute_rookie_alpha(
+                int(fv_value),
+                is_pitcher,
+                pa_value,
+                ip_value,
+                fwar_to_date,
+                config,
+            )
+            alpha = alpha_info["alpha"]
+            tvp_current = alpha * float(prospect_tvp) + (1.0 - alpha) * tvp_mlb_value
+            rookie_transition = {
+                "applied": True,
+                "alpha": alpha,
+                "alpha_base": alpha_info.get("alpha_base"),
+                "evidence": alpha_info.get("evidence"),
+                "pa": pa_value,
+                "ip": ip_value,
+                "fwar_to_date": fwar_to_date,
+                "fv_value": fv_value,
+                "prospect_tvp": float(prospect_tvp),
+                "tvp_mlb_pre_blend": tvp_mlb_value,
+                "tvp_current_post_blend": tvp_current,
+                "source_file": prospect_anchor.get("source_file") if prospect_anchor else None,
+                "gate": {
+                    "used_pa_ip": used_sample_gate,
+                    "age": player_age,
+                    "war_history_seasons_used": seasons_used,
+                },
+            }
+        else:
+            rookie_transition.update(
+                {
+                    "applied": False,
+                    "pa": pa_value,
+                    "ip": ip_value,
+                    "fwar_to_date": fwar_to_date,
+                    "fv_value": fv_value,
+                    "prospect_tvp": float(prospect_tvp),
+                    "source_file": prospect_anchor.get("source_file")
+                    if prospect_anchor
+                    else None,
+                    "gate": {
+                        "used_pa_ip": used_sample_gate,
+                        "age": player_age,
+                        "war_history_seasons_used": seasons_used,
+                    },
+                }
+            )
+    else:
+        rookie_transition.update(
+            {
+                "applied": False,
+                "reason": "missing_prospect_anchor",
+                "fv_value": fv_value,
+                "prospect_tvp": prospect_tvp,
+                "source_file": prospect_anchor.get("source_file")
+                if isinstance(prospect_anchor, dict)
+                else None,
+            }
+        )
+
     mlb_raw = mlb_result["raw_components"]
     guaranteed_seasons = [season for season in seasons if season not in option_seasons]
     t_to_year = {str(t): season for t, season in enumerate(seasons)}
@@ -904,8 +1138,8 @@ def compute_player_tvp(
         "age": player.get("age"),
         "status": "mlb",
         "tvp_prospect": None,
-        "tvp_mlb": mlb_result["tvp_mlb"],
-        "tvp_current": mlb_result["tvp_mlb"],
+        "tvp_mlb": tvp_mlb_value,
+        "tvp_current": tvp_current,
         "raw_components": {
             "projection": {
                 "method": "flat_from_latest_fwar_scaled",
@@ -1031,6 +1265,7 @@ def compute_player_tvp(
                 "options_pv_total": options_pv_total,
             },
             "options": options_audit,
+            "rookie_transition": rookie_transition,
             "long_control_boost": {
                 "boost_applied": long_control_boost_pct > 0,
                 "boost_pct": long_control_boost_pct,
@@ -1240,7 +1475,15 @@ def main() -> None:
         snapshot_season - offset for offset in range(len(fwar_weights))
     ]
     war_history = load_war_history(fwar_weight_seasons, stats_db_path)
+    sample_counts = load_sample_counts(snapshot_season, stats_db_path)
+    prospects_by_id, prospects_by_name = load_prospect_anchors(repo_root)
     contracts_2026_map = load_contracts_2026_map(contracts_2026_path, snapshot_year)
+    enrich_players(
+        payload.get("players", []),
+        sample_counts,
+        prospects_by_id,
+        prospects_by_name,
+    )
     results = [
         compute_player_tvp(
             adjust_player_age(player, age_offset),
