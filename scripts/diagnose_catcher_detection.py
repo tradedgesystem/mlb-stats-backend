@@ -84,11 +84,14 @@ def main():
         print(f"  Position from contracts: {pos_info.get('position')}")
         print(f"  Position source: {pos_info.get('position_source')}")
 
-        # Determine expected
-        expected_catcher = False
-        position = pos_info.get("position")
-        if position and "C" in str(position).upper():
-            expected_catcher = True
+    # Determine expected based on known MLB IDs
+    expected_catcher = False
+    if name == "Cal Raleigh" and mlb_id == 663728:
+        expected_catcher = True
+    elif name == "Will Smith" and mlb_id == 669257:
+        expected_catcher = True
+    elif name == "Geraldo Perdomo" and mlb_id == 672695:
+        expected_catcher = False  # Geraldo is SS, not catcher
 
         print(f"  Expected catcher: {expected_catcher}")
 
