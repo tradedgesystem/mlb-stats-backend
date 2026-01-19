@@ -99,34 +99,72 @@ def load_pitcher_names(season: int, db_path: Path) -> set[str]:
     return pitchers
 
 
-def load_catcher_positions_map() -> dict[int, str]:
-    """Load catcher positions from mlb_id-first mapping file"""
-    positions_file = (
-        Path(__file__).resolve().parent / "backend" / "player_positions.json"
-    )
-    if positions_file.exists():
-        with positions_file.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
-            return data.get("catchers", {})
-    return {}
+def load_player_positions_map(positions_path: Path) -> dict[int, dict[str, str | None]]:
+    """Load mlb_id-first position mapping file."""
+    if not positions_path.exists():
+        return {}
+    with positions_path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    positions: dict[int, dict[str, str | None]] = {}
+    if not isinstance(data, dict):
+        return positions
+    for key, value in data.items():
+        try:
+            mlb_id = int(key)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(value, dict):
+            continue
+        positions[mlb_id] = {
+            "position": value.get("position"),
+            "position_source": value.get("position_source"),
+        }
+    return positions
 
 
-def load_catcher_names(players_path: Path, mlb_ids: set[int] | None = None) -> set[str]:
-    """Load catcher names from mlb_id-first position mapping"""
-    catchers: set[str] = set()
-    catcher_map = load_catcher_positions_map()
+def tokenize_position(position: str | None) -> list[str]:
+    if not position:
+        return []
+    tokens = re.split(r"[\s,/]+", str(position).strip())
+    return [token for token in tokens if token]
 
-    if mlb_ids is not None:
-        # Only include mlb_ids that are in the provided set
-        for mlb_id in mlb_ids:
-            if mlb_id in catcher_map:
-                catchers.add(catcher_map[mlb_id])
-    else:
-        # Load all catchers if no specific mlb_ids provided
-        for name in catcher_map.values():
-            catchers.add(normalize_name(name))
 
-    return catchers
+def is_catcher_position(position: str | None) -> bool:
+    return any(token.upper() == "C" for token in tokenize_position(position))
+
+
+def attach_positions(
+    players: list[dict[str, Any]],
+    positions_map: dict[int, dict[str, str | None]],
+) -> dict[int, dict[str, str | None]]:
+    """Attach position + source to players and return mlb_id->position info."""
+    position_by_id: dict[int, dict[str, str | None]] = {}
+    for player in players:
+        mlb_id = player.get("mlb_id")
+        if not isinstance(mlb_id, int):
+            continue
+        map_info = positions_map.get(mlb_id, {})
+        position = map_info.get("position") or player.get("position")
+        position_source = map_info.get("position_source") or player.get(
+            "position_source"
+        )
+        if position is not None:
+            player["position"] = position
+        if position_source is not None:
+            player["position_source"] = position_source
+        position_by_id[mlb_id] = {
+            "position": position,
+            "position_source": position_source,
+        }
+    return position_by_id
+
+
+def build_catcher_ids(position_by_id: dict[int, dict[str, str | None]]) -> set[int]:
+    return {
+        mlb_id
+        for mlb_id, info in position_by_id.items()
+        if is_catcher_position(info.get("position"))
+    }
 
 
 def parse_contract_years(contract_text: str | None, snapshot_year: int) -> list[int]:
@@ -738,7 +776,7 @@ def compute_player_tvp(
     contracts_2026_map: dict[str, dict[str, Any]],
     young_player_max_age: int,
     young_player_scale: float,
-    catcher_names: set[str],
+    catcher_ids: set[int] | None = None,
 ) -> dict[str, Any]:
     config = load_config(config_path)
 
@@ -754,7 +792,12 @@ def compute_player_tvp(
     name_key = normalize_name(player.get("player_name"))
     is_reliever = name_key in reliever_names
     is_two_way = name_key in two_way_names
-    is_catcher = name_key in catcher_names
+    mlb_id = player.get("mlb_id")
+    if catcher_ids is None:
+        catcher_ids = set()
+    is_catcher = isinstance(mlb_id, int) and mlb_id in catcher_ids
+    position = player.get("position")
+    position_source = player.get("position_source")
     player_age = player.get("age")
 
     repo_root = Path(__file__).resolve().parent
@@ -1292,6 +1335,8 @@ def compute_player_tvp(
                 "is_reliever": is_reliever,
                 "is_two_way": is_two_way,
                 "is_catcher": is_catcher,
+                "position": position,
+                "position_source": position_source,
                 "pitcher_regress_weight": pitcher_regress_weight,
                 "pitcher_regress_target": pitcher_regress_target,
                 "pitcher_regress_applied": is_pitcher and pitcher_regress_weight > 0,
@@ -1614,14 +1659,10 @@ def main() -> None:
         args.two_way_min_war,
     )
 
-    # Collect all mlb_ids from players
-    mlb_ids = [
-        player.get("mlb_id")
-        for player in payload.get("players", [])
-        if isinstance(player.get("mlb_id"), int)
-    ]
-
-    catcher_names = load_catcher_names(players_path, mlb_ids)
+    positions_path = repo_root / "backend" / "output" / "player_positions.json"
+    positions_map = load_player_positions_map(positions_path)
+    position_by_id = attach_positions(payload.get("players", []), positions_map)
+    catcher_ids = build_catcher_ids(position_by_id)
     fwar_weights = parse_weights(args.fwar_weights)
     if not fwar_weights:
         fwar_weights = [1.0]
@@ -1666,7 +1707,7 @@ def main() -> None:
             contracts_2026_map,
             args.young_player_max_age,
             args.young_player_scale,
-            catcher_names,
+            catcher_ids,
         )
         for player in payload.get("players", [])
     ]
@@ -1708,7 +1749,7 @@ def main() -> None:
             contracts_2026_map,
             args.young_player_max_age,
             args.young_player_scale,
-            catcher_names,
+            catcher_ids,
         )
         for player in payload.get("players", [])
     ]
@@ -1746,7 +1787,7 @@ def main() -> None:
             "reliever_mult": args.reliever_mult,
             "reliever_count": len(reliever_names),
             "pitcher_count": len(pitcher_names),
-            "catcher_count": len(catcher_names),
+            "catcher_count": len(catcher_ids),
             "catcher_war_mult": (
                 repo_root / "backend" / "tvp_mlb_defaults.json"
             ).exists()

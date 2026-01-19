@@ -188,21 +188,13 @@ class TestCatcherWarHaircut(unittest.TestCase):
             snapshot_year - offset for offset in range(len(fwar_weights))
         ]
 
-        # Create mock players_with_contracts file with position data
-        players_data = {
-            "players": [
-                {"player_name": player.get("player_name"), "position": position}
-            ]
-        }
-        players_path = repo_root / "output" / "test_players_with_position.json"
-        players_path.parent.mkdir(parents=True, exist_ok=True)
-        with players_path.open("w", encoding="utf-8") as handle:
-            json.dump(players_data, handle)
-
-        # Load catcher names
-        db_path = Path(__file__).resolve().parent / "stats.db"
-        catcher_names = compute_mlb_tvp.load_catcher_names(
-            players_path, db_path, snapshot_year
+        player = dict(player)
+        player["position"] = position
+        player["position_source"] = "test_fixture"
+        catcher_ids = (
+            {player["mlb_id"]}
+            if compute_mlb_tvp.is_catcher_position(position)
+            else set()
         )
 
         return compute_player_tvp(
@@ -232,7 +224,7 @@ class TestCatcherWarHaircut(unittest.TestCase):
             contracts_2026_map={},
             young_player_max_age=24,
             young_player_scale=1.0,
-            catcher_names=catcher_names,
+            catcher_ids=catcher_ids,
         )
 
     def test_catcher_war_haircut_applied(self) -> None:

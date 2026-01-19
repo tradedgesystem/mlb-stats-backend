@@ -39,6 +39,7 @@ MLB_API_SEARCH_CACHE_DIR = MLB_API_CACHE_DIR / "people_search"
 FANGRAPHS_CACHE_DIR = Path(__file__).with_name("data") / "fangraphs_cache"
 FANGRAPHS_ROSTERRESOURCE_CACHE_DIR = FANGRAPHS_CACHE_DIR / "rosterresource"
 FANGRAPHS_CONTRACTS_PATH = REPO_ROOT / "output" / "scrape_all_contracts.json"
+PLAYER_POSITIONS_PATH = OUTPUT_DIR / "player_positions.json"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
 COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
@@ -117,6 +118,31 @@ def parse_option_type(raw: str | None) -> Optional[str]:
     if "vesting" in lowered or "conditional" in lowered or "option" in lowered:
         return "CO"
     return None
+
+
+def load_player_positions_map(path: Path) -> dict[int, dict[str, Optional[str]]]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    positions: dict[int, dict[str, Optional[str]]] = {}
+    if not isinstance(data, dict):
+        return positions
+    for key, value in data.items():
+        try:
+            mlb_id = int(key)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(value, dict):
+            continue
+        position = value.get("position")
+        if position is None:
+            continue
+        positions[mlb_id] = {
+            "position": position,
+            "position_source": value.get("position_source") or "mlb_stats_api",
+        }
+    return positions
 
 
 @dataclass
@@ -699,26 +725,22 @@ def parse_team_contracts(html_text: str) -> list[dict]:
             continue
         name = link.get_text(" ", strip=True)
         player_url = link.get("href")
-            players.append(
-                {
+        players.append(
+            {
                 "player_name": name,
                 "player_url": player_url,
                 "start_year": parse_year(tds[idx_start].get_text(" ", strip=True))
-                if idx_start is not None:
-                    else:
-                    None,
+                if idx_start is not None
+                else None,
                 "end_year": parse_year(tds[idx_end].get_text(" ", strip=True))
-                if idx_end is not None:
-                    None,
-                "contract_years": tds[idx_years].get_text(" ", strip=True)),
-                "options": [],
-                "aav_m": row["aav_m"],
-                "total_value_m": row["total_value_m"],
-                "free_agent_year": free_agent_year,
-                "years_remaining": years_remaining,
-                "position": row.get("position"),  # Persist position from scraped data
-            },
-        )
+                if idx_end is not None
+                else None,
+                "contract_years": tds[idx_years].get_text(" ", strip=True)
+                if idx_years is not None
+                else None,
+                "total_value_m": parse_money_to_m(
+                    tds[idx_value].get_text(" ", strip=True)
+                )
                 if idx_value is not None
                 else None,
                 "aav_m": parse_money_to_m(tds[idx_aav].get_text(" ", strip=True))
@@ -1493,6 +1515,7 @@ def build_contract_outputs():
     chadwick_fangraphs, mlb_to_bbref, chadwick_names = build_chadwick_maps()
     id_match_warnings = apply_mlb_ids(player_index, chadwick_fangraphs, chadwick_names)
     by_team, by_name = build_matching_indexes(player_index)
+    positions_map = load_player_positions_map(PLAYER_POSITIONS_PATH)
 
     contracts_by_mlb_id: dict[int, dict] = {}
     contracts_by_name_team: dict[tuple[str, str], dict] = {}
@@ -2009,7 +2032,16 @@ def build_contract_outputs():
                 "team": entry.team,
                 "age": entry.age,
                 "fwar": entry.war_total,
-                "position": entry.position,
+                "position": (
+                    positions_map.get(entry.mlb_id or -1, {}).get("position")
+                    if entry.mlb_id
+                    else None
+                ),
+                "position_source": (
+                    positions_map.get(entry.mlb_id or -1, {}).get("position_source")
+                    if entry.mlb_id
+                    else None
+                ),
                 "contract": contract,
             }
         )

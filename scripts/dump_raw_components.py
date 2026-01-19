@@ -13,11 +13,14 @@ sys.path.insert(0, str(REPO_ROOT / "backend"))
 
 from compute_mlb_tvp import (  # noqa: E402
     adjust_player_age,
+    attach_positions,
+    build_catcher_ids,
     compute_player_tvp,
     enrich_players,
     load_contracts_2026_map,
     load_pitcher_names,
     load_players,
+    load_player_positions_map,
     load_reliever_names,
     load_prospect_anchors,
     load_sample_counts,
@@ -238,6 +241,10 @@ def main() -> None:
         REPO_ROOT / "backend" / "output" / "players_with_contracts_2025.json"
     )
     payload = load_players(players_path)
+    positions_path = REPO_ROOT / "backend" / "output" / "player_positions.json"
+    positions_map = load_player_positions_map(positions_path)
+    position_by_id = attach_positions(payload.get("players", []), positions_map)
+    catcher_ids = build_catcher_ids(position_by_id)
     snapshot_year = load_config(config_path).snapshot_year
     snapshot_season = payload.get("meta", {}).get("season", snapshot_year)
     age_offset = 0
@@ -301,6 +308,7 @@ def main() -> None:
             contracts_2026_map,
             args.young_player_max_age,
             args.young_player_scale,
+            catcher_ids,
         )
         for player in players
     ]

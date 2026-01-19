@@ -1,109 +1,67 @@
 #!/usr/bin/env python3
 """
-Diagnostic script to check catcher detection.
+Diagnostic script to check catcher detection in TVP output.
 Run with: python3 scripts/diagnose_catcher_detection.py
 """
-
 import json
-import re
 from pathlib import Path
 
 
-def normalize_name(name: str) -> str:
-    name = re.sub(r"\(.*?\)", "", name)
-    name = name.replace(".", " ")
-    name = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", name, flags=re.IGNORECASE)
-    name = re.sub(r"[^a-zA-Z\s]", " ", name)
-    name = re.sub(r"\s+", " ", name).strip().lower()
-    return re.sub(r"[^a-z]", "", name)
+TARGET_PLAYERS = [
+    ("Cal Raleigh", 663728),
+    ("Will Smith", 669257),
+    ("Geraldo Perdomo", 672695),
+]
 
 
-def main():
+def load_json(path: Path):
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def find_first_existing(paths: list[Path]) -> Path | None:
+    for path in paths:
+        if path.exists():
+            return path
+    return None
+
+
+def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-
-    # Load TVP output
-    tvp_path = repo_root / "backend" / "output" / "tvp_mlb_2026.json"
-    with tvp_path.open("r") as f:
-        tvp_data = json.load(f)
-
-    # Load players_with_contracts.json
-    contracts_path = (
-        repo_root / "backend" / "output" / "players_with_contracts_2025.json"
+    tvp_path = find_first_existing(
+        [
+            repo_root / "backend" / "output" / "tvp_mlb_2026.json",
+            repo_root / "backend" / "output" / "tvp_mlb_2025.json",
+            repo_root / "backend" / "output" / "tvp_mlb.json",
+        ]
     )
-    with contracts_path.open("r") as f:
-        contracts_data = json.load(f)
+    if not tvp_path:
+        print("No TVP output found under backend/output.")
+        return
 
-    # Build position lookup by mlb_id
-    position_lookup = {}
-    for player in contracts_data.get("players", []):
-        mlb_id = player.get("mlb_id")
-        if mlb_id is not None:
-            position_lookup[mlb_id] = {
-                "player_name": player.get("player_name"),
-                "position": player.get("position"),
-                "position_source": "contracts_file",
-            }
+    tvp_data = load_json(tvp_path) or {}
+    players = tvp_data.get("players", [])
 
-    # Check specific players
-    target_players = [
-        ("Cal Raleigh", 663728),
-        ("Will Smith", 669257),
-        ("Geraldo Perdomo", 672695),
-    ]
-
-    print("=== CATCHER DETECTION DIAGNOSTIC ===\n")
-
-    for name, mlb_id in target_players:
-        print(f"Player: {name}")
-        print(f"  MLB ID: {mlb_id}")
-
-        # Find in TVP output
-        tvp_player = None
-        for p in tvp_data.get("players", []):
-            if p.get("mlb_id") == mlb_id:
-                tvp_player = p
-                break
-
-        if not tvp_player:
-            print(f"  NOT FOUND in TVP output")
-            print()
+    print(f"TVP source: {tvp_path}")
+    print("=== CATCHER DETECTION DIAGNOSTIC ===")
+    for name, mlb_id in TARGET_PLAYERS:
+        player = next((p for p in players if p.get("mlb_id") == mlb_id), None)
+        print(f"\nPlayer: {name} ({mlb_id})")
+        if not player:
+            print("  Not found in TVP output.")
             continue
 
-        # Check TVP flags
-        projection = tvp_player.get("raw_components", {}).get("projection", {})
-        is_catcher = projection.get("is_catcher")
-        catcher_war_mult = projection.get("catcher_war_mult")
-        catcher_war_mult_applied = projection.get("catcher_war_mult_applied")
-
-        print(f"  TVP is_catcher: {is_catcher}")
-        print(f"  TVP catcher_war_mult: {catcher_war_mult}")
-        print(f"  TVP catcher_war_mult_applied: {catcher_war_mult_applied}")
-
-        # Check position source
-        pos_info = position_lookup.get(mlb_id, {})
-        print(f"  Position from contracts: {pos_info.get('position')}")
-        print(f"  Position source: {pos_info.get('position_source')}")
-
-    # Determine expected based on known MLB IDs
-    expected_catcher = False
-    if name == "Cal Raleigh" and mlb_id == 663728:
-        expected_catcher = True
-    elif name == "Will Smith" and mlb_id == 669257:
-        expected_catcher = True
-    elif name == "Geraldo Perdomo" and mlb_id == 672695:
-        expected_catcher = False  # Geraldo is SS, not catcher
-
-        print(f"  Expected catcher: {expected_catcher}")
-
-        # Compare
-        if is_catcher == expected_catcher:
-            print(f"  ✓ DETECTION CORRECT")
-        else:
-            print(
-                f"  ✗ DETECTION WRONG! (Expected: {expected_catcher}, Got: {is_catcher})"
-            )
-
-        print()
+        projection = player.get("raw_components", {}).get("projection", {})
+        print(f"  position: {projection.get('position')}")
+        print(f"  position_source: {projection.get('position_source')}")
+        print(f"  is_catcher: {projection.get('is_catcher')}")
+        print(f"  catcher_war_mult: {projection.get('catcher_war_mult')}")
+        print(
+            "  catcher_war_mult_applied: "
+            f"{projection.get('catcher_war_mult_applied')}"
+        )
 
 
 if __name__ == "__main__":
