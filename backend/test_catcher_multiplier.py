@@ -6,6 +6,7 @@ Regression tests for catcher multiplier (mlb_id-first).
 import unittest
 from pathlib import Path
 import sys
+import tempfile
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -45,7 +46,12 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
             },
         }
 
-    def _compute_tvp(self, player: dict, catcher_ids: set[int]) -> dict:
+    def _compute_tvp(
+        self,
+        player: dict,
+        catcher_ids: set[int],
+        positions_missing: bool = False,
+    ) -> dict:
         return compute_player_tvp(
             player,
             self.snapshot_year,
@@ -76,6 +82,7 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
             young_player_max_age=24,
             young_player_scale=1.0,
             catcher_ids=catcher_ids,
+            positions_missing=positions_missing,
         )
 
     def test_synthetic_catcher_receives_haircut(self):
@@ -134,6 +141,41 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
         cal_result = self._compute_tvp(cal, catcher_ids)
         cal_proj = cal_result.get("raw_components", {}).get("projection", {})
         self.assertTrue(cal_proj.get("is_catcher"))
+
+    def test_missing_positions_hard_fails_without_allow(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            positions_path = Path(temp_dir) / "player_positions.json"
+            players_path = Path(temp_dir) / "players.json"
+            players_path.write_text('{"players": []}', encoding="utf-8")
+            with self.assertRaises(RuntimeError) as ctx:
+                compute_mlb_tvp.ensure_positions_map(
+                    positions_path,
+                    players_path,
+                    allow_missing=False,
+                    no_position_refresh=True,
+                )
+            self.assertIn("Missing positions map", str(ctx.exception))
+
+    def test_missing_positions_marks_quality_flag(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            positions_path = Path(temp_dir) / "player_positions.json"
+            players_path = Path(temp_dir) / "players.json"
+            players_path.write_text('{"players": []}', encoding="utf-8")
+            positions_map, positions_missing = compute_mlb_tvp.ensure_positions_map(
+                positions_path,
+                players_path,
+                allow_missing=True,
+                no_position_refresh=True,
+            )
+            self.assertEqual(positions_map, {})
+            self.assertTrue(positions_missing)
+
+        player = self._base_player(999997, "Missing Position Player")
+        result = self._compute_tvp(player, set(), positions_missing=True)
+        projection = result.get("raw_components", {}).get("projection", {})
+        quality_flags = result.get("raw_components", {}).get("quality_flags", {})
+        self.assertEqual(projection.get("position_source"), "missing")
+        self.assertTrue(quality_flags.get("positions_missing"))
 
 
 if __name__ == "__main__":

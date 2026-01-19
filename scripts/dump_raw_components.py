@@ -16,11 +16,11 @@ from compute_mlb_tvp import (  # noqa: E402
     attach_positions,
     build_catcher_ids,
     compute_player_tvp,
+    ensure_positions_map,
     enrich_players,
     load_contracts_2026_map,
     load_pitcher_names,
     load_players,
-    load_positions_with_fallback,
     load_reliever_names,
     load_prospect_anchors,
     load_sample_counts,
@@ -242,8 +242,12 @@ def main() -> None:
     )
     payload = load_players(players_path)
     positions_path = REPO_ROOT / "backend" / "data" / "player_positions.json"
-    fixture_path = REPO_ROOT / "backend" / "player_positions_fixture.json"
-    positions_map = load_positions_with_fallback(positions_path, fixture_path)
+    positions_map, positions_missing = ensure_positions_map(
+        positions_path,
+        players_path,
+        allow_missing=True,
+        no_position_refresh=False,
+    )
     position_by_id = attach_positions(payload.get("players", []), positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
     snapshot_year = load_config(config_path).snapshot_year
@@ -310,6 +314,7 @@ def main() -> None:
             args.young_player_max_age,
             args.young_player_scale,
             catcher_ids,
+            positions_missing,
         )
         for player in players
     ]

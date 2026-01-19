@@ -16,7 +16,7 @@ sys.path.insert(0, str(REPO_ROOT / "backend"))
 from compute_mlb_tvp import (  # noqa: E402
     attach_positions,
     build_catcher_ids,
-    load_positions_with_fallback,
+    load_player_positions_map,
 )
 
 
@@ -58,8 +58,12 @@ def main() -> None:
     players_payload = load_json(args.players)
     players = players_payload.get("players", [])
 
-    fixture_path = REPO_ROOT / "backend" / "player_positions_fixture.json"
-    positions_map = load_positions_with_fallback(args.positions, fixture_path)
+    positions_map = load_player_positions_map(args.positions)
+    if not positions_map:
+        raise SystemExit(
+            f"Positions map missing or empty: {args.positions}. "
+            "Run scripts/build_player_positions.py first."
+        )
     position_by_id = attach_positions(players, positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
 

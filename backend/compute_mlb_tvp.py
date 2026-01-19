@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 import sqlite3
 import re
-import os
 import sys
+import subprocess
 
 from tvp_engine import compute_mlb_tvp, compute_rookie_alpha, load_config
 
@@ -124,23 +124,78 @@ def load_player_positions_map(positions_path: Path) -> dict[int, dict[str, str |
     return positions
 
 
-def load_positions_with_fallback(
-    positions_path: Path, fixture_path: Path
-) -> dict[int, dict[str, str | None]]:
-    if positions_path.exists():
-        return load_player_positions_map(positions_path)
-    print(
-        "WARNING: player_positions.json missing. Catcher detection disabled "
-        "unless MLB_POSITIONS_USE_FIXTURE=1 is set for tests.",
-        file=sys.stderr,
-    )
-    if os.getenv("MLB_POSITIONS_USE_FIXTURE") == "1" and fixture_path.exists():
-        print(
-            f"WARNING: Using fixture positions from {fixture_path} (test-only).",
-            file=sys.stderr,
+def build_positions_map(positions_path: Path, players_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / "scripts" / "build_player_positions.py"
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--players",
+        str(players_path),
+        "--output",
+        str(positions_path),
+    ]
+    subprocess.run(cmd, check=True)
+
+
+def ensure_positions_map(
+    positions_path: Path,
+    players_path: Path,
+    allow_missing: bool,
+    no_position_refresh: bool,
+) -> tuple[dict[int, dict[str, str | None]], bool]:
+    positions_missing = False
+    if not positions_path.exists():
+        if no_position_refresh:
+            if allow_missing:
+                positions_missing = True
+                print(
+                    "WARNING: positions map missing; proceeding with catcher "
+                    "detection disabled (--allow-missing-positions).",
+                    file=sys.stderr,
+                )
+                return {}, positions_missing
+            raise RuntimeError(
+                f"Missing positions map: {positions_path}. "
+                "Run scripts/build_player_positions.py or pass "
+                "--allow-missing-positions."
+            )
+        try:
+            print(
+                f"Positions map missing; building via {positions_path}.",
+                file=sys.stderr,
+            )
+            build_positions_map(positions_path, players_path)
+        except subprocess.CalledProcessError as exc:
+            if allow_missing:
+                positions_missing = True
+                print(
+                    "WARNING: failed to build positions map; proceeding with "
+                    "catcher detection disabled (--allow-missing-positions).",
+                    file=sys.stderr,
+                )
+                return {}, positions_missing
+            raise RuntimeError(
+                "Failed to build positions map. Re-run with "
+                "--allow-missing-positions or check network access."
+            ) from exc
+
+    positions_map = load_player_positions_map(positions_path)
+    if not positions_map:
+        if allow_missing:
+            positions_missing = True
+            print(
+                "WARNING: positions map empty; proceeding with catcher "
+                "detection disabled (--allow-missing-positions).",
+                file=sys.stderr,
+            )
+            return {}, positions_missing
+        raise RuntimeError(
+            f"Positions map is empty: {positions_path}. "
+            "Rebuild with scripts/build_player_positions.py or pass "
+            "--allow-missing-positions."
         )
-        return load_player_positions_map(fixture_path)
-    return {}
+    return positions_map, positions_missing
 
 
 def tokenize_position(position: str | None) -> list[str]:
@@ -798,6 +853,7 @@ def compute_player_tvp(
     young_player_max_age: int,
     young_player_scale: float,
     catcher_ids: set[int] | None = None,
+    positions_missing: bool = False,
 ) -> dict[str, Any]:
     config = load_config(config_path)
 
@@ -819,6 +875,8 @@ def compute_player_tvp(
     is_catcher = isinstance(mlb_id, int) and mlb_id in catcher_ids
     position = player.get("position")
     position_source = player.get("position_source")
+    if positions_missing:
+        position_source = "missing"
     player_age = player.get("age")
 
     repo_root = Path(__file__).resolve().parent
@@ -966,7 +1024,9 @@ def compute_player_tvp(
                 "tvp_current": None,
                 "raw_components": {
                     "error": "missing_contract_years",
-                    "quality_flags": {},
+                    "quality_flags": {
+                        "positions_missing": positions_missing,
+                    },
                 },
                 "snapshot_year": snapshot_year,
                 "last_updated_timestamp": now_timestamp(),
@@ -1484,6 +1544,7 @@ def compute_player_tvp(
                 "boost_amount": long_control_boost_value,
             },
             "quality_flags": {
+                "positions_missing": positions_missing,
                 "war_history_partial": fwar_source_label == "history_weighted_partial",
                 "war_history_seasons_used": weighted_meta.get("seasons_count", 0),
                 "war_history_weights_sum": weighted_meta.get("weights_sum")
@@ -1657,6 +1718,16 @@ def main() -> None:
         default=27,
         help="Max age to apply control-years fallback.",
     )
+    parser.add_argument(
+        "--no-position-refresh",
+        action="store_true",
+        help="Do not auto-build positions map if missing.",
+    )
+    parser.add_argument(
+        "--allow-missing-positions",
+        action="store_true",
+        help="Allow run to proceed when positions map is missing.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
@@ -1682,8 +1753,12 @@ def main() -> None:
     )
 
     positions_path = repo_root / "backend" / "data" / "player_positions.json"
-    fixture_path = repo_root / "backend" / "player_positions_fixture.json"
-    positions_map = load_positions_with_fallback(positions_path, fixture_path)
+    positions_map, positions_missing = ensure_positions_map(
+        positions_path,
+        players_path,
+        allow_missing=args.allow_missing_positions,
+        no_position_refresh=args.no_position_refresh,
+    )
     position_by_id = attach_positions(payload.get("players", []), positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
     fwar_weights = parse_weights(args.fwar_weights)
@@ -1731,6 +1806,7 @@ def main() -> None:
             args.young_player_max_age,
             args.young_player_scale,
             catcher_ids,
+            positions_missing,
         )
         for player in payload.get("players", [])
     ]

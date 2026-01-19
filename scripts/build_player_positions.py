@@ -17,6 +17,7 @@ from pathlib import Path
 
 API_BASE = "https://statsapi.mlb.com/api/v1/people"
 DEFAULT_SLEEP_SECONDS = 0.4
+DEFAULT_TTL_DAYS = 30
 
 
 def load_players(players_path: Path) -> list[dict]:
@@ -77,6 +78,13 @@ def fetch_positions_batch(mlb_ids: list[int]) -> dict[int, dict]:
     return results
 
 
+def cache_is_fresh(path: Path, ttl_days: int) -> bool:
+    if not path.exists():
+        return False
+    age_seconds = time.time() - path.stat().st_mtime
+    return age_seconds < (ttl_days * 86400)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build mlb_id-first player position map from MLB Stats API."
@@ -102,6 +110,12 @@ def main() -> None:
         "--refresh",
         action="store_true",
         help="Rebuild mapping from scratch instead of using cached output.",
+    )
+    parser.add_argument(
+        "--ttl-days",
+        type=int,
+        default=DEFAULT_TTL_DAYS,
+        help="Cache TTL in days before re-fetching positions.",
     )
     parser.add_argument(
         "--sleep",
@@ -132,12 +146,17 @@ def main() -> None:
 
     positions = {} if args.refresh else load_existing_positions(args.output)
     missing = [mlb_id for mlb_id in mlb_ids if mlb_id not in positions]
+    cache_fresh = (not args.refresh) and cache_is_fresh(args.output, args.ttl_days)
 
     print(f"Total players with mlb_id: {len(mlb_ids)}")
     print(f"Cached positions: {len(positions)}")
     print(f"Missing positions to fetch: {len(missing)}")
 
-    if missing:
+    if cache_fresh:
+        print(
+            f"Cache is fresh (<{args.ttl_days} days); skipping API refresh.",
+        )
+    elif missing:
         for idx in range(0, len(missing), args.batch_size):
             batch = missing[idx : idx + args.batch_size]
             try:
