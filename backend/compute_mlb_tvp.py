@@ -1048,21 +1048,26 @@ def compute_player_tvp(
         )
     seasons_used = weighted_meta.get("seasons_count", 0)
     used_sample_gate = False
-    early_sample_eligible = False
-    if is_pitcher:
-        if ip_value is not None:
-            used_sample_gate = True
-            early_sample_eligible = ip_value < 500
-    else:
-        if pa_value is not None:
-            used_sample_gate = True
-            early_sample_eligible = pa_value < 2000
+    early_sample_eligible: bool | None = None
+    if pa_value is not None:
+        used_sample_gate = True
+        early_sample_eligible = pa_value < 300
+    if ip_value is not None:
+        used_sample_gate = True
+        ip_eligible = ip_value < 80
+        early_sample_eligible = (
+            ip_eligible
+            if early_sample_eligible is None
+            else early_sample_eligible and ip_eligible
+        )
     if not used_sample_gate:
-        if player_age is not None and player_age <= 25 and seasons_used <= 2:
-            early_sample_eligible = True
+        if player_age is not None and seasons_used is not None:
+            early_sample_eligible = player_age <= 25 and seasons_used <= 1
+        else:
+            early_sample_eligible = False
 
     if isinstance(fv_value, (int, float)) and isinstance(prospect_tvp, (int, float)):
-        apply_rookie_transition = early_sample_eligible
+        apply_rookie_transition = bool(early_sample_eligible)
 
         alpha_info = None
         reason_not_applied = None
@@ -1100,19 +1105,15 @@ def compute_player_tvp(
             }
         else:
             if used_sample_gate:
-                if (is_pitcher and ip_value is None) or (
-                    not is_pitcher and pa_value is None
-                ):
-                    reason_not_applied = "missing_pa_ip"
-                else:
-                    reason_not_applied = "not_early_sample"
+                reason_not_applied = (
+                    "not_early_sample" if not early_sample_eligible else "gate_failed"
+                )
             else:
-                if player_age is None or seasons_used is None:
-                    reason_not_applied = "missing_pa_ip"
-                elif player_age <= 25 and seasons_used <= 2:
-                    reason_not_applied = "gate_failed"
-                else:
-                    reason_not_applied = "not_early_sample"
+                reason_not_applied = (
+                    "missing_pa_ip"
+                    if player_age is None or seasons_used is None
+                    else "not_early_sample"
+                )
             rookie_transition.update(
                 {
                     "applied": False,

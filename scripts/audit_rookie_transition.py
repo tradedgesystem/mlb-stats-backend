@@ -28,17 +28,27 @@ def format_row(row: list) -> str:
     return ", ".join(str(item) for item in row)
 
 
-def is_early_sample_candidate(is_pitcher: bool, pa_value: float | None, ip_value: float | None,
-                              age: int | None, seasons_used: int | None) -> bool:
-    if is_pitcher:
-        if ip_value is not None:
-            return ip_value < 500
-    else:
-        if pa_value is not None:
-            return pa_value < 2000
-    if age is not None and seasons_used is not None:
-        return age <= 25 and seasons_used <= 2
-    return False
+def is_early_sample_candidate(
+    is_pitcher: bool,
+    pa_value: float | None,
+    ip_value: float | None,
+    age: int | None,
+    seasons_used: int | None,
+) -> bool:
+    used_sample_gate = False
+    early_sample: bool | None = None
+    if pa_value is not None:
+        used_sample_gate = True
+        early_sample = pa_value < 300
+    if ip_value is not None:
+        used_sample_gate = True
+        ip_eligible = ip_value < 80
+        early_sample = ip_eligible if early_sample is None else early_sample and ip_eligible
+    if not used_sample_gate:
+        if age is not None and seasons_used is not None:
+            return age <= 25 and seasons_used <= 1
+        return False
+    return bool(early_sample)
 
 
 def collect_audit_rows(players: list[dict]) -> tuple[list[dict], list[dict], list[float]]:

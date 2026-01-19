@@ -62,6 +62,49 @@ class TestRookieTransition(unittest.TestCase):
             young_player_scale=1.0,
         )
 
+    def _compute_with_pitcher_flag(
+        self,
+        player: dict,
+        war_history: dict,
+        fwar_weights: list[float],
+    ):
+        repo_root = Path(__file__).resolve().parent
+        config_path = repo_root / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        fwar_weight_seasons = [
+            snapshot_year - offset for offset in range(len(fwar_weights))
+        ]
+        name_key = player.get("player_name", "").lower().replace(" ", "")
+        return compute_player_tvp(
+            player,
+            snapshot_year,
+            config_path,
+            max_years=10,
+            fwar_scale=0.7,
+            fwar_cap=6.0,
+            apply_aging=True,
+            prime_age=29,
+            decline_per_year=0.035,
+            aging_floor=0.65,
+            reliever_names=set(),
+            reliever_mult=1.5,
+            control_years_fallback=0,
+            control_years_age_max=27,
+            two_way_names=set(),
+            two_way_fwar_cap=8.0,
+            two_way_mult=1.5,
+            war_history=war_history,
+            fwar_weights=fwar_weights,
+            fwar_weight_seasons=fwar_weight_seasons,
+            pitcher_names={name_key},
+            pitcher_regress_weight=0.0,
+            pitcher_regress_target=2.0,
+            contracts_2026_map={},
+            young_player_max_age=24,
+            young_player_scale=1.0,
+        )
+
     def test_rookie_blend_applies_low_pa(self) -> None:
         config_path = Path(__file__).resolve().parent / "tvp_config.json"
         config = load_config(config_path)
@@ -364,10 +407,29 @@ class TestRookieTransition(unittest.TestCase):
                     "rookie_transition": {
                         "applied": False,
                         "reason_not_applied": "missing_anchor",
-                        "pa": 2500.0,
+                        "pa": 400.0,
                         "ip": None,
                         "tvp_current_pre": 20.0,
                         "tvp_current_post": 20.0,
+                        "delta": 0.0,
+                    },
+                },
+            },
+            {
+                "player_name": "Pitcher Missing Anchor",
+                "mlb_id": 3003,
+                "age": 28,
+                "tvp_mlb": 30.0,
+                "tvp_current": 30.0,
+                "raw_components": {
+                    "war_inputs": {"is_pitcher": True, "war_history_seasons_used": 2},
+                    "rookie_transition": {
+                        "applied": False,
+                        "reason_not_applied": "missing_anchor",
+                        "pa": 0.0,
+                        "ip": 120.0,
+                        "tvp_current_pre": 30.0,
+                        "tvp_current_post": 30.0,
                         "delta": 0.0,
                     },
                 },
@@ -377,6 +439,86 @@ class TestRookieTransition(unittest.TestCase):
         self.assertEqual(len(applied), 0)
         self.assertEqual(len(missing_candidates), 1)
         self.assertEqual(missing_candidates[0]["mlb_id"], 3001)
+
+    def test_pa_threshold_excludes_early_sample(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        prospect = {
+            "player_name": "High PA Gate Test",
+            "age": 21,
+            "fv_value": 55,
+            "eta": snapshot_year,
+            "position": "CF",
+        }
+        anchor = compute_prospect_tvp(prospect, config)
+        player = {
+            "mlb_id": 4001,
+            "player_name": "High PA Gate Test",
+            "age": 23,
+            "fwar": 2.0,
+            "pa": 400,
+            "bat_war": 2.0,
+            "prospect_anchor": {
+                "tvp_prospect": anchor["tvp_prospect"],
+                "fv_value": anchor["raw_components"]["fv_value"],
+                "raw_components": anchor["raw_components"],
+                "source_file": "unit_test",
+            },
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 1.0, "is_guaranteed": True}
+                ],
+                "options": [],
+                "aav_m": None,
+                "years_remaining": 0,
+            },
+        }
+        result = self._compute(player, war_history={}, fwar_weights=[1.0])
+        transition = result["raw_components"]["rookie_transition"]
+        self.assertFalse(transition["applied"])
+        self.assertFalse(transition.get("early_sample_eligible"))
+
+    def test_ip_threshold_excludes_early_sample(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        prospect = {
+            "player_name": "High IP Gate Test",
+            "age": 22,
+            "fv_value": 55,
+            "eta": snapshot_year,
+            "position": "RHP",
+        }
+        anchor = compute_prospect_tvp(prospect, config)
+        player = {
+            "mlb_id": 4002,
+            "player_name": "High IP Gate Test",
+            "age": 24,
+            "fwar": 2.0,
+            "ip": 120.0,
+            "pit_war": 2.0,
+            "prospect_anchor": {
+                "tvp_prospect": anchor["tvp_prospect"],
+                "fv_value": anchor["raw_components"]["fv_value"],
+                "raw_components": anchor["raw_components"],
+                "source_file": "unit_test",
+            },
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 1.0, "is_guaranteed": True}
+                ],
+                "options": [],
+                "aav_m": None,
+                "years_remaining": 0,
+            },
+        }
+        result = self._compute_with_pitcher_flag(
+            player, war_history={}, fwar_weights=[1.0]
+        )
+        transition = result["raw_components"]["rookie_transition"]
+        self.assertFalse(transition["applied"])
+        self.assertFalse(transition.get("early_sample_eligible"))
 
 
 if __name__ == "__main__":
