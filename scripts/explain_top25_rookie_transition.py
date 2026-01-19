@@ -23,34 +23,29 @@ def load_players() -> list[dict]:
 
 
 def classify_early_sample(
+    is_pitcher: bool,
     pa_value: float | None,
     ip_value: float | None,
     age: int | None,
     seasons_used: int | None,
 ) -> bool:
-    used_sample_gate = False
-    early_sample: bool | None = None
-    if pa_value is not None:
-        used_sample_gate = True
-        early_sample = pa_value < 300
-    if ip_value is not None:
-        used_sample_gate = True
-        ip_eligible = ip_value < 80
-        early_sample = ip_eligible if early_sample is None else early_sample and ip_eligible
-    if not used_sample_gate:
-        if age is not None and seasons_used is not None:
-            return age <= 25 and seasons_used <= 1
+    if age is None or age > 26:
         return False
-    return bool(early_sample)
+    if is_pitcher:
+        return ip_value is not None and ip_value < 80
+    return pa_value is not None and pa_value < 300
 
 
 def reason_not_eligible(
+    is_pitcher: bool,
     pa_value: float | None,
     ip_value: float | None,
     age: int | None,
     seasons_used: int | None,
     early_sample: bool,
 ) -> str:
+    if age is None or age > 26:
+        return "other"
     if pa_value is not None and pa_value >= 300:
         return "pa_ge_300"
     if ip_value is not None and ip_value >= 80:
@@ -69,12 +64,17 @@ def build_explain_row(player: dict) -> dict:
     raw = player.get("raw_components") or {}
     transition = raw.get("rookie_transition") or {}
     war_inputs = raw.get("war_inputs") or {}
+    is_pitcher = war_inputs.get("is_pitcher") is True
     pa_value = transition.get("pa")
     ip_value = transition.get("ip")
     age = player.get("age")
     seasons_used = war_inputs.get("war_history_seasons_used")
-    early_sample = classify_early_sample(pa_value, ip_value, age, seasons_used)
-    reason = reason_not_eligible(pa_value, ip_value, age, seasons_used, early_sample)
+    early_sample = classify_early_sample(
+        is_pitcher, pa_value, ip_value, age, seasons_used
+    )
+    reason = reason_not_eligible(
+        is_pitcher, pa_value, ip_value, age, seasons_used, early_sample
+    )
     has_anchor = (
         transition.get("fv_value") is not None
         and transition.get("prospect_tvp") is not None

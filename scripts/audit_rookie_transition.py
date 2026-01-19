@@ -42,20 +42,11 @@ def is_early_sample_candidate(
     age: int | None,
     seasons_used: int | None,
 ) -> bool:
-    used_sample_gate = False
-    early_sample: bool | None = None
-    if pa_value is not None:
-        used_sample_gate = True
-        early_sample = pa_value < 300
-    if ip_value is not None:
-        used_sample_gate = True
-        ip_eligible = ip_value < 80
-        early_sample = ip_eligible if early_sample is None else early_sample and ip_eligible
-    if not used_sample_gate:
-        if age is not None and seasons_used is not None:
-            return age <= 25 and seasons_used <= 1
+    if age is None or age > 26:
         return False
-    return bool(early_sample)
+    if is_pitcher:
+        return ip_value is not None and ip_value < 80
+    return pa_value is not None and pa_value < 300
 
 
 def collect_anchor_coverage(players: list[dict]) -> tuple[dict[str, dict[str, int]], list[dict]]:
@@ -63,6 +54,11 @@ def collect_anchor_coverage(players: list[dict]) -> tuple[dict[str, dict[str, in
         "overall": {"eligible": 0, "with_anchor": 0, "missing_anchor": 0},
         "hitters": {"eligible": 0, "with_anchor": 0, "missing_anchor": 0},
         "pitchers": {"eligible": 0, "with_anchor": 0, "missing_anchor": 0},
+    }
+    anchor_sources: dict[str, dict[str, int]] = {
+        "overall": {},
+        "hitters": {},
+        "pitchers": {},
     }
     missing_anchor = []
 
@@ -81,7 +77,10 @@ def collect_anchor_coverage(players: list[dict]) -> tuple[dict[str, dict[str, in
         if not early_sample:
             continue
 
-        anchor_present = has_anchor(transition)
+        anchor_source = transition.get("anchor_source")
+        if anchor_source is None and has_anchor(transition):
+            anchor_source = "prospect"
+        anchor_present = anchor_source is not None
         bucket = "pitchers" if is_pitcher else "hitters"
         for key in ("overall", bucket):
             coverage[key]["eligible"] += 1
@@ -89,6 +88,9 @@ def collect_anchor_coverage(players: list[dict]) -> tuple[dict[str, dict[str, in
                 coverage[key]["with_anchor"] += 1
             else:
                 coverage[key]["missing_anchor"] += 1
+            source_counts = anchor_sources[key]
+            source_key = anchor_source or "missing"
+            source_counts[source_key] = source_counts.get(source_key, 0) + 1
 
         if not anchor_present:
             economics = raw.get("economics_pv") or {}
@@ -108,7 +110,7 @@ def collect_anchor_coverage(players: list[dict]) -> tuple[dict[str, dict[str, in
                 }
             )
 
-    return coverage, missing_anchor
+    return coverage, missing_anchor, anchor_sources
 
 
 def collect_audit_rows(players: list[dict]) -> tuple[list[dict], list[dict], list[float]]:
@@ -180,7 +182,7 @@ def main() -> None:
     players = data.get("players", [])
     total_players = len(players)
     applied, missing_candidates, alphas = collect_audit_rows(players)
-    coverage, missing_anchor = collect_anchor_coverage(players)
+    coverage, missing_anchor, anchor_sources = collect_anchor_coverage(players)
 
     applied_count = len(applied)
     pct_applied = (applied_count / total_players * 100.0) if total_players else 0.0
@@ -219,6 +221,16 @@ def main() -> None:
             )
         )
 
+    for label in ("overall", "hitters", "pitchers"):
+        source_counts = anchor_sources[label]
+        if not source_counts:
+            print(format_row([f"early_sample_anchor_source_{label}", "none"]))
+            continue
+        parts = []
+        for source_key, count in sorted(source_counts.items()):
+            pct = (count / coverage[label]["eligible"] * 100.0) if coverage[label]["eligible"] else 0.0
+            parts.append(f"{source_key}={count} ({pct:.2f}%)")
+        print(format_row([f"early_sample_anchor_source_{label}"] + parts))
     print("\nTop 25 by delta_rookie_transition (applied)")
     print(
         "rank, player_name, mlb_id, delta, tvp_current_pre, tvp_current_post, alpha, pa, ip, age, seasons_used"

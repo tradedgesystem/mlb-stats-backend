@@ -521,6 +521,85 @@ class TestRookieTransition(unittest.TestCase):
         self.assertFalse(transition["applied"])
         self.assertFalse(transition.get("early_sample_eligible"))
 
+    def test_age_cap_excludes_relief_low_ip(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        prospect = {
+            "player_name": "Age Cap Reliever",
+            "age": 22,
+            "fv_value": 55,
+            "eta": snapshot_year,
+            "position": "RHP",
+        }
+        anchor = compute_prospect_tvp(prospect, config)
+        player = {
+            "mlb_id": 5001,
+            "player_name": "Age Cap Reliever",
+            "age": 31,
+            "fwar": 1.0,
+            "ip": 60.0,
+            "pit_war": 1.0,
+            "prospect_anchor": {
+                "tvp_prospect": anchor["tvp_prospect"],
+                "fv_value": anchor["raw_components"]["fv_value"],
+                "raw_components": anchor["raw_components"],
+                "source_file": "unit_test",
+            },
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 1.0, "is_guaranteed": True}
+                ],
+                "options": [],
+                "aav_m": None,
+                "years_remaining": 0,
+            },
+        }
+        result = self._compute_with_pitcher_flag(
+            player, war_history={}, fwar_weights=[1.0]
+        )
+        transition = result["raw_components"]["rookie_transition"]
+        self.assertFalse(transition["applied"])
+        self.assertFalse(transition.get("early_sample_eligible"))
+
+    def test_age_cap_keeps_young_hitter_eligible(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        prospect = {
+            "player_name": "Age Cap Hitter",
+            "age": 20,
+            "fv_value": 55,
+            "eta": snapshot_year,
+            "position": "SS",
+        }
+        anchor = compute_prospect_tvp(prospect, config)
+        player = {
+            "mlb_id": 5002,
+            "player_name": "Age Cap Hitter",
+            "age": 24,
+            "fwar": 1.0,
+            "pa": 200.0,
+            "bat_war": 1.0,
+            "prospect_anchor": {
+                "tvp_prospect": anchor["tvp_prospect"],
+                "fv_value": anchor["raw_components"]["fv_value"],
+                "raw_components": anchor["raw_components"],
+                "source_file": "unit_test",
+            },
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 1.0, "is_guaranteed": True}
+                ],
+                "options": [],
+                "aav_m": None,
+                "years_remaining": 0,
+            },
+        }
+        result = self._compute(player, war_history={}, fwar_weights=[1.0])
+        transition = result["raw_components"]["rookie_transition"]
+        self.assertTrue(transition.get("early_sample_eligible"))
+
     def test_explain_reason_codes_pa_threshold(self) -> None:
         player = {
             "player_name": "Explain Test Hitter",

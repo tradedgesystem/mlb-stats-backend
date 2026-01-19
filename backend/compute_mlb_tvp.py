@@ -1013,6 +1013,7 @@ def compute_player_tvp(
 
     # Apply rookie transition blend when prospect anchors and early MLB samples are available.
     tvp_mlb_value = mlb_result["tvp_mlb"]
+    tvp_mlb_base_value = mlb_result.get("tvp_mlb_base", tvp_mlb_value)
     tvp_current = tvp_mlb_value
     rookie_transition: dict[str, Any] = {
         "applied": False,
@@ -1023,11 +1024,6 @@ def compute_player_tvp(
     prospect_anchor = player.get("prospect_anchor")
     fv_value = None
     prospect_tvp = None
-    if isinstance(prospect_anchor, dict):
-        prospect_tvp = prospect_anchor.get("tvp_prospect")
-        fv_value = prospect_anchor.get("fv_value")
-        if fv_value is None:
-            fv_value = (prospect_anchor.get("raw_components") or {}).get("fv_value")
     sample_pa = player.get("pa")
     sample_ip = player.get("ip")
     sample_bat_war = player.get("bat_war")
@@ -1047,27 +1043,35 @@ def compute_player_tvp(
             else float(player.get("fwar") or 0.0)
         )
     seasons_used = weighted_meta.get("seasons_count", 0)
-    used_sample_gate = False
-    early_sample_eligible: bool | None = None
-    if pa_value is not None:
-        used_sample_gate = True
-        early_sample_eligible = pa_value < 300
-    if ip_value is not None:
-        used_sample_gate = True
-        ip_eligible = ip_value < 80
-        early_sample_eligible = (
-            ip_eligible
-            if early_sample_eligible is None
-            else early_sample_eligible and ip_eligible
-        )
-    if not used_sample_gate:
-        if player_age is not None and seasons_used is not None:
-            early_sample_eligible = player_age <= 25 and seasons_used <= 1
+    used_sample_gate = pa_value is not None or ip_value is not None
+    early_sample_eligible = False
+    if player_age is not None and player_age <= 26:
+        if is_pitcher:
+            early_sample_eligible = ip_value is not None and ip_value < 80
         else:
-            early_sample_eligible = False
+            early_sample_eligible = pa_value is not None and pa_value < 300
 
-    if isinstance(fv_value, (int, float)) and isinstance(prospect_tvp, (int, float)):
-        apply_rookie_transition = bool(early_sample_eligible)
+    anchor_source = None
+    if isinstance(prospect_anchor, dict):
+        prospect_tvp = prospect_anchor.get("tvp_prospect")
+        fv_value = prospect_anchor.get("fv_value")
+        if fv_value is None:
+            fv_value = (prospect_anchor.get("raw_components") or {}).get("fv_value")
+        anchor_source = "prospect"
+    elif early_sample_eligible:
+        fallback_fv_value = (
+            min(config.fv_war_rate_prior)
+            if config.fv_war_rate_prior
+            else 50
+        )
+        prospect_tvp = float(tvp_mlb_base_value)
+        fv_value = fallback_fv_value
+        anchor_source = "mlb_baseline_fallback"
+
+    if anchor_source and isinstance(fv_value, (int, float)) and isinstance(
+        prospect_tvp, (int, float)
+    ):
+        apply_rookie_transition = early_sample_eligible
 
         alpha_info = None
         reason_not_applied = None
@@ -1092,6 +1096,7 @@ def compute_player_tvp(
                 "fwar_to_date": fwar_to_date,
                 "fv_value": fv_value,
                 "prospect_tvp": float(prospect_tvp),
+                "anchor_source": anchor_source,
                 "tvp_current_pre": tvp_mlb_value,
                 "tvp_current_post": tvp_current,
                 "delta": tvp_current - tvp_mlb_value,
@@ -1111,9 +1116,9 @@ def compute_player_tvp(
             else:
                 reason_not_applied = (
                     "missing_pa_ip"
-                    if player_age is None or seasons_used is None
-                    else "not_early_sample"
-                )
+                if player_age is None or seasons_used is None
+                else "not_early_sample"
+            )
             rookie_transition.update(
                 {
                     "applied": False,
@@ -1123,6 +1128,7 @@ def compute_player_tvp(
                     "fwar_to_date": fwar_to_date,
                     "fv_value": fv_value,
                     "prospect_tvp": float(prospect_tvp),
+                    "anchor_source": anchor_source,
                     "tvp_current_pre": tvp_mlb_value,
                     "tvp_current_post": tvp_current,
                     "delta": tvp_current - tvp_mlb_value,
@@ -1148,6 +1154,7 @@ def compute_player_tvp(
                 "fwar_to_date": fwar_to_date,
                 "fv_value": fv_value,
                 "prospect_tvp": prospect_tvp,
+                "anchor_source": anchor_source,
                 "tvp_current_pre": tvp_mlb_value,
                 "tvp_current_post": tvp_current,
                 "delta": tvp_current - tvp_mlb_value,
