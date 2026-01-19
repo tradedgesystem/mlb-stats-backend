@@ -226,53 +226,81 @@ def load_two_way_names(season: int, db_path: Path, min_war: float) -> set[str]:
 
 def load_war_history(
     seasons: list[int], db_path: Path
-) -> dict[str, dict[int, dict[str, float]]]:
+) -> dict[int | str, dict[int, dict[str, float]]]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     placeholders = ",".join("?" for _ in seasons)
     params = tuple(seasons)
-    batting: dict[str, dict[int, float]] = {}
-    pitching: dict[str, dict[int, float]] = {}
+    batting_by_name: dict[str, dict[int, float]] = {}
+    pitching_by_name: dict[str, dict[int, float]] = {}
+    batting_by_id: dict[int, dict[int, float]] = {}
+    pitching_by_id: dict[int, dict[int, float]] = {}
 
     cursor.execute(
         f"""
-        SELECT name, season, war
+        SELECT player_id, name, season, war
         FROM batting_stats
         WHERE season IN ({placeholders})
         """,
         params,
     )
-    for name, season, war in cursor.fetchall():
+    for player_id, name, season, war in cursor.fetchall():
         if name is None or war is None:
             continue
         key = normalize_name(name)
-        batting.setdefault(key, {})
-        batting[key][season] = batting[key].get(season, 0.0) + float(war)
+        batting_by_name.setdefault(key, {})
+        batting_by_name[key][season] = batting_by_name[key].get(season, 0.0) + float(
+            war
+        )
+        if player_id is not None:
+            player_key = int(player_id)
+            batting_by_id.setdefault(player_key, {})
+            batting_by_id[player_key][season] = batting_by_id[player_key].get(
+                season, 0.0
+            ) + float(war)
 
     cursor.execute(
         f"""
-        SELECT name, season, war
+        SELECT player_id, name, season, war
         FROM pitching_stats
         WHERE season IN ({placeholders})
         """,
         params,
     )
-    for name, season, war in cursor.fetchall():
+    for player_id, name, season, war in cursor.fetchall():
         if name is None or war is None:
             continue
         key = normalize_name(name)
-        pitching.setdefault(key, {})
-        pitching[key][season] = pitching[key].get(season, 0.0) + float(war)
+        pitching_by_name.setdefault(key, {})
+        pitching_by_name[key][season] = pitching_by_name[key].get(
+            season, 0.0
+        ) + float(war)
+        if player_id is not None:
+            player_key = int(player_id)
+            pitching_by_id.setdefault(player_key, {})
+            pitching_by_id[player_key][season] = pitching_by_id[player_key].get(
+                season, 0.0
+            ) + float(war)
 
     conn.close()
 
-    history: dict[str, dict[int, dict[str, float]]] = {}
-    for key in set(batting) | set(pitching):
+    history: dict[int | str, dict[int, dict[str, float]]] = {}
+    for key in set(batting_by_name) | set(pitching_by_name):
         history[key] = {}
         for season in seasons:
-            bat_seasons = batting.get(key, {})
-            pit_seasons = pitching.get(key, {})
+            bat_seasons = batting_by_name.get(key, {})
+            pit_seasons = pitching_by_name.get(key, {})
+            if season not in bat_seasons and season not in pit_seasons:
+                continue
+            bat = bat_seasons.get(season, 0.0)
+            pit = pit_seasons.get(season, 0.0)
+            history[key][season] = {"bat": bat, "pit": pit}
+    for key in set(batting_by_id) | set(pitching_by_id):
+        history[key] = {}
+        for season in seasons:
+            bat_seasons = batting_by_id.get(key, {})
+            pit_seasons = pitching_by_id.get(key, {})
             if season not in bat_seasons and season not in pit_seasons:
                 continue
             bat = bat_seasons.get(season, 0.0)
@@ -286,50 +314,67 @@ def load_sample_counts(season: int, db_path: Path) -> dict[str, dict[str, float 
         return {}
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    batting: dict[str, dict[str, float | None]] = {}
-    pitching: dict[str, dict[str, float | None]] = {}
+    batting_by_name: dict[str, dict[str, float | None]] = {}
+    pitching_by_name: dict[str, dict[str, float | None]] = {}
+    batting_by_id: dict[int, dict[str, float | None]] = {}
+    pitching_by_id: dict[int, dict[str, float | None]] = {}
 
     cursor.execute(
         """
-        SELECT name, pa, war
+        SELECT player_id, name, pa, war
         FROM batting_stats
         WHERE season = ?
         """,
         (season,),
     )
-    for name, pa, war in cursor.fetchall():
+    for player_id, name, pa, war in cursor.fetchall():
         if name is None:
             continue
         key = normalize_name(name)
-        batting[key] = {
+        batting_by_name[key] = {
             "pa": float(pa) if pa is not None else None,
             "bat_war": float(war) if war is not None else None,
         }
+        if player_id is not None:
+            batting_by_id[int(player_id)] = {
+                "pa": float(pa) if pa is not None else None,
+                "bat_war": float(war) if war is not None else None,
+            }
 
     cursor.execute(
         """
-        SELECT name, ip, war
+        SELECT player_id, name, ip, war
         FROM pitching_stats
         WHERE season = ?
         """,
         (season,),
     )
-    for name, ip, war in cursor.fetchall():
+    for player_id, name, ip, war in cursor.fetchall():
         if name is None:
             continue
         key = normalize_name(name)
-        pitching[key] = {
+        pitching_by_name[key] = {
             "ip": float(ip) if ip is not None else None,
             "pit_war": float(war) if war is not None else None,
         }
+        if player_id is not None:
+            pitching_by_id[int(player_id)] = {
+                "ip": float(ip) if ip is not None else None,
+                "pit_war": float(war) if war is not None else None,
+            }
 
     conn.close()
 
-    sample_counts: dict[str, dict[str, float | None]] = {}
-    for key in set(batting) | set(pitching):
+    sample_counts: dict[int | str, dict[str, float | None]] = {}
+    for key in set(batting_by_name) | set(pitching_by_name):
         entry: dict[str, float | None] = {}
-        entry.update(batting.get(key, {}))
-        entry.update(pitching.get(key, {}))
+        entry.update(batting_by_name.get(key, {}))
+        entry.update(pitching_by_name.get(key, {}))
+        sample_counts[key] = entry
+    for key in set(batting_by_id) | set(pitching_by_id):
+        entry: dict[str, float | None] = {}
+        entry.update(batting_by_id.get(key, {}))
+        entry.update(pitching_by_id.get(key, {}))
         sample_counts[key] = entry
     return sample_counts
 
@@ -370,18 +415,22 @@ def load_prospect_anchors(repo_root: Path) -> tuple[dict[int, dict[str, Any]], d
 
 def enrich_players(
     players: list[dict[str, Any]],
-    sample_counts: dict[str, dict[str, float | None]],
+    sample_counts: dict[int | str, dict[str, float | None]],
     prospects_by_id: dict[int, dict[str, Any]],
     prospects_by_name: dict[str, dict[str, Any]],
 ) -> None:
     for player in players:
+        sample = None
+        mlb_id = player.get("mlb_id")
+        if isinstance(mlb_id, int):
+            sample = sample_counts.get(mlb_id)
         name_key = normalize_name(player.get("player_name"))
-        sample = sample_counts.get(name_key, {})
+        if sample is None:
+            sample = sample_counts.get(name_key, {})
         for field in ("pa", "ip", "bat_war", "pit_war"):
             if field in sample and player.get(field) is None:
                 player[field] = sample.get(field)
         prospect_anchor = None
-        mlb_id = player.get("mlb_id")
         if isinstance(mlb_id, int):
             prospect_anchor = prospects_by_id.get(mlb_id)
         if prospect_anchor is None and name_key:
@@ -394,13 +443,19 @@ def compute_weighted_fwar(
     name_key: str,
     seasons: list[int],
     weights: list[float],
-    war_history: dict[str, dict[int, dict[str, float]]],
+    war_history: dict[int | str, dict[int, dict[str, float]]],
+    mlb_id: int | None = None,
 ) -> tuple[float | None, dict[str, Any]]:
-    if name_key not in war_history:
+    history_key: int | str | None = None
+    if isinstance(mlb_id, int) and mlb_id in war_history:
+        history_key = mlb_id
+    elif name_key in war_history:
+        history_key = name_key
+    if history_key is None:
         return None, {"source": "missing_history", "seasons": seasons}
     season_war = []
     for season, weight in zip(seasons, weights):
-        entry = war_history.get(name_key, {}).get(season)
+        entry = war_history.get(history_key, {}).get(season)
         if entry is None:
             continue
         total = entry.get("bat", 0.0) + entry.get("pit", 0.0)
@@ -415,6 +470,7 @@ def compute_weighted_fwar(
     weighted = sum(item[1] * item[2] for item in normalized)
     return weighted, {
         "source": "weighted_history",
+        "history_key": history_key,
         "seasons": [
             {
                 "season": season,
@@ -673,12 +729,20 @@ def compute_player_tvp(
         mlb_defaults = json.load(handle)
 
     weighted_fwar, weighted_meta = compute_weighted_fwar(
-        name_key, fwar_weight_seasons, fwar_weights, war_history
+        name_key,
+        fwar_weight_seasons,
+        fwar_weights,
+        war_history,
+        mlb_id=player.get("mlb_id"),
     )
     is_two_way = name_key in two_way_names
     player_age = player.get("age")
     weighted_fwar, weighted_meta = compute_weighted_fwar(
-        name_key, fwar_weight_seasons, fwar_weights, war_history
+        name_key,
+        fwar_weight_seasons,
+        fwar_weights,
+        war_history,
+        mlb_id=player.get("mlb_id"),
     )
     if weighted_fwar is None:
         fwar_source = "snapshot_fwar"
@@ -998,6 +1062,7 @@ def compute_player_tvp(
                 apply_rookie_transition = True
 
         alpha_info = None
+        reason_not_applied = None
         if apply_rookie_transition:
             alpha_info = compute_rookie_alpha(
                 int(fv_value),
@@ -1029,9 +1094,24 @@ def compute_player_tvp(
                 },
             }
         else:
+            if used_sample_gate:
+                if (is_pitcher and ip_value is None) or (
+                    not is_pitcher and pa_value is None
+                ):
+                    reason_not_applied = "missing_pa_ip"
+                else:
+                    reason_not_applied = "not_early_sample"
+            else:
+                if player_age is None or seasons_used is None:
+                    reason_not_applied = "missing_pa_ip"
+                elif player_age <= 25 and seasons_used <= 2:
+                    reason_not_applied = "gate_failed"
+                else:
+                    reason_not_applied = "not_early_sample"
             rookie_transition.update(
                 {
                     "applied": False,
+                    "reason_not_applied": reason_not_applied,
                     "pa": pa_value,
                     "ip": ip_value,
                     "fwar_to_date": fwar_to_date,
@@ -1051,6 +1131,7 @@ def compute_player_tvp(
         rookie_transition.update(
             {
                 "applied": False,
+                "reason_not_applied": "missing_anchor",
                 "reason": "missing_prospect_anchor",
                 "fv_value": fv_value,
                 "prospect_tvp": prospect_tvp,
@@ -1217,10 +1298,12 @@ def compute_player_tvp(
                 "fwar_source_label": fwar_source_label,
                 "fwar_source_raw": fwar_source,
                 "war_history_used": weighted_meta.get("seasons"),
-                "war_history_seasons_used": len(weighted_meta.get("seasons", [])),
-                "weights_sum": weighted_meta.get("weights_sum")
-                if weighted_fwar is not None
-                else None,
+                "war_history_seasons_used": weighted_meta.get("seasons_count", 0)
+                if fwar_source == "weighted_history"
+                else 0,
+                "weights_sum": weighted_meta.get("weights_sum", 0.0)
+                if fwar_source == "weighted_history"
+                else 0.0,
                 "weighted_fwar": weighted_fwar,
                 "is_pitcher": is_pitcher,
                 "pitcher_qualified": is_pitcher,

@@ -5,6 +5,7 @@ from pathlib import Path
 from compute_mlb_tvp import (
     adjust_player_age,
     compute_player_tvp,
+    compute_weighted_fwar,
     enrich_players,
     load_pitcher_names,
     load_players,
@@ -269,6 +270,17 @@ class TestRookieTransition(unittest.TestCase):
         transition = result["raw_components"].get("rookie_transition", {})
         self.assertFalse(transition.get("applied", False))
         self.assertTrue(math.isclose(result["tvp_current"], result["tvp_mlb"]))
+
+    def test_war_history_prefers_mlb_id(self) -> None:
+        war_history = {
+            123: {2025: {"bat": 2.0, "pit": 0.0}},
+            "namekey": {2025: {"bat": 5.0, "pit": 0.0}},
+        }
+        weighted, meta = compute_weighted_fwar(
+            "namekey", [2025], [1.0], war_history, mlb_id=123
+        )
+        self.assertTrue(math.isclose(weighted or 0.0, 2.0))
+        self.assertEqual(meta.get("history_key"), 123)
 
 
 if __name__ == "__main__":
