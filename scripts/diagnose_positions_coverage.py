@@ -16,7 +16,7 @@ sys.path.insert(0, str(REPO_ROOT / "backend"))
 from compute_mlb_tvp import (  # noqa: E402
     attach_positions,
     build_catcher_ids,
-    load_player_positions_map,
+    load_positions_with_fallback,
 )
 
 
@@ -45,7 +45,7 @@ def main() -> None:
     parser.add_argument(
         "--positions",
         type=Path,
-        default=REPO_ROOT / "backend" / "output" / "player_positions.json",
+        default=REPO_ROOT / "backend" / "data" / "player_positions.json",
         help="Path to player_positions.json",
     )
     parser.add_argument(
@@ -58,7 +58,8 @@ def main() -> None:
     players_payload = load_json(args.players)
     players = players_payload.get("players", [])
 
-    positions_map = load_player_positions_map(args.positions)
+    fixture_path = REPO_ROOT / "backend" / "player_positions_fixture.json"
+    positions_map = load_positions_with_fallback(args.positions, fixture_path)
     position_by_id = attach_positions(players, positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
 

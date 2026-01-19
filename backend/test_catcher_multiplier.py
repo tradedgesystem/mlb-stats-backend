@@ -16,7 +16,7 @@ from compute_mlb_tvp import compute_player_tvp  # noqa: E402
 from tvp_engine import load_config  # noqa: E402
 
 
-FIXTURE_PATH = REPO_ROOT / "backend" / "fixtures" / "player_positions_fixture.json"
+FIXTURE_PATH = REPO_ROOT / "backend" / "player_positions_fixture.json"
 
 
 class TestCatcherMultiplierRegression(unittest.TestCase):
@@ -90,6 +90,17 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
         self.assertTrue(projection.get("is_catcher"))
         self.assertTrue(projection.get("catcher_war_mult_applied"))
         self.assertEqual(projection.get("catcher_war_mult"), 0.90)
+
+        non_catcher = self._base_player(999998, "Synthetic Shortstop")
+        non_catcher["position"] = "SS"
+        non_catcher["position_source"] = "test_fixture"
+        non_catcher_result = self._compute_tvp(non_catcher, set())
+
+        catcher_tvp = result.get("tvp_mlb")
+        non_catcher_tvp = non_catcher_result.get("tvp_mlb")
+        self.assertIsNotNone(catcher_tvp)
+        self.assertIsNotNone(non_catcher_tvp)
+        self.assertLess(catcher_tvp, non_catcher_tvp)
 
     def test_synthetic_non_catcher_unchanged(self):
         non_catcher = self._base_player(999998, "Synthetic Shortstop")

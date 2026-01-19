@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 import sqlite3
 import re
+import os
+import sys
 
 from tvp_engine import compute_mlb_tvp, compute_rookie_alpha, load_config
 
@@ -120,6 +122,25 @@ def load_player_positions_map(positions_path: Path) -> dict[int, dict[str, str |
             "position_source": value.get("position_source"),
         }
     return positions
+
+
+def load_positions_with_fallback(
+    positions_path: Path, fixture_path: Path
+) -> dict[int, dict[str, str | None]]:
+    if positions_path.exists():
+        return load_player_positions_map(positions_path)
+    print(
+        "WARNING: player_positions.json missing. Catcher detection disabled "
+        "unless MLB_POSITIONS_USE_FIXTURE=1 is set for tests.",
+        file=sys.stderr,
+    )
+    if os.getenv("MLB_POSITIONS_USE_FIXTURE") == "1" and fixture_path.exists():
+        print(
+            f"WARNING: Using fixture positions from {fixture_path} (test-only).",
+            file=sys.stderr,
+        )
+        return load_player_positions_map(fixture_path)
+    return {}
 
 
 def tokenize_position(position: str | None) -> list[str]:
@@ -1646,6 +1667,7 @@ def main() -> None:
 
     payload = load_players(players_path)
     snapshot_year = load_config(config_path).snapshot_year
+    snapshot_season = payload.get("meta", {}).get("season", snapshot_year)
     age_offset = 0
     if isinstance(snapshot_season, int):
         age_offset = max(0, snapshot_year - snapshot_season)
@@ -1659,8 +1681,9 @@ def main() -> None:
         args.two_way_min_war,
     )
 
-    positions_path = repo_root / "backend" / "output" / "player_positions.json"
-    positions_map = load_player_positions_map(positions_path)
+    positions_path = repo_root / "backend" / "data" / "player_positions.json"
+    fixture_path = repo_root / "backend" / "player_positions_fixture.json"
+    positions_map = load_positions_with_fallback(positions_path, fixture_path)
     position_by_id = attach_positions(payload.get("players", []), positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
     fwar_weights = parse_weights(args.fwar_weights)
@@ -1668,48 +1691,6 @@ def main() -> None:
         fwar_weights = [1.0]
     fwar_weight_seasons = [
         snapshot_season - offset for offset in range(len(fwar_weights))
-    ]
-    war_history = load_war_history(fwar_weight_seasons, stats_db_path)
-    sample_counts = load_sample_counts(snapshot_season, stats_db_path)
-    prospects_by_id, prospects_by_name = load_prospect_anchors(repo_root)
-    contracts_2026_map = load_contracts_2026_map(contracts_2026_path, snapshot_year)
-    enrich_players(
-        payload.get("players", []),
-        sample_counts,
-        prospects_by_id,
-        prospects_by_name,
-    )
-    results = [
-        compute_player_tvp(
-            adjust_player_age(player, age_offset),
-            snapshot_year,
-            config_path,
-            args.max_years,
-            args.fwar_scale,
-            None if args.fwar_cap <= 0 else args.fwar_cap,
-            not args.no_aging_curve,
-            args.prime_age,
-            args.decline_per_year,
-            args.aging_floor,
-            reliever_names,
-            reliever_mult,
-            args.control_years_fallback,
-            args.control_years_age_max,
-            two_way_names,
-            None if args.two_way_fwar_cap <= 0 else args.two_way_fwar_cap,
-            args.two_way_mult,
-            war_history,
-            fwar_weights,
-            fwar_weight_seasons,
-            pitcher_names,
-            args.pitcher_regress_weight,
-            args.pitcher_regress_target,
-            contracts_2026_map,
-            args.young_player_max_age,
-            args.young_player_scale,
-            catcher_ids,
-        )
-        for player in payload.get("players", [])
     ]
     war_history = load_war_history(fwar_weight_seasons, stats_db_path)
     sample_counts = load_sample_counts(snapshot_season, stats_db_path)

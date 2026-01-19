@@ -39,7 +39,7 @@ MLB_API_SEARCH_CACHE_DIR = MLB_API_CACHE_DIR / "people_search"
 FANGRAPHS_CACHE_DIR = Path(__file__).with_name("data") / "fangraphs_cache"
 FANGRAPHS_ROSTERRESOURCE_CACHE_DIR = FANGRAPHS_CACHE_DIR / "rosterresource"
 FANGRAPHS_CONTRACTS_PATH = REPO_ROOT / "output" / "scrape_all_contracts.json"
-PLAYER_POSITIONS_PATH = OUTPUT_DIR / "player_positions.json"
+PLAYER_POSITIONS_PATH = REPO_ROOT / "backend" / "data" / "player_positions.json"
 
 SPOTRAC_BASE = "https://www.spotrac.com/mlb"
 COTTS_BASE = "https://legacy.baseballprospectus.com/compensation/cots"
@@ -1356,7 +1356,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     cursor.execute(
         """
-        SELECT player_id, name, team, age, war, pos
+        SELECT player_id, name, team, age, war
         FROM batting_stats
         WHERE season = ?
         """,
@@ -1366,7 +1366,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     cursor.execute(
         """
-        SELECT player_id, name, team, age, war, pos
+        SELECT player_id, name, team, age, war
         FROM pitching_stats
         WHERE season = ?
         """,
@@ -1377,7 +1377,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     index: dict[int, PlayerIndexEntry] = {}
 
-    for player_id, name, team, age, war, pos in batting_rows:
+    for player_id, name, team, age, war in batting_rows:
         index[player_id] = PlayerIndexEntry(
             player_id=player_id,
             mlb_id=None,
@@ -1389,7 +1389,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
             position=None,  # Don't set position - pos is not a position code
         )
 
-    for player_id, name, team, age, war, pos in pitching_rows:
+    for player_id, name, team, age, war in pitching_rows:
         entry = index.get(player_id)
         if entry:
             entry.war_pitching = war

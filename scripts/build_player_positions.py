@@ -90,8 +90,13 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("backend/output/player_positions.json"),
+        default=Path("backend/data/player_positions.json"),
         help="Output path for player_positions.json",
+    )
+    parser.add_argument(
+        "--mlb-ids",
+        type=str,
+        help="Optional comma-separated mlb_ids to fetch (overrides --players).",
     )
     parser.add_argument(
         "--refresh",
@@ -112,14 +117,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    players = load_players(args.players)
-    mlb_ids = sorted(
-        {
-            player.get("mlb_id")
-            for player in players
-            if isinstance(player.get("mlb_id"), int)
-        }
-    )
+    if args.mlb_ids:
+        raw_ids = [item.strip() for item in args.mlb_ids.split(",") if item.strip()]
+        mlb_ids = sorted({int(item) for item in raw_ids})
+    else:
+        players = load_players(args.players)
+        mlb_ids = sorted(
+            {
+                player.get("mlb_id")
+                for player in players
+                if isinstance(player.get("mlb_id"), int)
+            }
+        )
 
     positions = {} if args.refresh else load_existing_positions(args.output)
     missing = [mlb_id for mlb_id in mlb_ids if mlb_id not in positions]
@@ -142,6 +151,12 @@ def main() -> None:
 
     write_positions(args.output, positions)
     print(f"Wrote {args.output}")
+    for mlb_id in mlb_ids:
+        info = positions.get(mlb_id)
+        if not info:
+            print(f"{mlb_id}\tMISSING")
+            continue
+        print(f"{mlb_id}\t{info.get('position')}\t{info.get('position_source')}")
 
 
 if __name__ == "__main__":

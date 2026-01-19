@@ -6,3 +6,8 @@ backend/data/spotrac_cache/search_players/
 backend/data/mlb_api_cache/
 backend/data/fangraphs_cache/
 output/
+backend/output/
+out/
+tvp_mlb_*.json
+contracts_*.json
+backend/data/player_positions.json

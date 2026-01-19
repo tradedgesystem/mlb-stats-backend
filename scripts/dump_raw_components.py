@@ -20,7 +20,7 @@ from compute_mlb_tvp import (  # noqa: E402
     load_contracts_2026_map,
     load_pitcher_names,
     load_players,
-    load_player_positions_map,
+    load_positions_with_fallback,
     load_reliever_names,
     load_prospect_anchors,
     load_sample_counts,
@@ -241,8 +241,9 @@ def main() -> None:
         REPO_ROOT / "backend" / "output" / "players_with_contracts_2025.json"
     )
     payload = load_players(players_path)
-    positions_path = REPO_ROOT / "backend" / "output" / "player_positions.json"
-    positions_map = load_player_positions_map(positions_path)
+    positions_path = REPO_ROOT / "backend" / "data" / "player_positions.json"
+    fixture_path = REPO_ROOT / "backend" / "player_positions_fixture.json"
+    positions_map = load_positions_with_fallback(positions_path, fixture_path)
     position_by_id = attach_positions(payload.get("players", []), positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
     snapshot_year = load_config(config_path).snapshot_year
@@ -325,6 +326,14 @@ def main() -> None:
     combined_path = args.output_dir / "raw_components_top3.json"
     with combined_path.open("w", encoding="utf-8") as handle:
         json.dump(results, handle, ensure_ascii=True, indent=2)
+
+    print("\n=== CATCHER PROJECTION FIELDS ===")
+    for result in results:
+        projection = result.get("raw_components", {}).get("projection", {})
+        print(f"{result.get('player_name')} ({result.get('mlb_id')})")
+        print(f"  position: {projection.get('position')}")
+        print(f"  position_source: {projection.get('position_source')}")
+        print(f"  is_catcher: {projection.get('is_catcher')}")
 
     print(f"Wrote {len(results)} players to {args.output_dir}")
 
