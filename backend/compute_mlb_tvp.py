@@ -1016,8 +1016,9 @@ def compute_player_tvp(
     tvp_current = tvp_mlb_value
     rookie_transition: dict[str, Any] = {
         "applied": False,
-        "tvp_mlb_pre_blend": tvp_mlb_value,
-        "tvp_current_post_blend": tvp_mlb_value,
+        "tvp_current_pre": tvp_mlb_value,
+        "tvp_current_post": tvp_mlb_value,
+        "delta": 0.0,
     }
     prospect_anchor = player.get("prospect_anchor")
     fv_value = None
@@ -1027,39 +1028,41 @@ def compute_player_tvp(
         fv_value = prospect_anchor.get("fv_value")
         if fv_value is None:
             fv_value = (prospect_anchor.get("raw_components") or {}).get("fv_value")
+    sample_pa = player.get("pa")
+    sample_ip = player.get("ip")
+    sample_bat_war = player.get("bat_war")
+    sample_pit_war = player.get("pit_war")
+    pa_value = float(sample_pa) if isinstance(sample_pa, (int, float)) else None
+    ip_value = float(sample_ip) if isinstance(sample_ip, (int, float)) else None
+    if is_pitcher:
+        fwar_to_date = (
+            float(sample_pit_war)
+            if isinstance(sample_pit_war, (int, float))
+            else float(player.get("fwar") or 0.0)
+        )
+    else:
+        fwar_to_date = (
+            float(sample_bat_war)
+            if isinstance(sample_bat_war, (int, float))
+            else float(player.get("fwar") or 0.0)
+        )
+    seasons_used = weighted_meta.get("seasons_count", 0)
+    used_sample_gate = False
+    early_sample_eligible = False
+    if is_pitcher:
+        if ip_value is not None:
+            used_sample_gate = True
+            early_sample_eligible = ip_value < 500
+    else:
+        if pa_value is not None:
+            used_sample_gate = True
+            early_sample_eligible = pa_value < 2000
+    if not used_sample_gate:
+        if player_age is not None and player_age <= 25 and seasons_used <= 2:
+            early_sample_eligible = True
+
     if isinstance(fv_value, (int, float)) and isinstance(prospect_tvp, (int, float)):
-        sample_pa = player.get("pa")
-        sample_ip = player.get("ip")
-        sample_bat_war = player.get("bat_war")
-        sample_pit_war = player.get("pit_war")
-        pa_value = float(sample_pa) if isinstance(sample_pa, (int, float)) else None
-        ip_value = float(sample_ip) if isinstance(sample_ip, (int, float)) else None
-        if is_pitcher:
-            fwar_to_date = (
-                float(sample_pit_war)
-                if isinstance(sample_pit_war, (int, float))
-                else float(player.get("fwar") or 0.0)
-            )
-        else:
-            fwar_to_date = (
-                float(sample_bat_war)
-                if isinstance(sample_bat_war, (int, float))
-                else float(player.get("fwar") or 0.0)
-            )
-        seasons_used = weighted_meta.get("seasons_count", 0)
-        used_sample_gate = False
-        apply_rookie_transition = False
-        if is_pitcher:
-            if ip_value is not None:
-                used_sample_gate = True
-                apply_rookie_transition = ip_value < 500
-        else:
-            if pa_value is not None:
-                used_sample_gate = True
-                apply_rookie_transition = pa_value < 2000
-        if not used_sample_gate:
-            if player_age is not None and player_age <= 25 and seasons_used <= 2:
-                apply_rookie_transition = True
+        apply_rookie_transition = early_sample_eligible
 
         alpha_info = None
         reason_not_applied = None
@@ -1084,9 +1087,11 @@ def compute_player_tvp(
                 "fwar_to_date": fwar_to_date,
                 "fv_value": fv_value,
                 "prospect_tvp": float(prospect_tvp),
-                "tvp_mlb_pre_blend": tvp_mlb_value,
-                "tvp_current_post_blend": tvp_current,
+                "tvp_current_pre": tvp_mlb_value,
+                "tvp_current_post": tvp_current,
+                "delta": tvp_current - tvp_mlb_value,
                 "source_file": prospect_anchor.get("source_file") if prospect_anchor else None,
+                "early_sample_eligible": early_sample_eligible,
                 "gate": {
                     "used_pa_ip": used_sample_gate,
                     "age": player_age,
@@ -1117,9 +1122,13 @@ def compute_player_tvp(
                     "fwar_to_date": fwar_to_date,
                     "fv_value": fv_value,
                     "prospect_tvp": float(prospect_tvp),
+                    "tvp_current_pre": tvp_mlb_value,
+                    "tvp_current_post": tvp_current,
+                    "delta": tvp_current - tvp_mlb_value,
                     "source_file": prospect_anchor.get("source_file")
                     if prospect_anchor
                     else None,
+                    "early_sample_eligible": early_sample_eligible,
                     "gate": {
                         "used_pa_ip": used_sample_gate,
                         "age": player_age,
@@ -1133,11 +1142,23 @@ def compute_player_tvp(
                 "applied": False,
                 "reason_not_applied": "missing_anchor",
                 "reason": "missing_prospect_anchor",
+                "pa": pa_value,
+                "ip": ip_value,
+                "fwar_to_date": fwar_to_date,
                 "fv_value": fv_value,
                 "prospect_tvp": prospect_tvp,
+                "tvp_current_pre": tvp_mlb_value,
+                "tvp_current_post": tvp_current,
+                "delta": tvp_current - tvp_mlb_value,
                 "source_file": prospect_anchor.get("source_file")
                 if isinstance(prospect_anchor, dict)
                 else None,
+                "early_sample_eligible": early_sample_eligible,
+                "gate": {
+                    "used_pa_ip": used_sample_gate,
+                    "age": player_age,
+                    "war_history_seasons_used": seasons_used,
+                },
             }
         )
 

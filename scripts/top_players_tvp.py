@@ -32,20 +32,30 @@ def main() -> None:
         default=25,
         help="Number of top players to return (default: 25).",
     )
+    parser.add_argument(
+        "--by",
+        type=str,
+        default="tvp_current",
+        choices=["tvp_current", "tvp_mlb"],
+        help="Sort key to rank players (default: tvp_current).",
+    )
     args = parser.parse_args()
 
     refresh_tvp()
     players = load_players()
 
-    valid_players = [p for p in players if p.get("tvp_mlb") is not None]
-    sorted_players = sorted(valid_players, key=lambda x: x["tvp_mlb"], reverse=True)
+    valid_players = [
+        p for p in players if p.get("tvp_mlb") is not None and p.get(args.by) is not None
+    ]
+    sorted_players = sorted(valid_players, key=lambda x: x[args.by], reverse=True)
     top_players = sorted_players[: args.count]
 
     for rank, player in enumerate(top_players, 1):
         player_name = player.get("player_name")
         mlb_id = player.get("mlb_id")
         tvp_mlb = player.get("tvp_mlb")
-        print(f"{rank}, {player_name}, {mlb_id}, {tvp_mlb:.3f}")
+        tvp_current = player.get("tvp_current")
+        print(f"{rank}, {player_name}, {mlb_id}, {tvp_mlb:.3f}, {tvp_current:.3f}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import math
+import sys
 import unittest
 from pathlib import Path
 
@@ -16,6 +17,11 @@ from compute_mlb_tvp import (
     load_war_history,
 )
 from tvp_engine import compute_prospect_tvp, load_config
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+from audit_rookie_transition import collect_audit_rows  # noqa: E402
 
 
 class TestRookieTransition(unittest.TestCase):
@@ -96,6 +102,18 @@ class TestRookieTransition(unittest.TestCase):
         self.assertTrue(transition["applied"])
         self.assertLess(transition["alpha"], 1.0)
         self.assertFalse(math.isclose(result["tvp_current"], result["tvp_mlb"]))
+        self.assertIn("tvp_current_pre", transition)
+        self.assertIn("tvp_current_post", transition)
+        self.assertIn("delta", transition)
+        self.assertFalse(math.isclose(transition["delta"], 0.0))
+        self.assertTrue(
+            math.isclose(
+                transition["delta"],
+                transition["tvp_current_post"] - transition["tvp_current_pre"],
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+        )
         tvp_prospect = transition["prospect_tvp"]
         tvp_current = result["tvp_current"]
         self.assertIsNotNone(tvp_prospect)
@@ -207,6 +225,38 @@ class TestRookieTransition(unittest.TestCase):
         else:
             self.assertIn("alpha", transition)
 
+    def test_integration_anchor_link_by_mlb_id(self) -> None:
+        repo_root = Path(__file__).resolve().parent
+        players_path = repo_root / "output" / "players_with_contracts_2025.json"
+        prospects_path = repo_root / "output" / "tvp_prospects_2026_final.json"
+        stats_db_path = repo_root / "stats.db"
+        if (
+            not players_path.exists()
+            or not stats_db_path.exists()
+            or not prospects_path.exists()
+        ):
+            self.skipTest("Missing local players/DB/prospects fixtures.")
+
+        payload = load_players(players_path)
+        prospects = load_players(prospects_path).get("prospects", [])
+        prospect_ids = {p.get("mlb_id") for p in prospects if isinstance(p.get("mlb_id"), int)}
+        players = payload.get("players", [])
+        candidate = next(
+            (p for p in players if p.get("mlb_id") in prospect_ids),
+            None,
+        )
+        if not candidate:
+            self.skipTest("No overlapping mlb_id between players and prospects.")
+
+        config_path = repo_root / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        snapshot_season = payload.get("meta", {}).get("season", snapshot_year)
+        sample_counts = load_sample_counts(snapshot_season, stats_db_path)
+        prospects_by_id, prospects_by_name = load_prospect_anchors(repo_root.parents[0])
+        enrich_players(players, sample_counts, prospects_by_id, prospects_by_name)
+        self.assertIsNotNone(candidate.get("prospect_anchor"))
+
     def test_integration_rookie_transition_cal_raleigh(self) -> None:
         repo_root = Path(__file__).resolve().parent
         players_path = repo_root / "output" / "players_with_contracts_2025.json"
@@ -281,6 +331,52 @@ class TestRookieTransition(unittest.TestCase):
         )
         self.assertTrue(math.isclose(weighted or 0.0, 2.0))
         self.assertEqual(meta.get("history_key"), 123)
+
+    def test_should_have_applied_excludes_non_early_sample(self) -> None:
+        players = [
+            {
+                "player_name": "Early Sample Missing Anchor",
+                "mlb_id": 3001,
+                "age": 23,
+                "tvp_mlb": 10.0,
+                "tvp_current": 10.0,
+                "raw_components": {
+                    "war_inputs": {"is_pitcher": False, "war_history_seasons_used": 1},
+                    "rookie_transition": {
+                        "applied": False,
+                        "reason_not_applied": "missing_anchor",
+                        "pa": 150.0,
+                        "ip": None,
+                        "tvp_current_pre": 10.0,
+                        "tvp_current_post": 10.0,
+                        "delta": 0.0,
+                    },
+                },
+            },
+            {
+                "player_name": "Veteran Missing Anchor",
+                "mlb_id": 3002,
+                "age": 29,
+                "tvp_mlb": 20.0,
+                "tvp_current": 20.0,
+                "raw_components": {
+                    "war_inputs": {"is_pitcher": False, "war_history_seasons_used": 5},
+                    "rookie_transition": {
+                        "applied": False,
+                        "reason_not_applied": "missing_anchor",
+                        "pa": 2500.0,
+                        "ip": None,
+                        "tvp_current_pre": 20.0,
+                        "tvp_current_post": 20.0,
+                        "delta": 0.0,
+                    },
+                },
+            },
+        ]
+        applied, missing_candidates, _ = collect_audit_rows(players)
+        self.assertEqual(len(applied), 0)
+        self.assertEqual(len(missing_candidates), 1)
+        self.assertEqual(missing_candidates[0]["mlb_id"], 3001)
 
 
 if __name__ == "__main__":
