@@ -128,6 +128,7 @@ class PlayerIndexEntry:
     age: Optional[int]
     war_batting: Optional[float]
     war_pitching: Optional[float]
+    position: Optional[str] = None
 
     @property
     def war_total(self) -> Optional[float]:
@@ -226,7 +227,9 @@ def parse_year_range(text: str) -> tuple[Optional[int], Optional[int]]:
     return start, end
 
 
-def parse_contract_summary(summary: str) -> tuple[Optional[int], Optional[float], Optional[int], Optional[int], set[int]]:
+def parse_contract_summary(
+    summary: str,
+) -> tuple[Optional[int], Optional[float], Optional[int], Optional[int], set[int]]:
     years_match = re.search(r"(\d+)\s*year", summary, re.IGNORECASE)
     years = int(years_match.group(1)) if years_match else None
     value_match = re.search(r"\$[\d,.]+[MKmk]?", summary)
@@ -330,7 +333,9 @@ def fetch_spotrac_search_url(url: str, cache_path: Path) -> tuple[str, str]:
     try:
         from botasaurus.request import Request
     except ImportError as exc:
-        raise RuntimeError("botasaurus is required for Spotrac search fallback") from exc
+        raise RuntimeError(
+            "botasaurus is required for Spotrac search fallback"
+        ) from exc
 
     req = Request()
     last_error: Optional[Exception] = None
@@ -342,7 +347,9 @@ def fetch_spotrac_search_url(url: str, cache_path: Path) -> tuple[str, str]:
             html_text = response.text
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(html_text, encoding="utf-8")
-            time.sleep(SPOTRAC_SEARCH_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS))
+            time.sleep(
+                SPOTRAC_SEARCH_DELAY_SECONDS + random.uniform(0, DELAY_JITTER_SECONDS)
+            )
             return html_text, datetime.utcnow().isoformat()
         except Exception as exc:
             last_error = exc
@@ -358,7 +365,7 @@ def extract_spotrac_player_url(html_text: str, name_key: str) -> Optional[str]:
         return meta["content"]
 
     candidates = []
-    for link in soup.select("a[href*=\"/mlb/player/\"]"):
+    for link in soup.select('a[href*="/mlb/player/"]'):
         href = link.get("href")
         if not href:
             continue
@@ -420,7 +427,9 @@ def fetch_fangraphs_rosterresource(url: str, cache_path: Path) -> tuple[str, str
     try:
         from botasaurus.browser import Driver
     except ImportError as exc:
-        raise RuntimeError("botasaurus browser is required for Fangraphs fallback") from exc
+        raise RuntimeError(
+            "botasaurus browser is required for Fangraphs fallback"
+        ) from exc
 
     driver = Driver(headless=True, block_images=True)
     try:
@@ -597,7 +606,9 @@ def resolve_mlb_id_from_search(name: str) -> Optional[int]:
 
     name_key = normalize_name(name)
     exact = [
-        person for person in people if normalize_name(person.get("fullName", "")) == name_key
+        person
+        for person in people
+        if normalize_name(person.get("fullName", "")) == name_key
     ]
     if len(exact) == 1:
         return parse_int_value(exact[0].get("id"))
@@ -745,9 +756,7 @@ def extract_option_notes(notes: list[str]) -> dict[int, dict]:
         money_values = re.findall(r"\$[\d,.]+[MKmk]?", note)
         salary_m = parse_money_to_m(money_values[0]) if money_values else None
         buyout_m = None
-        buyout_match = re.search(
-            r"buyout[^$]*\$[\d,.]+[MKmk]?", note, re.IGNORECASE
-        )
+        buyout_match = re.search(r"buyout[^$]*\$[\d,.]+[MKmk]?", note, re.IGNORECASE)
         if buyout_match:
             buyout_m = parse_money_to_m(
                 re.search(r"\$[\d,.]+[MKmk]?", buyout_match.group(0)).group(0)
@@ -791,7 +800,9 @@ def parse_spotrac_payroll_options(soup: BeautifulSoup) -> dict[int, dict]:
         if not year_text.isdigit():
             continue
         season = int(year_text)
-        status = tds[idx_status].get_text(" ", strip=True) if idx_status is not None else ""
+        status = (
+            tds[idx_status].get_text(" ", strip=True) if idx_status is not None else ""
+        )
         status_lower = status.strip().lower()
         option_type = parse_option_type(status)
         if option_type is None and not any(
@@ -821,7 +832,9 @@ def parse_spotrac_payroll_options(soup: BeautifulSoup) -> dict[int, dict]:
     return options
 
 
-def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dict], Optional[int]]:
+def parse_contract_table(
+    soup: BeautifulSoup,
+) -> tuple[list[dict], dict[int, dict], Optional[int]]:
     contract_years: list[dict] = []
     options: dict[int, dict] = {}
     free_agent_year: Optional[int] = None
@@ -866,7 +879,8 @@ def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dic
             continue
 
         is_option_like = option_type is not None or any(
-            token in status_lower for token in ("option", "vesting", "conditional", "buyout")
+            token in status_lower
+            for token in ("option", "vesting", "conditional", "buyout")
         )
         if payroll_entry:
             is_option_like = True
@@ -895,7 +909,9 @@ def parse_contract_table(soup: BeautifulSoup) -> tuple[list[dict], dict[int, dic
     return contract_years, options, free_agent_year
 
 
-def parse_player_contract_page(html_text: str) -> tuple[list[dict], list[dict], Optional[int]]:
+def parse_player_contract_page(
+    html_text: str,
+) -> tuple[list[dict], list[dict], Optional[int]]:
     soup = BeautifulSoup(html_text, "html.parser")
     contract_years, options_from_table, free_agent_year = parse_contract_table(soup)
     notes = extract_contract_notes(soup)
@@ -916,7 +932,8 @@ def extract_cotts_team_urls() -> dict[str, str]:
     soup = BeautifulSoup(html_text, "html.parser")
     team_urls: dict[str, str] = {}
     name_to_abbrev = {
-        normalize_team_name(info["name"]): info["abbrev"] for info in TEAM_SLUGS.values()
+        normalize_team_name(info["name"]): info["abbrev"]
+        for info in TEAM_SLUGS.values()
     }
 
     for link in soup.find_all("a"):
@@ -934,7 +951,9 @@ def extract_cotts_team_urls() -> dict[str, str]:
     return team_urls
 
 
-def parse_cotts_details(details: list[str]) -> tuple[dict[int, float], dict[int, str], dict[int, float], set[int]]:
+def parse_cotts_details(
+    details: list[str],
+) -> tuple[dict[int, float], dict[int, str], dict[int, float], set[int]]:
     salary_by_year: dict[int, float] = {}
     option_types: dict[int, str] = {}
     buyouts: dict[int, float] = {}
@@ -1007,40 +1026,54 @@ def parse_cotts_details(details: list[str]) -> tuple[dict[int, float], dict[int,
                     option_years.add(year)
 
         if "buyout" in line.lower():
-            buyout_match = re.search(r"buyout[^$]*\$([\d,.]+[MKmk]?)", line, re.IGNORECASE)
+            buyout_match = re.search(
+                r"buyout[^$]*\$([\d,.]+[MKmk]?)", line, re.IGNORECASE
+            )
             if buyout_match:
                 buyout_m = parse_money_to_m(f"${buyout_match.group(1)}")
                 if buyout_m is not None:
                     year_match = re.search(r"(\d{2,4})", line)
-                    year = normalize_short_year(year_match.group(1)) if year_match else None
+                    year = (
+                        normalize_short_year(year_match.group(1))
+                        if year_match
+                        else None
+                    )
                     if year:
                         buyouts[year] = buyout_m
 
     return salary_by_year, option_types, buyouts, option_years
 
 
-def parse_cotts_contract(summary: str, details: list[str]) -> tuple[list[dict], list[dict], Optional[float], Optional[float], Optional[int]]:
+def parse_cotts_contract(
+    summary: str, details: list[str]
+) -> tuple[list[dict], list[dict], Optional[float], Optional[float], Optional[int]]:
     years, total_value_m, start_year, end_year, option_years_from_summary = (
         parse_contract_summary(summary)
     )
-    salary_by_year, option_types, buyouts, option_years_from_details = parse_cotts_details(details)
+    salary_by_year, option_types, buyouts, option_years_from_details = (
+        parse_cotts_details(details)
+    )
 
     option_years = set(option_years_from_summary)
 
     if start_year and end_year:
         option_years.update(
-            year
-            for year in option_years_from_details
-            if start_year <= year <= end_year
+            year for year in option_years_from_details if start_year <= year <= end_year
         )
         allowed_years = set(range(start_year, end_year + 1)) | option_years
         salary_by_year = {
-            year: salary for year, salary in salary_by_year.items() if year in allowed_years
+            year: salary
+            for year, salary in salary_by_year.items()
+            if year in allowed_years
         }
         option_types = {
-            year: option_type for year, option_type in option_types.items() if year in allowed_years
+            year: option_type
+            for year, option_type in option_types.items()
+            if year in allowed_years
         }
-        buyouts = {year: buyout for year, buyout in buyouts.items() if year in allowed_years}
+        buyouts = {
+            year: buyout for year, buyout in buyouts.items() if year in allowed_years
+        }
 
     aav_m = None
     if years and total_value_m is not None and years > 0:
@@ -1097,9 +1130,7 @@ def parse_cotts_team_players(html_text: str) -> list[dict]:
     players: list[dict] = []
 
     for p in content.find_all("p"):
-        name_span = p.find(
-            "span", style=lambda s: s and "font-size: 130%" in s
-        )
+        name_span = p.find("span", style=lambda s: s and "font-size: 130%" in s)
         if not name_span:
             continue
         name = name_span.get_text(" ", strip=True)
@@ -1185,7 +1216,9 @@ def load_chadwick_register_rows() -> list[dict]:
     return df.to_dict(orient="records")
 
 
-def build_chadwick_maps() -> tuple[dict[int, int], dict[int, str], dict[str, list[dict]]]:
+def build_chadwick_maps() -> tuple[
+    dict[int, int], dict[int, str], dict[str, list[dict]]
+]:
     rows = load_chadwick_register_rows()
     fg_to_mlb: dict[int, int] = {}
     mlb_to_bbref: dict[int, str] = {}
@@ -1297,7 +1330,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     cursor.execute(
         """
-        SELECT player_id, name, team, age, war
+        SELECT player_id, name, team, age, war, pos
         FROM batting_stats
         WHERE season = ?
         """,
@@ -1307,7 +1340,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     cursor.execute(
         """
-        SELECT player_id, name, team, age, war
+        SELECT player_id, name, team, age, war, pos
         FROM pitching_stats
         WHERE season = ?
         """,
@@ -1318,7 +1351,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
 
     index: dict[int, PlayerIndexEntry] = {}
 
-    for player_id, name, team, age, war in batting_rows:
+    for player_id, name, team, age, war, pos in batting_rows:
         index[player_id] = PlayerIndexEntry(
             player_id=player_id,
             mlb_id=None,
@@ -1327,9 +1360,10 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
             age=age,
             war_batting=war,
             war_pitching=None,
+            position=pos,
         )
 
-    for player_id, name, team, age, war in pitching_rows:
+    for player_id, name, team, age, war, pos in pitching_rows:
         entry = index.get(player_id)
         if entry:
             entry.war_pitching = war
@@ -1337,6 +1371,8 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
                 entry.age = age
             if entry.team in {"", None}:
                 entry.team = team
+            if entry.position is None:
+                entry.position = pos
         else:
             index[player_id] = PlayerIndexEntry(
                 player_id=player_id,
@@ -1346,6 +1382,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
                 age=age,
                 war_batting=None,
                 war_pitching=war,
+                position=pos,
             )
 
     return index
@@ -1358,9 +1395,7 @@ def apply_mlb_ids(
 ) -> list[dict]:
     mlb_to_fg = json.loads(ID_MAP_PATH.read_text())
     fg_to_mlb = {
-        int(fg_id): int(mlb_id)
-        for mlb_id, fg_id in mlb_to_fg.items()
-        if int(fg_id) > 0
+        int(fg_id): int(mlb_id) for mlb_id, fg_id in mlb_to_fg.items() if int(fg_id) > 0
     }
 
     for fg_id, mlb_id in chadwick_fangraphs.items():
@@ -1453,9 +1488,7 @@ def build_contract_outputs():
 
     player_index = load_player_index(SNAPSHOT_SEASON)
     chadwick_fangraphs, mlb_to_bbref, chadwick_names = build_chadwick_maps()
-    id_match_warnings = apply_mlb_ids(
-        player_index, chadwick_fangraphs, chadwick_names
-    )
+    id_match_warnings = apply_mlb_ids(player_index, chadwick_fangraphs, chadwick_names)
     by_team, by_name = build_matching_indexes(player_index)
 
     contracts_by_mlb_id: dict[int, dict] = {}
@@ -1615,9 +1648,9 @@ def build_contract_outputs():
             if entry.mlb_id:
                 contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
                 bref_added += 1
-            contracts_by_name_team[
-                (normalize_name(entry.name), entry.team.lower())
-            ] = contract
+            contracts_by_name_team[(normalize_name(entry.name), entry.team.lower())] = (
+                contract
+            )
             bref_reused += 1
             continue
 
@@ -1651,9 +1684,7 @@ def build_contract_outputs():
             if entry_year.get("salary_m") is not None
         )
         aav_m = (
-            round(total_value_m / len(contract_years), 3)
-            if contract_years
-            else None
+            round(total_value_m / len(contract_years), 3) if contract_years else None
         )
         years_remaining, guaranteed_remaining = compute_years_remaining(contract_years)
 
@@ -1679,9 +1710,9 @@ def build_contract_outputs():
         if entry.mlb_id:
             contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
             bref_added += 1
-        contracts_by_name_team[
-            (normalize_name(entry.name), entry.team.lower())
-        ] = contract
+        contracts_by_name_team[(normalize_name(entry.name), entry.team.lower())] = (
+            contract
+        )
         if idx == 1 or idx % 25 == 0 or idx == total_missing:
             print(
                 "BRef: "
@@ -1770,9 +1801,9 @@ def build_contract_outputs():
         if entry.mlb_id:
             contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
             spotrac_search_added += 1
-        contracts_by_name_team[
-            (normalize_name(entry.name), entry.team.lower())
-        ] = contract
+        contracts_by_name_team[(normalize_name(entry.name), entry.team.lower())] = (
+            contract
+        )
 
         if idx == 1 or idx % 25 == 0 or idx == len(remaining_entries):
             print(
@@ -1832,9 +1863,9 @@ def build_contract_outputs():
         }
 
         contracts_by_mlb_id.setdefault(entry.mlb_id, contract)
-        contracts_by_name_team[
-            (normalize_name(entry.name), entry.team.lower())
-        ] = contract
+        contracts_by_name_team[(normalize_name(entry.name), entry.team.lower())] = (
+            contract
+        )
         derived_added += 1
 
     if derived_added:
@@ -1975,6 +2006,7 @@ def build_contract_outputs():
                 "team": entry.team,
                 "age": entry.age,
                 "fwar": entry.war_total,
+                "position": entry.position,
                 "contract": contract,
             }
         )

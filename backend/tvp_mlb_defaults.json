@@ -20,5 +20,6 @@
   "contracts_2026_fallback": "mlb_2026_contracts_all_teams.sqlite",
   "hitter_mean_revert_age_max": 26,
   "hitter_mean_revert_target_war": 2.5,
-  "hitter_mean_revert_weight": 0.35
+  "hitter_mean_revert_weight": 0.35,
+  "catcher_war_mult": 0.90
 }

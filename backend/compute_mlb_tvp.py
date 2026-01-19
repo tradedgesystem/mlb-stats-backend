@@ -43,9 +43,7 @@ def normalize_name(name: str | None) -> str:
     if not name:
         return ""
     normalized = unicodedata.normalize("NFKD", name)
-    stripped = "".join(
-        char for char in normalized if not unicodedata.combining(char)
-    )
+    stripped = "".join(char for char in normalized if not unicodedata.combining(char))
     stripped = re.sub(r"\(.*?\)", "", stripped)
     stripped = stripped.replace(".", " ")
     stripped = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", stripped, flags=re.IGNORECASE)
@@ -99,6 +97,52 @@ def load_pitcher_names(season: int, db_path: Path) -> set[str]:
             pitchers.add(normalize_name(name))
     conn.close()
     return pitchers
+
+
+def load_catcher_names(players_path: Path, db_path: Path, season: int) -> set[str]:
+    catchers: set[str] = set()
+
+    # First try: Load from players_with_contracts.json for deterministic position data
+    if players_path.exists():
+        with players_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+            for player in data.get("players", []):
+                position = player.get("position")
+                if position and "C" in str(position).upper():
+                    name_key = normalize_name(player.get("player_name", ""))
+                    if name_key:
+                        catchers.add(name_key)
+
+    # Fallback: Infer from stats.db pos field for players not found above
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT DISTINCT name, pos
+        FROM batting_stats
+        WHERE season = ? AND name IS NOT NULL
+        """,
+        (season,),
+    )
+
+    for name, pos in cursor.fetchall():
+        if pos is None or name is None:
+            continue
+        name_key = normalize_name(name)
+        if name_key in catchers:
+            continue  # Already have from contracts file
+        # Check if position suggests catcher (pos typically 5-9 for catchers based on data)
+        # Based on observed data: Cal Raleigh=5.1, Will Smith=7.3, etc.
+        # Use range 5.0 to 10.0 as catcher indicator
+        try:
+            pos_val = float(pos)
+            if 5.0 <= pos_val <= 10.0:
+                catchers.add(name_key)
+        except (ValueError, TypeError):
+            pass
+
+    conn.close()
+    return catchers
 
 
 def parse_contract_years(contract_text: str | None, snapshot_year: int) -> list[int]:
@@ -273,9 +317,9 @@ def load_war_history(
             continue
         key = normalize_name(name)
         pitching_by_name.setdefault(key, {})
-        pitching_by_name[key][season] = pitching_by_name[key].get(
-            season, 0.0
-        ) + float(war)
+        pitching_by_name[key][season] = pitching_by_name[key].get(season, 0.0) + float(
+            war
+        )
         if player_id is not None:
             player_key = int(player_id)
             pitching_by_id.setdefault(player_key, {})
@@ -309,7 +353,9 @@ def load_war_history(
     return history
 
 
-def load_sample_counts(season: int, db_path: Path) -> dict[str, dict[str, float | None]]:
+def load_sample_counts(
+    season: int, db_path: Path
+) -> dict[str, dict[str, float | None]]:
     if not db_path.exists():
         return {}
     conn = sqlite3.connect(db_path)
@@ -379,7 +425,9 @@ def load_sample_counts(season: int, db_path: Path) -> dict[str, dict[str, float 
     return sample_counts
 
 
-def load_prospect_anchors(repo_root: Path) -> tuple[dict[int, dict[str, Any]], dict[str, dict[str, Any]]]:
+def load_prospect_anchors(
+    repo_root: Path,
+) -> tuple[dict[int, dict[str, Any]], dict[str, dict[str, Any]]]:
     output_dir = repo_root / "backend" / "output"
     candidates = sorted(output_dir.glob("tvp_prospects_*.json"))
     preferred = output_dir / "tvp_prospects_2026_final.json"
@@ -706,6 +754,7 @@ def compute_player_tvp(
     contracts_2026_map: dict[str, dict[str, Any]],
     young_player_max_age: int,
     young_player_scale: float,
+    catcher_names: set[str],
 ) -> dict[str, Any]:
     config = load_config(config_path)
 
@@ -721,6 +770,7 @@ def compute_player_tvp(
     name_key = normalize_name(player.get("player_name"))
     is_reliever = name_key in reliever_names
     is_two_way = name_key in two_way_names
+    is_catcher = name_key in catcher_names
     player_age = player.get("age")
 
     repo_root = Path(__file__).resolve().parent
@@ -912,6 +962,18 @@ def compute_player_tvp(
         decline_per_year,
         aging_floor,
     )
+
+    # Apply catcher WAR haircut
+    catcher_war_mult = mlb_defaults.get("catcher_war_mult", 1.0)
+    catcher_war_mult_applied = False
+    fwar_before_catcher_mult: dict[int, float] = {}
+    if is_catcher and catcher_war_mult != 1.0:
+        catcher_war_mult_applied = True
+        fwar_before_catcher_mult = dict(projected_fwar)
+        projected_fwar = {
+            season: war * catcher_war_mult for season, war in projected_fwar.items()
+        }
+
     option_years, option_seasons = build_option_years(
         option_years_raw, snapshot_year, projected_fwar
     )
@@ -1061,9 +1123,7 @@ def compute_player_tvp(
         anchor_source = "prospect"
     elif early_sample_eligible:
         fallback_fv_value = (
-            min(config.fv_war_rate_prior)
-            if config.fv_war_rate_prior
-            else 50
+            min(config.fv_war_rate_prior) if config.fv_war_rate_prior else 50
         )
         prospect_tvp = float(tvp_mlb_base_value)
         fv_value = fallback_fv_value
@@ -1247,6 +1307,7 @@ def compute_player_tvp(
                 "is_pitcher": is_pitcher,
                 "is_reliever": is_reliever,
                 "is_two_way": is_two_way,
+                "is_catcher": is_catcher,
                 "pitcher_regress_weight": pitcher_regress_weight,
                 "pitcher_regress_target": pitcher_regress_target,
                 "pitcher_regress_applied": is_pitcher and pitcher_regress_weight > 0,
@@ -1258,6 +1319,11 @@ def compute_player_tvp(
                 "two_way_qualified": is_two_way,
                 "two_way_mult": two_way_mult,
                 "two_way_mult_applied": two_way_mult_applied,
+                "catcher_war_mult": catcher_war_mult,
+                "catcher_war_mult_applied": catcher_war_mult_applied,
+                "fwar_before_catcher_mult": fwar_before_catcher_mult
+                if fwar_before_catcher_mult
+                else None,
                 "fwar_scale": fwar_scale,
                 "fwar_cap": fwar_cap,
                 "fwar_cap_applied": fwar_cap_to_use,
@@ -1564,6 +1630,7 @@ def main() -> None:
         stats_db_path,
         args.two_way_min_war,
     )
+    catcher_names = load_catcher_names(players_path, stats_db_path, snapshot_season)
     fwar_weights = parse_weights(args.fwar_weights)
     if not fwar_weights:
         fwar_weights = [1.0]
@@ -1608,6 +1675,7 @@ def main() -> None:
             contracts_2026_map,
             args.young_player_max_age,
             args.young_player_scale,
+            catcher_names,
         )
         for player in payload.get("players", [])
     ]
@@ -1645,6 +1713,14 @@ def main() -> None:
             "reliever_mult": args.reliever_mult,
             "reliever_count": len(reliever_names),
             "pitcher_count": len(pitcher_names),
+            "catcher_count": len(catcher_names),
+            "catcher_war_mult": (
+                repo_root / "backend" / "tvp_mlb_defaults.json"
+            ).exists()
+            and json.loads(
+                (repo_root / "backend" / "tvp_mlb_defaults.json").read_text()
+            ).get("catcher_war_mult", 1.0)
+            or 1.0,
             "two_way_fwar_cap": None
             if args.two_way_fwar_cap <= 0
             else args.two_way_fwar_cap,
