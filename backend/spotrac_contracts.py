@@ -1360,7 +1360,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
             age=age,
             war_batting=war,
             war_pitching=None,
-            position=pos,
+            position=None,  # Don't set position - pos is not a position code
         )
 
     for player_id, name, team, age, war, pos in pitching_rows:
@@ -1371,8 +1371,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
                 entry.age = age
             if entry.team in {"", None}:
                 entry.team = team
-            if entry.position is None:
-                entry.position = pos
+            # Don't set position - pos is not a position code
         else:
             index[player_id] = PlayerIndexEntry(
                 player_id=player_id,
@@ -1382,7 +1381,7 @@ def load_player_index(season: int) -> dict[int, PlayerIndexEntry]:
                 age=age,
                 war_batting=None,
                 war_pitching=war,
-                position=pos,
+                position=None,  # Don't set position - pos is not a position code
             )
 
     return index
