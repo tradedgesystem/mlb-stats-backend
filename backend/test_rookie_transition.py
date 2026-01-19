@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 from audit_rookie_transition import collect_audit_rows  # noqa: E402
+from explain_top25_rookie_transition import build_explain_row  # noqa: E402
 
 
 class TestRookieTransition(unittest.TestCase):
@@ -519,6 +520,31 @@ class TestRookieTransition(unittest.TestCase):
         transition = result["raw_components"]["rookie_transition"]
         self.assertFalse(transition["applied"])
         self.assertFalse(transition.get("early_sample_eligible"))
+
+    def test_explain_reason_codes_pa_threshold(self) -> None:
+        player = {
+            "player_name": "Explain Test Hitter",
+            "mlb_id": 9001,
+            "age": 24,
+            "tvp_mlb": 10.0,
+            "tvp_current": 10.0,
+            "raw_components": {
+                "rookie_transition": {"pa": 350.0, "ip": None},
+                "war_inputs": {"war_history_seasons_used": 1},
+            },
+        }
+        row = build_explain_row(player)
+        self.assertFalse(row["early_sample_eligible"])
+        self.assertEqual(row["reason_not_eligible"], "pa_ge_300")
+        self.assertIn(
+            row["reason_not_eligible"],
+            {
+                "pa_ge_300",
+                "ip_ge_80",
+                "missing_pa_ip_and_fallback_failed",
+                "other",
+            },
+        )
 
 
 if __name__ == "__main__":
