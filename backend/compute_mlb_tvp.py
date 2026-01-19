@@ -99,20 +99,32 @@ def load_pitcher_names(season: int, db_path: Path) -> set[str]:
     return pitchers
 
 
-def load_catcher_names(players_path: Path) -> set[str]:
-    catchers: set[str] = set()
-
-    # Load from players_with_contracts.json for deterministic position data
-    # NO fallback to stats.db - pos field is not a position code
-    if players_path.exists():
-        with players_path.open("r", encoding="utf-8") as handle:
+def load_catcher_positions_map() -> dict[int, str]:
+    """Load catcher positions from mlb_id-first mapping file"""
+    positions_file = (
+        Path(__file__).resolve().parent / "backend" / "player_positions.json"
+    )
+    if positions_file.exists():
+        with positions_file.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
-            for player in data.get("players", []):
-                position = player.get("position")
-                if position and "C" in str(position).upper():
-                    name_key = normalize_name(player.get("player_name", ""))
-                    if name_key:
-                        catchers.add(name_key)
+            return data.get("catchers", {})
+    return {}
+
+
+def load_catcher_names(players_path: Path, mlb_ids: set[int] | None = None) -> set[str]:
+    """Load catcher names from mlb_id-first position mapping"""
+    catchers: set[str] = set()
+    catcher_map = load_catcher_positions_map()
+
+    if mlb_ids is not None:
+        # Only include mlb_ids that are in the provided set
+        for mlb_id in mlb_ids:
+            if mlb_id in catcher_map:
+                catchers.add(catcher_map[mlb_id])
+    else:
+        # Load all catchers if no specific mlb_ids provided
+        for name in catcher_map.values():
+            catchers.add(normalize_name(name))
 
     return catchers
 
@@ -1589,7 +1601,6 @@ def main() -> None:
 
     payload = load_players(players_path)
     snapshot_year = load_config(config_path).snapshot_year
-    snapshot_season = payload.get("meta", {}).get("season", snapshot_year)
     age_offset = 0
     if isinstance(snapshot_season, int):
         age_offset = max(0, snapshot_year - snapshot_season)
@@ -1602,12 +1613,62 @@ def main() -> None:
         stats_db_path,
         args.two_way_min_war,
     )
-    catcher_names = load_catcher_names(players_path)
+
+    # Collect all mlb_ids from players
+    mlb_ids = [
+        player.get("mlb_id")
+        for player in payload.get("players", [])
+        if isinstance(player.get("mlb_id"), int)
+    ]
+
+    catcher_names = load_catcher_names(players_path, mlb_ids)
     fwar_weights = parse_weights(args.fwar_weights)
     if not fwar_weights:
         fwar_weights = [1.0]
     fwar_weight_seasons = [
         snapshot_season - offset for offset in range(len(fwar_weights))
+    ]
+    war_history = load_war_history(fwar_weight_seasons, stats_db_path)
+    sample_counts = load_sample_counts(snapshot_season, stats_db_path)
+    prospects_by_id, prospects_by_name = load_prospect_anchors(repo_root)
+    contracts_2026_map = load_contracts_2026_map(contracts_2026_path, snapshot_year)
+    enrich_players(
+        payload.get("players", []),
+        sample_counts,
+        prospects_by_id,
+        prospects_by_name,
+    )
+    results = [
+        compute_player_tvp(
+            adjust_player_age(player, age_offset),
+            snapshot_year,
+            config_path,
+            args.max_years,
+            args.fwar_scale,
+            None if args.fwar_cap <= 0 else args.fwar_cap,
+            not args.no_aging_curve,
+            args.prime_age,
+            args.decline_per_year,
+            args.aging_floor,
+            reliever_names,
+            reliever_mult,
+            args.control_years_fallback,
+            args.control_years_age_max,
+            two_way_names,
+            None if args.two_way_fwar_cap <= 0 else args.two_way_fwar_cap,
+            args.two_way_mult,
+            war_history,
+            fwar_weights,
+            fwar_weight_seasons,
+            pitcher_names,
+            args.pitcher_regress_weight,
+            args.pitcher_regress_target,
+            contracts_2026_map,
+            args.young_player_max_age,
+            args.young_player_scale,
+            catcher_names,
+        )
+        for player in payload.get("players", [])
     ]
     war_history = load_war_history(fwar_weight_seasons, stats_db_path)
     sample_counts = load_sample_counts(snapshot_season, stats_db_path)

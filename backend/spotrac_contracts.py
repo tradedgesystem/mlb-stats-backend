@@ -699,22 +699,26 @@ def parse_team_contracts(html_text: str) -> list[dict]:
             continue
         name = link.get_text(" ", strip=True)
         player_url = link.get("href")
-        players.append(
-            {
+            players.append(
+                {
                 "player_name": name,
                 "player_url": player_url,
                 "start_year": parse_year(tds[idx_start].get_text(" ", strip=True))
-                if idx_start is not None
-                else None,
+                if idx_start is not None:
+                    else:
+                    None,
                 "end_year": parse_year(tds[idx_end].get_text(" ", strip=True))
-                if idx_end is not None
-                else None,
-                "contract_years": tds[idx_years].get_text(" ", strip=True)
-                if idx_years is not None
-                else None,
-                "total_value_m": parse_money_to_m(
-                    tds[idx_value].get_text(" ", strip=True)
-                )
+                if idx_end is not None:
+                    None,
+                "contract_years": tds[idx_years].get_text(" ", strip=True)),
+                "options": [],
+                "aav_m": row["aav_m"],
+                "total_value_m": row["total_value_m"],
+                "free_agent_year": free_agent_year,
+                "years_remaining": years_remaining,
+                "position": row.get("position"),  # Persist position from scraped data
+            },
+        )
                 if idx_value is not None
                 else None,
                 "aav_m": parse_money_to_m(tds[idx_aav].get_text(" ", strip=True))
