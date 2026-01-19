@@ -1052,6 +1052,7 @@ def compute_player_tvp(
             early_sample_eligible = pa_value is not None and pa_value < 300
 
     anchor_source = None
+    anchor_tvp = None
     if isinstance(prospect_anchor, dict):
         prospect_tvp = prospect_anchor.get("tvp_prospect")
         fv_value = prospect_anchor.get("fv_value")
@@ -1067,15 +1068,32 @@ def compute_player_tvp(
         prospect_tvp = float(tvp_mlb_base_value)
         fv_value = fallback_fv_value
         anchor_source = "mlb_baseline_fallback"
+    if isinstance(prospect_tvp, (int, float)):
+        anchor_tvp = float(prospect_tvp)
 
-    if anchor_source and isinstance(fv_value, (int, float)) and isinstance(
-        prospect_tvp, (int, float)
+    applied_flag = False
+    alpha_info = None
+    reason_not_applied = None
+    if (
+        anchor_source == "prospect"
+        and early_sample_eligible
+        and isinstance(fv_value, (int, float))
+        and isinstance(prospect_tvp, (int, float))
     ):
-        apply_rookie_transition = early_sample_eligible
-
-        alpha_info = None
-        reason_not_applied = None
-        if apply_rookie_transition:
+        alpha_info = compute_rookie_alpha(
+            int(fv_value),
+            is_pitcher,
+            pa_value,
+            ip_value,
+            fwar_to_date,
+            config,
+        )
+        alpha = alpha_info["alpha"]
+        tvp_current = alpha * float(prospect_tvp) + (1.0 - alpha) * tvp_mlb_value
+        applied_flag = True
+    elif anchor_source == "mlb_baseline_fallback":
+        reason_not_applied = "fallback_anchor_noop"
+        if early_sample_eligible and isinstance(fv_value, (int, float)):
             alpha_info = compute_rookie_alpha(
                 int(fv_value),
                 is_pitcher,
@@ -1084,89 +1102,55 @@ def compute_player_tvp(
                 fwar_to_date,
                 config,
             )
-            alpha = alpha_info["alpha"]
-            tvp_current = alpha * float(prospect_tvp) + (1.0 - alpha) * tvp_mlb_value
-            rookie_transition = {
-                "applied": True,
-                "alpha": alpha,
-                "alpha_base": alpha_info.get("alpha_base"),
-                "evidence": alpha_info.get("evidence"),
-                "pa": pa_value,
-                "ip": ip_value,
-                "fwar_to_date": fwar_to_date,
-                "fv_value": fv_value,
-                "prospect_tvp": float(prospect_tvp),
-                "anchor_source": anchor_source,
-                "tvp_current_pre": tvp_mlb_value,
-                "tvp_current_post": tvp_current,
-                "delta": tvp_current - tvp_mlb_value,
-                "source_file": prospect_anchor.get("source_file") if prospect_anchor else None,
-                "early_sample_eligible": early_sample_eligible,
-                "gate": {
-                    "used_pa_ip": used_sample_gate,
-                    "age": player_age,
-                    "war_history_seasons_used": seasons_used,
-                },
-            }
-        else:
-            if used_sample_gate:
-                reason_not_applied = (
-                    "not_early_sample" if not early_sample_eligible else "gate_failed"
-                )
-            else:
-                reason_not_applied = (
-                    "missing_pa_ip"
-                if player_age is None or seasons_used is None
-                else "not_early_sample"
-            )
-            rookie_transition.update(
-                {
-                    "applied": False,
-                    "reason_not_applied": reason_not_applied,
-                    "pa": pa_value,
-                    "ip": ip_value,
-                    "fwar_to_date": fwar_to_date,
-                    "fv_value": fv_value,
-                    "prospect_tvp": float(prospect_tvp),
-                    "anchor_source": anchor_source,
-                    "tvp_current_pre": tvp_mlb_value,
-                    "tvp_current_post": tvp_current,
-                    "delta": tvp_current - tvp_mlb_value,
-                    "source_file": prospect_anchor.get("source_file")
-                    if prospect_anchor
-                    else None,
-                    "early_sample_eligible": early_sample_eligible,
-                    "gate": {
-                        "used_pa_ip": used_sample_gate,
-                        "age": player_age,
-                        "war_history_seasons_used": seasons_used,
-                    },
-                }
-            )
+    elif anchor_source == "prospect":
+        reason_not_applied = "not_early_sample"
     else:
+        reason_not_applied = "missing_anchor"
+
+    delta_value = tvp_current - tvp_mlb_value
+    noop_warning = False
+    if (
+        anchor_source == "mlb_baseline_fallback"
+        and anchor_tvp is not None
+        and abs(anchor_tvp - tvp_mlb_value) < 1e-9
+        and abs(delta_value) > 1e-6
+    ):
+        noop_warning = True
+
+    rookie_transition.update(
+        {
+            "applied": applied_flag,
+            "reason_not_applied": reason_not_applied,
+            "pa": pa_value,
+            "ip": ip_value,
+            "fwar_to_date": fwar_to_date,
+            "fv_value": fv_value,
+            "prospect_tvp": float(prospect_tvp)
+            if isinstance(prospect_tvp, (int, float))
+            else prospect_tvp,
+            "anchor_tvp": anchor_tvp,
+            "anchor_source": anchor_source,
+            "tvp_current_pre": tvp_mlb_value,
+            "tvp_current_post": tvp_current,
+            "delta": delta_value,
+            "source_file": prospect_anchor.get("source_file")
+            if isinstance(prospect_anchor, dict)
+            else None,
+            "early_sample_eligible": early_sample_eligible,
+            "gate": {
+                "used_pa_ip": used_sample_gate,
+                "age": player_age,
+                "war_history_seasons_used": seasons_used,
+            },
+            "noop_anchor_delta_mismatch": noop_warning,
+        }
+    )
+    if alpha_info is not None:
         rookie_transition.update(
             {
-                "applied": False,
-                "reason_not_applied": "missing_anchor",
-                "reason": "missing_prospect_anchor",
-                "pa": pa_value,
-                "ip": ip_value,
-                "fwar_to_date": fwar_to_date,
-                "fv_value": fv_value,
-                "prospect_tvp": prospect_tvp,
-                "anchor_source": anchor_source,
-                "tvp_current_pre": tvp_mlb_value,
-                "tvp_current_post": tvp_current,
-                "delta": tvp_current - tvp_mlb_value,
-                "source_file": prospect_anchor.get("source_file")
-                if isinstance(prospect_anchor, dict)
-                else None,
-                "early_sample_eligible": early_sample_eligible,
-                "gate": {
-                    "used_pa_ip": used_sample_gate,
-                    "age": player_age,
-                    "war_history_seasons_used": seasons_used,
-                },
+                "alpha": alpha_info.get("alpha"),
+                "alpha_base": alpha_info.get("alpha_base"),
+                "evidence": alpha_info.get("evidence"),
             }
         )
 

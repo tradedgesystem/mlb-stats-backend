@@ -203,6 +203,33 @@ class TestRookieTransition(unittest.TestCase):
         self.assertFalse(transition["applied"])
         self.assertTrue(math.isclose(result["tvp_current"], result["tvp_mlb"]))
 
+    def test_fallback_anchor_noop(self) -> None:
+        config_path = Path(__file__).resolve().parent / "tvp_config.json"
+        config = load_config(config_path)
+        snapshot_year = config.snapshot_year
+        player = {
+            "mlb_id": 2003,
+            "player_name": "Fallback Anchor Test",
+            "age": 24,
+            "fwar": 1.0,
+            "pa": 200.0,
+            "bat_war": 1.0,
+            "contract": {
+                "contract_years": [
+                    {"season": snapshot_year, "salary_m": 1.0, "is_guaranteed": True}
+                ],
+                "options": [],
+                "aav_m": None,
+                "years_remaining": 0,
+            },
+        }
+        result = self._compute(player, war_history={}, fwar_weights=[1.0])
+        transition = result["raw_components"]["rookie_transition"]
+        self.assertFalse(transition["applied"])
+        self.assertEqual(transition.get("reason_not_applied"), "fallback_anchor_noop")
+        self.assertEqual(transition.get("anchor_source"), "mlb_baseline_fallback")
+        self.assertTrue(math.isclose(transition.get("delta", 0.0), 0.0))
+
     def test_integration_rookie_transition_pca(self) -> None:
         repo_root = Path(__file__).resolve().parent
         players_path = repo_root / "output" / "players_with_contracts_2025.json"

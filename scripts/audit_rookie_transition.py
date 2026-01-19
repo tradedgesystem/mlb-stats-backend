@@ -184,11 +184,29 @@ def main() -> None:
     applied, missing_candidates, alphas = collect_audit_rows(players)
     coverage, missing_anchor, anchor_sources = collect_anchor_coverage(players)
 
+    eligible_total = 0
+    fallback_noop_total = 0
+    for player in players:
+        raw = player.get("raw_components") or {}
+        transition = raw.get("rookie_transition") or {}
+        war_inputs = raw.get("war_inputs") or {}
+        is_pitcher = war_inputs.get("is_pitcher") is True
+        pa_value = transition.get("pa")
+        ip_value = transition.get("ip")
+        age = player.get("age")
+        seasons_used = war_inputs.get("war_history_seasons_used")
+        if is_early_sample_candidate(is_pitcher, pa_value, ip_value, age, seasons_used):
+            eligible_total += 1
+            if transition.get("reason_not_applied") == "fallback_anchor_noop":
+                fallback_noop_total += 1
+
     applied_count = len(applied)
     pct_applied = (applied_count / total_players * 100.0) if total_players else 0.0
 
     print(format_row(["total_players", total_players]))
+    print(format_row(["eligible_total", eligible_total]))
     print(format_row(["count_rookie_transition_applied", applied_count]))
+    print(format_row(["fallback_noop_total", fallback_noop_total]))
     print(format_row(["pct_applied", f"{pct_applied:.2f}%"]))
     if alphas:
         print(
