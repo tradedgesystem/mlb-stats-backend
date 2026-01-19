@@ -760,30 +760,24 @@ def compute_player_tvp(
     control_fallback_data = {}
     if control_fallback_seasons:
         salary_components_by_t = {}
-        for i, season in enumerate(sorted(control_fallback_seasons)):
+        for season in sorted(control_fallback_seasons):
             t = season - snapshot_year
             min_salary = config.min_salary_m * ((1.0 + config.min_salary_growth) ** t)
-            projected_value = (
-                projected_fwar.get(season, 0.0)
-                * config.dollars_per_war
-                * ((1.0 + config.war_price_growth) ** t)
-            )
-            arb_salary = compute_arb_salary(
-                projected_value, i, min_salary, config.arb_share
-            )
+            current_salary = salary_by_season.get(season)
+            if current_salary is None:
+                clamped_salary = min_salary
+                control_salary_floor_seasons.add(season)
+            else:
+                clamped_salary = max(current_salary, min_salary)
+                if clamped_salary != current_salary:
+                    control_salary_floor_seasons.add(season)
             salary_components_by_t[str(t)] = {
                 "min_salary_t": min_salary,
-                "arb_share": config.arb_share[i]
-                if i < len(config.arb_share)
-                else config.arb_share[-1],
-                "arb_salary_t": arb_salary,
-                "projected_value_t": projected_value,
-                "final_salary_t": arb_salary,
+                "initial_salary_t": current_salary,
+                "final_salary_t": clamped_salary,
             }
-            salary_by_season[season] = arb_salary
+            salary_by_season[season] = clamped_salary
         control_fallback_data = {"salary_components_by_t": salary_components_by_t}
-
-    salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
 
     salary_fallback_seasons: set[int] = set(control_salary_floor_seasons)
     fwar_by_year_base: list[float] = []
@@ -872,15 +866,18 @@ def compute_player_tvp(
         {
             "t": opt.get("t"),
             "type": opt.get("option_type"),
-            "fwar": opt.get("fwar_used_for_option"),
-            "S": opt.get("S", 0.0),
-            "B": opt.get("B", 0.0),
+            "fwar_used_for_option": opt.get("fwar_used_for_option"),
+            "S": opt.get("S"),
+            "B": opt.get("B"),
             "V": opt.get("V"),
             "M": opt.get("market"),
             "sigmoid_input_ex": opt.get("sigmoid_input_exercise"),
             "sigmoid_input_in": opt.get("sigmoid_input_in"),
-            "P_ex": opt.get("probabilities", {}).get("P_ex"),
-            "P_in": opt.get("probabilities", {}).get("P_in"),
+            "P_ex": (opt.get("probabilities") or {}).get("P_ex"),
+            "P_in": (opt.get("probabilities") or {}).get("P_in"),
+            "P_team": (opt.get("probabilities") or {}).get("P_team"),
+            "P_player": (opt.get("probabilities") or {}).get("P_player"),
+            "probabilities": opt.get("probabilities"),
             "EV": opt.get("ev"),
             "pv_EV": opt.get("pv_ev"),
         }
@@ -950,12 +947,9 @@ def compute_player_tvp(
                 "age_by_season": age_by_season,
                 "aging_mult_by_season": aging_mults,
                 "projected_fwar_by_season": projected_fwar,
-                "fwar_projection_by_t": {
-                    str(t): fwar for t, fwar in enumerate(fwar_by_year_base)
-                },
                 "t_to_year": t_to_year,
-                "guaranteed_projection_by_t": guaranteed_fwar_by_t,
-                "option_year_projection_by_t": option_fwar_by_t,
+                "guaranteed_fwar_by_t": guaranteed_fwar_by_t,
+                "option_fwar_by_t": option_fwar_by_t,
                 "aging_mult_by_t": aging_mult_by_t,
                 "mean_reversion": mean_reversion_meta,
                 "base_fwar": base_fwar,
@@ -1014,8 +1008,8 @@ def compute_player_tvp(
                 "fwar_scale_used": fwar_scale_to_use,
                 "fwar_cap_used": fwar_cap_to_use,
                 "aging_mult_by_t": aging_mult_by_t,
-                "guaranteed_projection_by_t": guaranteed_fwar_by_t,
-                "option_year_projection_by_t": option_fwar_by_t,
+                "guaranteed_fwar_by_t": guaranteed_fwar_by_t,
+                "option_fwar_by_t": option_fwar_by_t,
                 "years_projected": len(fwar_by_year_base),
                 "t_to_year": t_to_year,
             },
