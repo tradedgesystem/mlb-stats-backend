@@ -11,6 +11,7 @@ import argparse
 import json
 import re
 import sys
+import unittest
 from pathlib import Path
 
 
@@ -90,10 +91,41 @@ def check_target(
         min_pct = target["min_pct"]
         max_pct = target["max_pct"]
         pct = (catcher_count / total_top_n * 100.0) if total_top_n > 0 else 0.0
+
+        # Sanity assertion: percentage must be between 0 and 100
+        assert 0.0 <= pct <= 100.0, (
+            f"Invalid percentage {pct} for {catcher_count}/{total_top_n}"
+        )
+
+        # Sanity assertion for Top50: 6 catchers must be 12% not 6%
+        if total_top_n == 50 and catcher_count == 6:
+            assert abs(pct - 12.0) < 0.01, (
+                f"6 catchers in Top 50 must be 12.0%, got {pct}%"
+            )
+
         in_band = min_pct <= pct <= max_pct
         reason = f"{pct:.1f}% catchers (target: {min_pct:.1f}%-{max_pct:.1f}%)"
 
     return in_band, reason
+
+
+class TestAuditCatcherShare(unittest.TestCase):
+    def test_top50_6_catchers(self) -> None:
+        """Test that 6 catchers in Top 50 shows as 12%, not 6%."""
+        catcher_count = 6
+        total = 50
+        expected_pct = 12.0
+
+        pct = (catcher_count / total * 100.0) if total > 0 else 0.0
+
+        self.assertAlmostEqual(
+            pct,
+            expected_pct,
+            places=1,
+            msg=f"6 catchers in Top 50 must be {expected_pct}%, got {pct}%",
+        )
+        self.assertGreater(pct, 10.0, "6 catchers in Top 50 should be >10%")
+        self.assertLess(pct, 15.0, "6 catchers in Top 50 should be <15%")
 
 
 def main() -> None:
@@ -141,7 +173,15 @@ def main() -> None:
         action="store_true",
         help="Exit with error code if catcher share is outside target band.",
     )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Run unit tests and exit.",
+    )
     args = parser.parse_args()
+
+    if args.test:
+        unittest.main(argv=[__file__], exit=True)
 
     tvp_path = args.tvp or pick_first_existing(
         [

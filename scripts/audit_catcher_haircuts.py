@@ -10,7 +10,6 @@ import argparse
 import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -161,6 +160,9 @@ def main() -> None:
     # Check guardrails and collect violations
     violations = []
 
+    # Additional check: verify no capped age group violates cap
+    cap_violations = []
+
     for age, age_group in sorted(by_age.items()):
         print(f"--- Age {age} ({len(age_group)} players) ---")
 
@@ -168,6 +170,7 @@ def main() -> None:
             name = player.get("player_name")
             mlb_id = player.get("mlb_id")
             tvp_with_adj = player.get("tvp_current")
+            guardrail_max = None
 
             # Get baseline from computed results or stored fwar_before_catcher_risk
             if player.get("tvp_without_catcher_adjust") is not None:
@@ -194,6 +197,25 @@ def main() -> None:
                     f"  {name:<25} (mlb_id={mlb_id}): Skipped (no baseline data or zero TVP)"
                 )
                 continue
+
+            # Check if cap was applied and verify it's within guardrail
+            proj = projection(player)
+            haircut_cap_applied = proj.get("haircut_cap_applied", False)
+            haircut_capped_pct = proj.get("haircut_capped_pct")
+
+            if haircut_cap_applied and haircut_capped_pct is not None:
+                # Cap was applied - verify it's within guardrail
+                if guardrail_max is not None and haircut_capped_pct > guardrail_max:
+                    cap_violations.append(
+                        {
+                            "player": name,
+                            "mlb_id": mlb_id,
+                            "age": age,
+                            "haircut_capped_pct": haircut_capped_pct,
+                            "guardrail_max": guardrail_max,
+                            "message": f"Cap applied but capped value {haircut_capped_pct}% exceeds guardrail {guardrail_max}%",
+                        }
+                    )
 
             haircut_pct = (
                 (1.0 - tvp_with_adj / tvp_without_adj) * 100.0
@@ -231,7 +253,9 @@ def main() -> None:
                             "guardrail_max": guardrail_max,
                         }
                     )
-            # age >= 30: no cap, just report
+            else:
+                # age >= 30: no cap, just report
+                guardrail_max = None
 
             print(
                 f"  {name:<25} (mlb_id={mlb_id}) {guardrail_status} "
@@ -250,8 +274,21 @@ def main() -> None:
             )
         print(f"\n❌ FAILED: {len(violations)} guardrail violations found")
         sys.exit(1)
-    else:
-        print("\n✓ PASSED: All catcher haircuts within guardrails")
+
+    if cap_violations:
+        print(f"\n=== CAP VIOLATIONS ({len(cap_violations)}) ===")
+        for v in cap_violations:
+            print(
+                f"  {v['player']:<25} (mlb_id={v['mlb_id']}) "
+                f"age={v['age']} haircut_capped={v['haircut_capped_pct']:.1f}% "
+                f"cap_value={v['guardrail_max']:.1f}% - {v['message']}"
+            )
+        print(
+            f"\n❌ FAILED: {len(cap_violations)} cap violations found (capped values exceed guardrails)"
+        )
+        sys.exit(1)
+
+    print("\n✓ PASSED: All catcher haircuts within guardrails")
 
     # Summary stats
     print("\n=== SUMMARY ===")

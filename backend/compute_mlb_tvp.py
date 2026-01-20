@@ -1249,6 +1249,7 @@ def compute_player_tvp(
             decline_per_year,
             aging_floor,
         )
+        catcher_risk_meta["applied"] = True
     else:
         catcher_risk_meta["applied"] = False
 
@@ -1447,11 +1448,80 @@ def compute_player_tvp(
 
     delta_value = tvp_current - tvp_mlb_value
     noop_warning = False
+
+    # Enforce catcher haircut caps
+    haircut_raw_pct = None
+    haircut_cap_value = None
+    haircut_capped_pct = None
+    haircut_cap_applied = False
+
     if (
-        anchor_source == "mlb_baseline_fallback"
-        and anchor_tvp is not None
-        and abs(anchor_tvp - tvp_mlb_value) < 1e-9
-        and abs(delta_value) > 1e-6
+        is_catcher
+        and catcher_risk_meta.get("applied", False)
+        and fwar_before_catcher_risk
+    ):
+        # Calculate baseline TVP from pre-catcher-risk WAR
+        # Reconstruct fwar_by_year_base without catcher adjustments
+        fwar_by_year_baseline = [
+            fwar_before_catcher_risk.get(season, projected_fwar.get(season, 0.0))
+            for season in seasons
+        ]
+
+        # Recompute baseline TVP
+        mlb_result_baseline = compute_mlb_tvp(
+            fwar_by_year_baseline,
+            salary_by_year_base,
+            config,
+            option_years=option_years,
+        )
+        baseline_tvp = mlb_result_baseline.get("tvp_mlb", tvp_mlb_value)
+
+        # Calculate raw haircut percentage
+        if baseline_tvp > 0:
+            haircut_raw_pct = (1.0 - tvp_mlb_value / baseline_tvp) * 100.0
+        else:
+            haircut_raw_pct = 0.0
+
+        # Determine age-based cap
+        if player_age is not None:
+            if player_age <= 26:
+                haircut_cap_pct = 25.0
+            elif 27 <= player_age <= 29:
+                haircut_cap_pct = 35.0
+            else:
+                haircut_cap_pct = None
+        else:
+            haircut_cap_pct = None
+
+        # Apply cap if needed
+        if haircut_cap_pct is not None and haircut_raw_pct is not None:
+            if haircut_raw_pct > haircut_cap_pct:
+                # Haircut exceeds cap - scale TVP up to capped level
+                min_tvp_pct = (100.0 - haircut_cap_pct) / 100.0
+                capped_tvp_mlb_value = baseline_tvp * min_tvp_pct
+                capped_tvp_current = (
+                    tvp_current * (capped_tvp_mlb_value / tvp_mlb_value)
+                    if tvp_mlb_value > 0
+                    else capped_tvp_mlb_value
+                )
+                haircut_capped_pct = haircut_cap_pct
+                haircut_cap_applied = True
+
+                # Update TVP values
+                tvp_mlb_value = capped_tvp_mlb_value
+                tvp_current = capped_tvp_current
+            else:
+                haircut_capped_pct = haircut_raw_pct
+                haircut_cap_applied = False
+        else:
+            haircut_capped_pct = haircut_raw_pct
+            haircut_cap_applied = False
+
+    if (
+        anchor_source is None
+        or anchor_source == "mlb_baseline_fallback"
+        or anchor_source == "not_early_sample"
+        or anchor_source == "missing_anchor"
     ):
         noop_warning = True
 
@@ -1607,6 +1677,10 @@ def compute_player_tvp(
                 "fwar_before_catcher_risk": fwar_before_catcher_risk
                 if fwar_before_catcher_risk
                 else None,
+                "haircut_raw_pct": haircut_raw_pct,
+                "haircut_capped_pct": haircut_capped_pct,
+                "haircut_cap_value_pct": haircut_cap_value,
+                "haircut_cap_applied": haircut_cap_applied,
                 "fwar_scale": fwar_scale,
                 "fwar_cap": fwar_cap,
                 "fwar_cap_applied": fwar_cap_to_use,
