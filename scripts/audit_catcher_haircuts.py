@@ -202,7 +202,7 @@ def main() -> None:
             proj = projection(player)
             haircut_cap_applied = proj.get("haircut_cap_applied", False)
             haircut_capped_pct = proj.get("haircut_capped_pct")
-
+            
             if haircut_cap_applied and haircut_capped_pct is not None:
                 # Cap was applied - verify it's within guardrail
                 if guardrail_max is not None and haircut_capped_pct > guardrail_max:
@@ -217,11 +217,14 @@ def main() -> None:
                         }
                     )
 
-            haircut_pct = (
-                (1.0 - tvp_with_adj / tvp_without_adj) * 100.0
-                if tvp_without_adj > 0
+            # Calculate raw haircut from baseline (only when baseline is available)
+            if tvp_without_adj is not None and tvp_without_adj > 0:
+                haircut_pct = (
+                    (1.0 - tvp_with_adj / tvp_without_adj) * 100.0
                 else 0.0
-            )
+            else:
+                # No baseline available - can't compute raw haircut
+                haircut_pct = None
 
             # Apply guardrails
             guardrail_status = "✓"

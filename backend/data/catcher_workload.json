@@ -1,0 +1,802 @@
+{
+  "meta": {
+    "generated_at": "2026-01-20T18:08:32Z",
+    "season": 2026,
+    "total_catchers": 103,
+    "total_players": 113,
+    "ttl_hours": 168
+  },
+  "players": {
+    "455117": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "506702": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "518595": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "521692": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "542963": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "543309": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "543510": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "543592": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "543877": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "553869": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "553882": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "571466": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "571912": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "592450": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "592663": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "595453": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "595751": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "595978": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "596117": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "596142": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "605131": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "605170": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "605244": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "605400": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "606992": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "607481": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "607732": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "608348": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "620443": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "621345": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "621512": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "623168": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "624431": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "624512": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "624513": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "640462": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "640902": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "641555": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "641598": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "641680": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "642020": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "642136": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "642851": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "643376": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "644433": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "645305": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "645444": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "650644": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "650968": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "656180": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "656577": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "657136": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "660688": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "661388": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663584": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663698": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663728": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663743": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663886": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "663967": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "664954": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "665561": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "665804": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "665861": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "666023": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "666163": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "666165": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "666310": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "667690": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "668670": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "668800": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "668845": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "668939": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "668974": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669087": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669127": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669134": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669221": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669224": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "669257": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "671056": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "672275": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "672386": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "672515": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "673237": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "676439": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "676879": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "677943": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "680728": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "680777": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "680779": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "680862": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "681351": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "682515": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "682626": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "682842": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "686452": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "686676": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "686948": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "687221": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "689414": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "690924": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "691011": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "691019": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "693307": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "694212": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "695600": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "695670": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "696100": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "699625": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "700337": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    },
+    "700363": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "Player is not a catcher by position",
+      "source": "not_catcher"
+    },
+    "804668": {
+      "catching_share": 0.0,
+      "games_catching": 0,
+      "games_total": 0,
+      "reason": "No fielding stats found",
+      "source": "no_stats"
+    }
+  }
+}

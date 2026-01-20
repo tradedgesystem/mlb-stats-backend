@@ -55,6 +55,28 @@ def normalize_name(name: str | None) -> str:
     return re.sub(r"[^a-z]", "", stripped)
 
 
+def load_catcher_workload_map(workload_path: Path) -> dict[int, float]:
+    """Load catcher_workload.json and return mlb_id -> catching_share map."""
+    if not workload_path.exists():
+        return {}
+    with workload_path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    workload_map: dict[int, float] = {}
+    players_data = data.get("players", {})
+    if not isinstance(players_data, dict):
+        return workload_map
+    for key, value in players_data.items():
+        try:
+            mlb_id = int(key)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            share = value.get("catching_share")
+            if isinstance(share, (int, float)):
+                workload_map[mlb_id] = float(share)
+    return workload_map
+
+
 def load_reliever_names(season: int, db_path: Path) -> set[str]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -454,7 +476,7 @@ def load_war_history(
 
 def load_sample_counts(
     season: int, db_path: Path
-) -> dict[str, dict[str, float | None]]:
+) -> dict[int | str, dict[str, float | None]]:
     if not db_path.exists():
         return {}
     conn = sqlite3.connect(db_path)
@@ -709,6 +731,7 @@ def apply_catcher_risk_adjustments(
     player_age: float | None,
     is_catcher: bool,
     mlb_defaults: dict[str, Any],
+    catching_share: float = 1.0,
     player_name: str | None = None,
     base_aging_mults: dict[int, float] | None = None,
     apply_aging: bool = True,
@@ -731,9 +754,18 @@ def apply_catcher_risk_adjustments(
         "base_aging_factor_by_t": {},
         "catcher_aging_factor_by_t": {},
         "final_aging_factor_by_t": {},
+        "catching_share": catching_share,
+        "catching_share_source": "not_catcher",
     }
 
     if not is_catcher or not player_age:
+        if base_aging_mults:
+            for t, mult in base_aging_mults.items():
+                adjustment_meta["base_aging_factor_by_t"][t] = mult
+        return projected_fwar, adjustment_meta
+
+    if catching_share == 0.0:
+        adjustment_meta["catching_share_source"] = "not_catcher"
         if base_aging_mults:
             for t, mult in base_aging_mults.items():
                 adjustment_meta["base_aging_factor_by_t"][t] = mult
@@ -761,15 +793,22 @@ def apply_catcher_risk_adjustments(
         if base_aging_mults and t in base_aging_mults:
             adjustment_meta["base_aging_factor_by_t"][t] = base_aging_mults[t]
 
+        # Scale adjustments by catching_share
+        # playing_time_factor: share=0 => 1.0, share=1 => base_factor
+        effective_playing_time_factor = (
+            1.0 - (1.0 - playing_time_factor) * catching_share
+        )
+
         # Apply playing-time reduction (availability)
-        fwar_after_playing_time = base_fwar * playing_time_factor
+        fwar_after_playing_time = base_fwar * effective_playing_time_factor
 
         # Apply catcher-specific aging (REPLACES, doesn't compound with base aging)
         if apply_aging and season_age >= steeper_decline_age:
             years_past_threshold = season_age - steeper_decline_age
+            effective_steeper_decline_rate = steeper_decline_rate * catching_share
             catcher_aging_mult = max(
                 steeper_decline_floor,
-                1.0 - (steeper_decline_rate * years_past_threshold),
+                1.0 - (effective_steeper_decline_rate * years_past_threshold),
             )
         else:
             catcher_aging_mult = 1.0
@@ -790,7 +829,10 @@ def apply_catcher_risk_adjustments(
         position_change_prob = 0.0
         if season_age >= position_change_age:
             years_past_threshold = season_age - position_change_age + 1
-            position_change_prob = min(1.0, position_change_rate * years_past_threshold)
+            effective_position_change_rate = position_change_rate * catching_share
+            position_change_prob = min(
+                1.0, effective_position_change_rate * years_past_threshold
+            )
 
         # Position change reduces final value by risk probability
         fwar_adjusted = (
@@ -803,13 +845,19 @@ def apply_catcher_risk_adjustments(
         adjustment_meta["adjustments"][season] = {
             "base_fwar": base_fwar,
             "playing_time_factor": playing_time_factor,
+            "effective_playing_time_factor": 1.0
+            - (1.0 - playing_time_factor) * catching_share,
             "fwar_after_playing_time": fwar_after_playing_time,
             "catcher_aging_mult": catcher_aging_mult,
             "position_change_prob": position_change_prob,
             "final_fwar": fwar_adjusted,
+            "catching_share": catching_share,
         }
 
     adjustment_meta["catcher_risk_applied"] = True
+    adjustment_meta["catching_share_source"] = (
+        "workload_map" if catching_share < 1.0 else "default_1"
+    )
     adjustment_meta["config"] = {
         "playing_time_factor": playing_time_factor,
         "steeper_decline_age": steeper_decline_age,
@@ -999,7 +1047,7 @@ def compute_player_tvp(
     two_way_names: set[str],
     two_way_fwar_cap: float | None,
     two_way_mult: float,
-    war_history: dict[str, dict[int, dict[str, float]]],
+    war_history: dict[int | str, dict[int, dict[str, float]]],
     fwar_weights: list[float],
     fwar_weight_seasons: list[int],
     pitcher_names: set[str],
@@ -1009,6 +1057,7 @@ def compute_player_tvp(
     young_player_max_age: int,
     young_player_scale: float,
     catcher_ids: set[int] | None = None,
+    catcher_workload_map: dict[int, float] | None = None,
     positions_missing: bool = False,
     disable_catcher_adjust: bool = False,
 ) -> dict[str, Any]:
@@ -1018,6 +1067,10 @@ def compute_player_tvp(
     mlb_defaults_path = repo_root / "tvp_mlb_defaults.json"
     with mlb_defaults_path.open("r") as handle:
         mlb_defaults = json.load(handle)
+
+    if catcher_workload_map is None:
+        catcher_workload_map = {}
+
     base_fwar = player.get("fwar")
     if base_fwar is None:
         base_fwar = 0.0
@@ -1030,6 +1083,21 @@ def compute_player_tvp(
     if catcher_ids is None:
         catcher_ids = set()
     is_catcher = isinstance(mlb_id, int) and mlb_id in catcher_ids
+
+    catching_share = 1.0
+    catching_share_source = "default_1"
+    if is_catcher and isinstance(mlb_id, int):
+        catching_share = catcher_workload_map.get(mlb_id, 1.0)
+        if catching_share == 0.0:
+            catching_share_source = "not_catcher"
+        elif mlb_id in catcher_workload_map:
+            catching_share_source = "workload_map"
+        else:
+            catching_share_source = "fallback_default_1"
+    elif not is_catcher:
+        catching_share = 0.0
+        catching_share_source = "not_catcher"
+
     position = player.get("position")
     position_source = player.get("position_source")
     if positions_missing:
@@ -1242,6 +1310,7 @@ def compute_player_tvp(
             player_age,
             is_catcher,
             mlb_defaults,
+            catching_share,
             player.get("player_name"),
             aging_mults,
             apply_aging,
@@ -1677,6 +1746,8 @@ def compute_player_tvp(
                 "fwar_before_catcher_risk": fwar_before_catcher_risk
                 if fwar_before_catcher_risk
                 else None,
+                "catching_share": catching_share,
+                "catching_share_source": catching_share_source,
                 "haircut_raw_pct": haircut_raw_pct,
                 "haircut_capped_pct": haircut_capped_pct,
                 "haircut_cap_value_pct": haircut_cap_value,
@@ -2019,6 +2090,10 @@ def main() -> None:
     )
     position_by_id = attach_positions(payload.get("players", []), positions_map)
     catcher_ids = build_catcher_ids(position_by_id)
+
+    workload_path = repo_root / "backend" / "data" / "catcher_workload.json"
+    catcher_workload_map = load_catcher_workload_map(workload_path)
+
     fwar_weights = parse_weights(args.fwar_weights)
     if not fwar_weights:
         fwar_weights = [1.0]
@@ -2064,6 +2139,7 @@ def main() -> None:
             args.young_player_max_age,
             args.young_player_scale,
             catcher_ids,
+            catcher_workload_map,
             positions_missing,
             disable_catcher_adjust,
         )

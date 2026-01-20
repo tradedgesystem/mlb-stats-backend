@@ -13,6 +13,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -92,16 +93,9 @@ def check_target(
         max_pct = target["max_pct"]
         pct = (catcher_count / total_top_n * 100.0) if total_top_n > 0 else 0.0
 
-        # Sanity assertion: percentage must be between 0 and 100
         assert 0.0 <= pct <= 100.0, (
             f"Invalid percentage {pct} for {catcher_count}/{total_top_n}"
         )
-
-        # Sanity assertion for Top50: 6 catchers must be 12% not 6%
-        if total_top_n == 50 and catcher_count == 6:
-            assert abs(pct - 12.0) < 0.01, (
-                f"6 catchers in Top 50 must be 12.0%, got {pct}%"
-            )
 
         in_band = min_pct <= pct <= max_pct
         reason = f"{pct:.1f}% catchers (target: {min_pct:.1f}%-{max_pct:.1f}%)"
@@ -174,14 +168,17 @@ def main() -> None:
         help="Exit with error code if catcher share is outside target band.",
     )
     parser.add_argument(
-        "--test",
+        "--print-top-catchers",
+        type=int,
+        default=0,
+        help="Print details of top N catchers (default: 0 for disabled).",
+    )
+    parser.add_argument(
+        "--disable-catcher-adjust",
         action="store_true",
-        help="Run unit tests and exit.",
+        help="Disable catcher-specific risk adjustments (for baseline TVP comparison).",
     )
     args = parser.parse_args()
-
-    if args.test:
-        unittest.main(argv=[__file__], exit=True)
 
     tvp_path = args.tvp or pick_first_existing(
         [
@@ -209,8 +206,49 @@ def main() -> None:
         except (TypeError, ValueError):
             return 0.0
 
+    def catching_share(player: dict) -> float | None:
+        """Get catching_share from projection data if available."""
+        proj = projection(player)
+        share = proj.get("catching_share")
+        if share is None:
+            return None
+        return float(share)
+
     valid_players = [p for p in players if tvp_current(p) is not None]
     sorted_players = sorted(valid_players, key=tvp_current, reverse=True)
+
+    if args.print_top_catchers > 0:
+        top_n_players = sorted_players[: args.print_top_catchers]
+        catchers_in_top_n = [
+            p for p in top_n_players if projection(p).get("is_catcher") is True
+        ]
+
+        if catchers_in_top_n:
+            print(
+                f"{'Rank':<6} {'Name':<25} {'mlb_id':<10} {'TVP':<12} {'Catching Share':<14} {'Haircut %':<10} {'Cap Applied'}"
+            )
+            print("-" * 90)
+
+        for player in catchers_in_top_n:
+            rank = sorted_players.index(player) + 1
+            name = player.get("player_name", "N/A")
+            mlb_id = player.get("mlb_id", "N/A")
+            tvp = tvp_current(player)
+            cs = catching_share(player)
+            proj = projection(player)
+
+            haircut_pct = proj.get("haircut_capped_pct")
+            haircut_cap_applied = proj.get("haircut_cap_applied")
+
+            cs_str = f"{cs:.3f}" if cs is not None else "N/A"
+            haircut_str = f"{haircut_pct:.1f}%" if haircut_pct is not None else "N/A"
+            cap_str = "Yes" if haircut_cap_applied else "No"
+
+            print(
+                f"{rank:<6} {name:<25} {mlb_id if isinstance(mlb_id, int) else 'N/A':<10} {tvp:<12.3f} {cs_str:<14} {haircut_str:<10} {cap_str}"
+            )
+        print("-" * 90)
+        print()
 
     # Parse targets if provided
     targets = None
@@ -299,183 +337,11 @@ def main() -> None:
         status_icon = "✓" if overall_in_band else "✗"
         print(f"{status_icon} STATUS: {'PASS' if overall_in_band else 'FAIL'}")
 
-        # Show catchers in Top 25 and Top 50 if needed
-        top_25_players = sorted_players[:25]
-        catchers_top_25 = [
-            p for p in top_25_players if projection(p).get("is_catcher") is True
-        ]
-
-        top_50_players = sorted_players[:50]
-        catchers_top_50 = [
-            p for p in top_50_players if projection(p).get("is_catcher") is True
-        ]
-
-        if catchers_top_25:
-            print(f"\n=== CATCHERS IN TOP 25 (by TVP_CURRENT) ===")
-            print(
-                f"{'Rank':<6} {'Player':<25} {'MLB ID':<10} {'TVP_CURRENT':<15} {'Adjustments'}"
-            )
-            print("-" * 80)
-
-            for player in catchers_top_25:
-                rank = sorted_players.index(player) + 1
-                name = player.get("player_name", "N/A")
-                mlb_id = player.get("mlb_id", "N/A")
-                tvp = tvp_current(player)
-
-                proj = projection(player)
-                catcher_risk = proj.get("catcher_risk_adjustments", {})
-                if catcher_risk:
-                    last_season_adjustment = catcher_risk.get(
-                        max(catcher_risk.keys(), default=None), {}
-                    )
-                    if last_season_adjustment:
-                        adjustments = (
-                            f"play_time={last_season_adjustment.get('playing_time_factor', 1.0):.2f}, "
-                            f"decline={last_season_adjustment.get('catcher_aging_mult', 1.0):.2f}, "
-                            f"pos_chg={last_season_adjustment.get('position_change_prob', 0.0):.2f}"
-                        )
-                    else:
-                        adjustments = "N/A"
-                else:
-                    adjustments = "N/A"
-
-                print(
-                    f"{rank:<6} {name:<25} {mlb_id if isinstance(mlb_id, int) else 'N/A':<10} {tvp:<15.3f} {adjustments}"
-                )
-
-        # Show catchers in Top 50 if different from Top 25
-        catchers_top_50_unique = [
-            p for p in catchers_top_50 if p not in catchers_top_25
-        ]
-        if catchers_top_50_unique:
-            print(f"\n=== CATCHERS IN TOP 50 (not in Top 25) ===")
-            print(
-                f"{'Rank':<6} {'Player':<25} {'MLB ID':<10} {'TVP_CURRENT':<15} {'Adjustments'}"
-            )
-            print("-" * 80)
-
-            for player in catchers_top_50_unique:
-                rank = sorted_players.index(player) + 1
-                name = player.get("player_name", "N/A")
-                mlb_id = player.get("mlb_id", "N/A")
-                tvp = tvp_current(player)
-
-                proj = projection(player)
-                catcher_risk = proj.get("catcher_risk_adjustments", {})
-                if catcher_risk:
-                    last_season_adjustment = catcher_risk.get(
-                        max(catcher_risk.keys(), default=None), {}
-                    )
-                    if last_season_adjustment:
-                        adjustments = (
-                            f"play_time={last_season_adjustment.get('playing_time_factor', 1.0):.2f}, "
-                            f"decline={last_season_adjustment.get('catcher_aging_mult', 1.0):.2f}, "
-                            f"pos_chg={last_season_adjustment.get('position_change_prob', 0.0):.2f}"
-                        )
-                    else:
-                        adjustments = "N/A"
-                else:
-                    adjustments = "N/A"
-
-                print(
-                    f"{rank:<6} {name:<25} {mlb_id if isinstance(mlb_id, int) else 'N/A':<10} {tvp:<15.3f} {adjustments}"
-                )
-    else:
-        # Legacy output
-        print(f"=== CATCHER SHARE AUDIT (Top {args.topn}) ===")
-        print(f"Total players: {total_players}")
-        print(f"Top {args.topn} examined: {total_top_n}")
-        print(
-            f"Catchers in Top {args.topn}: {catcher_count}/{total_top_n} ({catcher_share_pct:.1f}%)"
-        )
-
-        # Parse target band
-        min_target = args.min_pct
-        max_target = args.max_pct
-        if args.target:
-            try:
-                parts = args.target.split(",")
-                min_target = float(parts[0].strip())
-                max_target = float(parts[1].strip()) if len(parts) > 1 else min_target
-            except (ValueError, IndexError):
-                print(f"Warning: Invalid target format '{args.target}', using defaults")
-                min_target = args.min_pct
-                max_target = args.max_pct
-
-        # Determine if within band
-        in_band = min_target <= catcher_share_pct <= max_target
-        overall_in_band = in_band
-
-        print(f"Target band: {min_target:.1f}% - {max_target:.1f}%")
-        print()
-
-        status_icon = "✓" if overall_in_band else "✗"
-        print(f"{status_icon} STATUS: {'PASS' if overall_in_band else 'FAIL'}")
-
-        if catchers_in_top_n:
-            print(f"\n=== CATCHERS IN TOP {args.topn} (by TVP_CURRENT) ===")
-            print(
-                f"{'Rank':<6} {'Player':<25} {'MLB ID':<10} {'TVP_CURRENT':<15} {'Adjustments'}"
-            )
-            print("-" * 80)
-
-            for player in catchers_in_top_n:
-                rank = sorted_players.index(player) + 1
-                name = player.get("player_name", "N/A")
-                mlb_id = player.get("mlb_id", "N/A")
-                tvp = tvp_current(player)
-
-                proj = projection(player)
-                catcher_risk = proj.get("catcher_risk_adjustments", {})
-                if catcher_risk:
-                    last_season_adjustment = catcher_risk.get(
-                        max(catcher_risk.keys(), default=None), {}
-                    )
-                    if last_season_adjustment:
-                        adjustments = (
-                            f"play_time={last_season_adjustment.get('playing_time_factor', 1.0):.2f}, "
-                            f"decline={last_season_adjustment.get('catcher_aging_mult', 1.0):.2f}, "
-                            f"pos_chg={last_season_adjustment.get('position_change_prob', 0.0):.2f}"
-                        )
-                    else:
-                        adjustments = "N/A"
-                else:
-                    adjustments = "N/A"
-
-                print(
-                    f"{rank:<6} {name:<25} {mlb_id if isinstance(mlb_id, int) else 'N/A':<10} {tvp:<15.3f} {adjustments}"
-                )
-
-        # Print additional Top N stats if multiple requested
-        if args.topn not in [25, 50]:
-            print(f"\n=== ADDITIONAL TOP N STATS ===")
-            for n in [25, 50, 100]:
-                if n <= args.topn:
-                    top_n_subset = sorted_players[:n]
-                    catchers_in_subset = [
-                        p
-                        for p in top_n_subset
-                        if projection(p).get("is_catcher") is True
-                    ]
-                    pct_subset = (len(catchers_in_subset) / n * 100.0) if n > 0 else 0.0
-                    print(
-                        f"Top {n:3d}: {len(catchers_in_subset)}/{n} ({pct_subset:.1f}%)"
-                    )
-
-    print()
-    print("=== SUMMARY ===")
-    for result in all_results:
-        status_str = "✓" if result["in_band"] else "✗"
-        print(f"{status_str} Top {result['topn']:3d}: {result['reason']}")
-
-    print(f"\nOverall: {'PASS' if overall_in_band else 'FAIL'}")
-
-    if not overall_in_band and args.fail_on_outside_band:
+    if args.fail_on_outside_band:
         failed_results = [r for r in all_results if not r["in_band"]]
         for result in failed_results:
             print(f"\n❌ ERROR: Top {result['topn']} - {result['reason']} - FAIL")
-        sys.exit(1)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -72,9 +72,7 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
             two_way_mult=1.5,
             war_history={},
             fwar_weights=[0.5, 0.3, 0.2],
-            fwar_weight_seasons=[
-                self.snapshot_year - offset for offset in range(3)
-            ],
+            fwar_weight_seasons=[self.snapshot_year - offset for offset in range(3)],
             pitcher_names=set(),
             pitcher_regress_weight=0.0,
             pitcher_regress_target=2.0,
@@ -95,8 +93,8 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
         projection = result.get("raw_components", {}).get("projection", {})
 
         self.assertTrue(projection.get("is_catcher"))
-        self.assertTrue(projection.get("catcher_war_mult_applied"))
-        self.assertEqual(projection.get("catcher_war_mult"), 0.90)
+        catcher_risk_applied = projection.get("catcher_risk_applied")
+        self.assertTrue(catcher_risk_applied)
 
         non_catcher = self._base_player(999998, "Synthetic Shortstop")
         non_catcher["position"] = "SS"
@@ -118,16 +116,15 @@ class TestCatcherMultiplierRegression(unittest.TestCase):
         projection = result.get("raw_components", {}).get("projection", {})
 
         self.assertFalse(projection.get("is_catcher"))
-        self.assertFalse(projection.get("catcher_war_mult_applied"))
+        catcher_risk_applied = projection.get("catcher_risk_applied")
+        self.assertFalse(catcher_risk_applied)
 
     def test_real_ids_from_fixture(self):
         if not FIXTURE_PATH.exists():
             self.fail(f"Missing fixture file: {FIXTURE_PATH}")
 
         positions_map = compute_mlb_tvp.load_player_positions_map(FIXTURE_PATH)
-        position_by_id = {
-            mlb_id: info for mlb_id, info in positions_map.items()
-        }
+        position_by_id = {mlb_id: info for mlb_id, info in positions_map.items()}
         catcher_ids = compute_mlb_tvp.build_catcher_ids(position_by_id)
 
         self.assertIn(663728, catcher_ids, "Cal Raleigh should be catcher")
