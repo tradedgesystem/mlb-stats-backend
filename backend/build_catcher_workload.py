@@ -62,6 +62,28 @@ def is_catcher_position(pos: str | None) -> bool:
     return "C" in tokens
 
 
+def parse_innings(innings_str: str | None) -> float:
+    """Convert innings string '44.1' -> 44.333, '44.2' -> 44.667, '44' -> 44.0"""
+    if not innings_str:
+        return 0.0
+    try:
+        parts = str(innings_str).split(".")
+        if len(parts) == 1:
+            return float(parts[0])
+        if len(parts) == 2:
+            whole = float(parts[0])
+            thirds = parts[1]
+            if thirds == "1":
+                return whole + 1 / 3
+            elif thirds == "2":
+                return whole + 2 / 3
+            else:
+                return float(innings_str)
+    except (ValueError, IndexError):
+        pass
+    return 0.0
+
+
 def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict]:
     """
     Fetch fielding stats for a batch of mlb_ids.
@@ -70,7 +92,8 @@ def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict
     """
     params = {
         "personIds": ",".join(str(mlb_id) for mlb_id in mlb_ids),
-        "hydrate": f"stats(group=[fielding],type=career,season={season})",
+        "hydrate": "stats(group=[fielding],type=[season])",
+        "season": season,
     }
     url = f"{API_BASE}/people?{urllib.parse.urlencode(params)}"
 
@@ -93,7 +116,8 @@ def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict
         stats_list = person.get("stats", [])
         fielding_stats = None
         for stats in stats_list:
-            if stats.get("group") == "fielding":
+            group = stats.get("group")
+            if isinstance(group, dict) and group.get("displayName") == "fielding":
                 fielding_stats = stats
                 break
 
@@ -102,6 +126,9 @@ def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict
                 "catching_share": 0.0,
                 "games_total": 0,
                 "games_catching": 0,
+                "innings_total": 0,
+                "innings_catching": 0,
+                "season_used": season,
                 "source": "no_stats",
                 "reason": "No fielding stats found",
             }
@@ -110,21 +137,31 @@ def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict
         splits = fielding_stats.get("splits", [])
         total_games = 0
         games_at_catcher = 0
+        total_innings = 0.0
+        innings_at_catcher = 0.0
 
         for split in splits:
             position = split.get("position")
-            games = split.get("games", 0) or 0
+            stat_dict = split.get("stat", {})
+            # games and innings may be in stat sub-dict or at split level
+            games = stat_dict.get("games", 0) or split.get("games", 0) or 0
+            innings_str = stat_dict.get("innings") or split.get("innings")
+            innings = parse_innings(innings_str)
 
             if not isinstance(position, dict):
                 continue
 
             pos_abbrev = position.get("abbreviation", "").upper()
             total_games += games
+            total_innings += innings
 
             if pos_abbrev == "C":
                 games_at_catcher = games
+                innings_at_catcher = innings
 
-        if total_games > 0:
+        if total_innings > 0:
+            catching_share = innings_at_catcher / total_innings
+        elif total_games > 0:
             catching_share = games_at_catcher / total_games
         else:
             catching_share = 0.0
@@ -133,11 +170,41 @@ def fetch_catcher_stats_batch(mlb_ids: list[int], season: int) -> dict[int, dict
             "catching_share": round(catching_share, 4),
             "games_total": total_games,
             "games_catching": games_at_catcher,
+            "innings_total": round(total_innings, 3),
+            "innings_catching": round(innings_at_catcher, 3),
+            "season_used": season,
             "source": "mlb_stats_api",
         }
 
     time.sleep(DEFAULT_SLEEP_SECONDS)
     return results
+
+
+def fetch_catcher_stats_batch_with_fallback(
+    mlb_ids: list[int],
+    season: int,
+) -> dict[int, dict]:
+    """
+    Fetch fielding stats with season fallback: season, season-1, season-2.
+
+    Returns dict mapping mlb_id to stats with season_used indicating which season worked.
+    """
+    seasons_to_try = [season, season - 1, season - 2]
+
+    for try_season in seasons_to_try:
+        if try_season < 2000:
+            continue
+
+        print(f"    Trying season {try_season} for batch...")
+        batch_results = fetch_catcher_stats_batch(mlb_ids, try_season)
+
+        if batch_results:
+            for mlb_id, result in batch_results.items():
+                if result.get("source") == "mlb_stats_api":
+                    result["season_used"] = try_season
+            return batch_results
+
+    return {}
 
 
 def load_positions_map(positions_path: Path) -> dict[int, dict[str, str | None]]:
@@ -216,9 +283,16 @@ def main() -> None:
         if tvp_defaults_path.exists():
             with tvp_defaults_path.open("r") as handle:
                 defaults = json.load(handle)
-            season = defaults.get("snapshot_year")
+            # Use snapshot_season if present, else snapshot_year-1
+            if "snapshot_season" in defaults:
+                season = defaults["snapshot_season"]
+                # Safety: if snapshot_season == snapshot_year, use year-1 first
+                if "snapshot_year" in defaults and season == defaults["snapshot_year"]:
+                    season = season - 1
+            else:
+                season = (defaults.get("snapshot_year") or 2026) - 1
     if season is None:
-        season = 2026
+        season = 2025
         print(f"No season specified, using default: {season}")
 
     # Load players to get mlb_ids
@@ -264,10 +338,9 @@ def main() -> None:
         print(
             f"  Batch {i // batch_size + 1}/{(total_catchers - 1) // batch_size + 1}: {len(batch)} catchers"
         )
-        batch_results = fetch_catcher_stats_batch(batch, season)
+        batch_results = fetch_catcher_stats_batch_with_fallback(batch, season)
         for mlb_id, stats in batch_results.items():
             players_map[str(mlb_id)] = stats
-        time.sleep(DEFAULT_SLEEP_SECONDS)
 
     # For non-catchers and catchers with no data, set catching_share=0
     all_mlbid_set = set(mlb_ids)
@@ -281,18 +354,45 @@ def main() -> None:
                     "catching_share": 0.0,
                     "games_total": 0,
                     "games_catching": 0,
+                    "innings_total": 0,
+                    "innings_catching": 0,
                     "source": "not_catcher",
                     "reason": "Player is not a catcher by position",
                 }
             else:
-                # Is a catcher but no stats data - conservative default
-                players_map[str(mlb_id)] = {
-                    "catching_share": 1.0,
-                    "games_total": 0,
-                    "games_catching": 0,
-                    "source": "fallback_default_1",
-                    "reason": "Catcher but no fielding stats found",
-                }
+                # Is catcher but no stats - check for fallback eligibility
+                position_info = positions_map.get(mlb_id, {})
+                position = position_info.get("position", "")
+                player_data = next(
+                    (p for p in players if p.get("mlb_id") == mlb_id), None
+                )
+
+                # Check playing time thresholds
+                has_pa = player_data and player_data.get("fwar_pa", 0) >= 1
+                has_ip = player_data and player_data.get("fwar_ip", 0) >= 0.1
+                is_mlb = player_data and player_data.get("status") == "mlb"
+                is_catcher_pos = is_catcher_position(position)
+
+                if is_catcher_pos and (has_pa or has_ip or is_mlb):
+                    players_map[str(mlb_id)] = {
+                        "catching_share": 1.0,
+                        "games_total": 0,
+                        "games_catching": 0,
+                        "innings_total": 0,
+                        "innings_catching": 0,
+                        "source": "position_fallback",
+                        "reason": "Catcher with no fielding stats; position_fallback",
+                    }
+                else:
+                    players_map[str(mlb_id)] = {
+                        "catching_share": 0.0,
+                        "games_total": 0,
+                        "games_catching": 0,
+                        "innings_total": 0,
+                        "innings_catching": 0,
+                        "source": "no_stats",
+                        "reason": "No fielding stats found and no fallback eligible",
+                    }
 
     # Build output
     output = {
