@@ -773,6 +773,22 @@ def apply_catcher_risk_adjustments(
 
     catcher_config = mlb_defaults.get("catcher", {})
 
+    workload_surcharge_start = catcher_config.get("workload_surcharge_start", 0.70)
+    workload_surcharge_k = catcher_config.get("workload_surcharge_k", 0.40)
+
+    share = catching_share
+    surplus = (
+        0.0
+        if share <= workload_surcharge_start
+        else (share - workload_surcharge_start)
+        / max(1e-9, 1.0 - workload_surcharge_start)
+    )
+    severity = 1.0 + workload_surcharge_k * surplus
+
+    adjustment_meta["catcher_severity"] = severity
+    adjustment_meta["catcher_surplus"] = surplus
+    adjustment_meta["catcher_workload_surcharge_applied"] = surplus > 0.0
+
     playing_time_factor = catcher_config.get("playing_time_factor", 1.0)
     steeper_decline_age = catcher_config.get("steeper_decline_age", 28)
     steeper_decline_rate = catcher_config.get("steeper_decline_rate", 0.04)
@@ -793,10 +809,12 @@ def apply_catcher_risk_adjustments(
         if base_aging_mults and t in base_aging_mults:
             adjustment_meta["base_aging_factor_by_t"][t] = base_aging_mults[t]
 
-        # Scale adjustments by catching_share
-        # playing_time_factor: share=0 => 1.0, share=1 => base_factor
-        effective_playing_time_factor = (
-            1.0 - (1.0 - playing_time_factor) * catching_share
+        # Scale adjustments by catching_share and severity
+        # workload surcharge: once catching_share > workload_surcharge_start, increase severity linearly
+        penalty_mag = (1.0 - playing_time_factor) * share * severity
+        effective_playing_time_factor = 1.0 - penalty_mag
+        effective_playing_time_factor = max(
+            0.70, min(1.0, effective_playing_time_factor)
         )
 
         # Apply playing-time reduction (availability)
@@ -805,7 +823,7 @@ def apply_catcher_risk_adjustments(
         # Apply catcher-specific aging (REPLACES, doesn't compound with base aging)
         if apply_aging and season_age >= steeper_decline_age:
             years_past_threshold = season_age - steeper_decline_age
-            effective_steeper_decline_rate = steeper_decline_rate * catching_share
+            effective_steeper_decline_rate = steeper_decline_rate * share * severity
             catcher_aging_mult = max(
                 steeper_decline_floor,
                 1.0 - (effective_steeper_decline_rate * years_past_threshold),
@@ -829,7 +847,7 @@ def apply_catcher_risk_adjustments(
         position_change_prob = 0.0
         if season_age >= position_change_age:
             years_past_threshold = season_age - position_change_age + 1
-            effective_position_change_rate = position_change_rate * catching_share
+            effective_position_change_rate = position_change_rate * share * severity
             position_change_prob = min(
                 1.0, effective_position_change_rate * years_past_threshold
             )
@@ -845,13 +863,14 @@ def apply_catcher_risk_adjustments(
         adjustment_meta["adjustments"][season] = {
             "base_fwar": base_fwar,
             "playing_time_factor": playing_time_factor,
-            "effective_playing_time_factor": 1.0
-            - (1.0 - playing_time_factor) * catching_share,
+            "effective_playing_time_factor": effective_playing_time_factor,
             "fwar_after_playing_time": fwar_after_playing_time,
             "catcher_aging_mult": catcher_aging_mult,
             "position_change_prob": position_change_prob,
             "final_fwar": fwar_adjusted,
             "catching_share": catching_share,
+            "catcher_severity": severity,
+            "catcher_surplus": surplus,
         }
 
     adjustment_meta["catcher_risk_applied"] = True
@@ -1561,6 +1580,26 @@ def compute_player_tvp(
                 haircut_cap_pct = None
         else:
             haircut_cap_pct = None
+
+        # Apply cap softening by catching_share if configured
+        if haircut_cap_pct is not None and catcher_risk_meta.get("applied", False):
+            cap_share_soften_start = mlb_defaults.get("catcher", {}).get(
+                "cap_share_soften_start", 0.85
+            )
+            cap_share_soften_max_extra = mlb_defaults.get("catcher", {}).get(
+                "cap_share_soften_max_extra", 0.0
+            )
+
+            if "catching_share" in catcher_risk_meta and cap_share_soften_max_extra > 0:
+                share = catcher_risk_meta["catching_share"]
+                if share > cap_share_soften_start:
+                    base_cap = haircut_cap_pct
+                    t = (share - cap_share_soften_start) / max(
+                        1e-9, 1.0 - cap_share_soften_start
+                    )
+                    haircut_cap_pct = min(
+                        0.60, base_cap + cap_share_soften_max_extra * t
+                    )
 
         # Apply cap if needed
         if haircut_cap_pct is not None and haircut_raw_pct is not None:

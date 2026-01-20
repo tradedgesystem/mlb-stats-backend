@@ -28,6 +28,10 @@
     "position_change_rate": 0.06,
     "steeper_decline_age": 28,
     "steeper_decline_rate": 0.045,
-    "steeper_decline_floor": 0.50
+    "steeper_decline_floor": 0.50,
+    "workload_surcharge_start": 0.70,
+    "workload_surcharge_k": 0.40,
+    "cap_share_soften_start": 0.85,
+    "cap_share_soften_max_extra": 0.10
   }
 }

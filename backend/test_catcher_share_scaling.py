@@ -162,8 +162,17 @@ class TestCatcherShareScaling(unittest.TestCase):
         self.assertIsNotNone(tvp_half)
         self.assertIsNotNone(tvp_full)
 
-        haircut_half = (baseline_tvp - tvp_half) / baseline_tvp * 100.0
-        haircut_full = (baseline_tvp - tvp_full) / baseline_tvp * 100.0
+        baseline_val = baseline_tvp if baseline_tvp is not None else 0.0
+        haircut_half = (
+            (baseline_val - tvp_half) / baseline_val * 100.0
+            if baseline_val > 0
+            else 0.0
+        )
+        haircut_full = (
+            (baseline_val - tvp_full) / baseline_val * 100.0
+            if baseline_val > 0
+            else 0.0
+        )
 
         self.assertGreater(
             haircut_half,
@@ -176,11 +185,44 @@ class TestCatcherShareScaling(unittest.TestCase):
             msg="Share 0.5 should have smaller haircut than share=1.0",
         )
 
+        if haircut_full is not None and haircut_half is not None:
+            self.assertAlmostEqual(
+                haircut_half,
+                haircut_full * 0.5,
+                delta=haircut_full * 0.5,
+                msg="Share 0.5 should have ~half the haircut of share=1.0",
+            )
+
+    def test_catcher_severity_calculation(self):
+        """Test that severity increases with catching_share above start."""
+        with (REPO_ROOT / "backend" / "tvp_mlb_defaults.json").open("r") as handle:
+            mlb_defaults = json.load(handle)
+
+        catcher_config = mlb_defaults.get("catcher", {})
+        start = catcher_config.get("workload_surcharge_start", 0.70)
+        k = catcher_config.get("workload_surcharge_k", 0.40)
+
+        # share below start: severity = 1.0, surplus = 0.0
+        share = 0.5
+        surplus = 0.0 if share <= start else (share - start) / max(1e-9, 1.0 - start)
+        severity = 1.0 + k * surplus
         self.assertAlmostEqual(
-            haircut_half,
-            haircut_full * 0.5,
-            delta=haircut_full * 0.5,
-            msg="Share 0.5 should have ~half the haircut of share=1.0",
+            severity, 1.0, places=2, msg="Share below start should have severity=1.0"
+        )
+        self.assertAlmostEqual(
+            surplus, 0.0, places=2, msg="Share below start should have surplus=0.0"
+        )
+
+        # share above start: severity > 1.0
+        share = 0.9
+        surplus = 0.0 if share <= start else (share - start) / max(1e-9, 1.0 - start)
+        severity = 1.0 + k * surplus
+        self.assertGreater(
+            severity, 1.0, msg="Share above start should have severity > 1.0"
+        )
+        expected_severity = 1.0 + 0.40 * (0.9 - 0.7) / (1.0 - 0.7)
+        self.assertAlmostEqual(
+            severity, expected_severity, places=4, msg="Severity should match formula"
         )
 
     def test_catcher_share_scaling_direct(self):
@@ -192,7 +234,13 @@ class TestCatcherShareScaling(unittest.TestCase):
             2029: 3.4,
             2030: 3.2,
         }
-        age_by_season = {2026: 30.0, 2027: 31.0, 2028: 32.0, 2029: 33.0, 2030: 34.0}
+        age_by_season: dict[int, float | None] = {
+            2026: 30.0,
+            2027: 31.0,
+            2028: 32.0,
+            2029: 33.0,
+            2030: 34.0,
+        }
 
         with (REPO_ROOT / "backend" / "tvp_mlb_defaults.json").open("r") as handle:
             mlb_defaults = json.load(handle)
