@@ -1232,7 +1232,7 @@ def compute_player_tvp(
     # Apply catcher-specific risk adjustments
     catcher_risk_meta: dict[str, Any] = {"applied": False, "adjustments": {}}
     fwar_before_catcher_risk: dict[int, float] = {}
-    if is_catcher:
+    if is_catcher and not disable_catcher_adjust:
         fwar_before_catcher_risk = dict(projected_fwar)
         projected_fwar, catcher_risk_meta = apply_catcher_risk_adjustments(
             projected_fwar,
@@ -1837,6 +1837,11 @@ def main() -> None:
         help="Disable age-based decline.",
     )
     parser.add_argument(
+        "--disable-catcher-adjust",
+        action="store_true",
+        help="Disable catcher-specific risk adjustments (for testing).",
+    )
+    parser.add_argument(
         "--prime-age",
         type=int,
         default=29,
@@ -1901,6 +1906,12 @@ def main() -> None:
         help="Allow run to proceed when positions map is missing.",
     )
     args = parser.parse_args()
+
+    disable_catcher_adjust = (
+        args.disable_catcher_adjust
+        if hasattr(args, "disable_catcher_adjust")
+        else False
+    )
 
     repo_root = Path(__file__).resolve().parents[1]
     config_path = args.config or (repo_root / "backend" / "tvp_config.json")
