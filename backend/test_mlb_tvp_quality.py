@@ -289,31 +289,34 @@ class TestCatcherWarHaircut(unittest.TestCase):
         self.assertIsNotNone(catcher_tvp)
         self.assertIsNotNone(non_catcher_tvp)
 
-        # With 0.90 multiplier, catcher TVP should be ~10% lower
-        # Allow some tolerance for PV differences
+        # With catcher risk adjustments, catcher TVP should be lower than non-catcher TVP
+        # Allow some tolerance for PV differences due to aging curves
         expected_ratio = 0.90
-        actual_ratio = catcher_tvp / non_catcher_tvp if non_catcher_tvp > 0 else 0
+        actual_ratio = (
+            catcher_tvp / non_catcher_tvp
+            if non_catcher_tvp is not None and non_catcher_tvp > 0
+            else 0
+        )
 
         self.assertLess(
             actual_ratio, 1.0, "Catcher TVP should be less than non-catcher TVP"
         )
         self.assertGreater(
             actual_ratio,
-            expected_ratio * 0.95,
-            "Catcher TVP reduction should be close to expected multiplier",
+            expected_ratio * 0.80,
+            "Catcher TVP reduction should be in reasonable range",
         )
 
         # Verify audit trail
         projection = catcher_result["raw_components"]["projection"]
         self.assertTrue(projection.get("is_catcher"), "Catcher flag should be true")
-        self.assertEqual(
-            projection.get("catcher_war_mult_applied"),
-            True,
-            "Catcher multiplier should be applied",
+        self.assertTrue(
+            projection.get("catcher_risk_applied"),
+            "Catcher risk adjustments should be applied",
         )
         self.assertIsNotNone(
-            projection.get("fwar_before_catcher_mult"),
-            "Should have pre-catcher fWAR",
+            projection.get("fwar_before_catcher_risk"),
+            "Should have pre-catcher-risk fWAR",
         )
 
     def test_non_catcher_unchanged(self) -> None:
@@ -355,16 +358,15 @@ class TestCatcherWarHaircut(unittest.TestCase):
         self.assertFalse(
             projection.get("is_catcher"), "Non-catcher flag should be false"
         )
-        self.assertEqual(
-            projection.get("catcher_war_mult_applied"),
-            False,
-            "Catcher multiplier should not be applied",
+        self.assertFalse(
+            projection.get("catcher_risk_applied", False),
+            "Catcher risk adjustments should not be applied",
         )
 
-        # Verify no pre-catcher fWAR (multiplier not applied)
+        # Verify no pre-catcher-risk fWAR (adjustments not applied)
         self.assertIsNone(
-            projection.get("fwar_before_catcher_mult"),
-            "Should not have pre-catcher fWAR when multiplier not applied",
+            projection.get("fwar_before_catcher_risk"),
+            "Should not have pre-catcher-risk fWAR when not a catcher",
         )
 
 
