@@ -1010,6 +1010,7 @@ def compute_player_tvp(
     young_player_scale: float,
     catcher_ids: set[int] | None = None,
     positions_missing: bool = False,
+    disable_catcher_adjust: bool = False,
 ) -> dict[str, Any]:
     config = load_config(config_path)
 
@@ -1990,6 +1991,7 @@ def main() -> None:
             args.young_player_scale,
             catcher_ids,
             positions_missing,
+            disable_catcher_adjust,
         )
         for player in payload.get("players", [])
     ]
