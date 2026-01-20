@@ -710,12 +710,17 @@ def apply_catcher_risk_adjustments(
     is_catcher: bool,
     mlb_defaults: dict[str, Any],
     player_name: str | None = None,
+    base_aging_mults: dict[int, float] | None = None,
+    apply_aging: bool = True,
+    prime_age: int = 29,
+    decline_per_year: float = 0.035,
+    aging_floor: float = 0.65,
 ) -> tuple[dict[int, float], dict[str, Any]]:
     """
     Apply catcher-specific risk adjustments including:
-    - Availability discount (missed games due to injury/position demands)
-    - Steeper aging decline (catchers wear down faster)
-    - Position change probability (C → 1B/DH reduces defensive value)
+    - Availability playing-time reduction (catchers play fewer games)
+    - Steeper aging decline (catchers wear down faster) - REPLACES base aging, not compounds
+    - Position change risk premium (small TVP discount for C → 1B/DH risk)
 
     Returns:
         (adjusted_fwar_by_season, adjustment_meta)
@@ -723,62 +728,73 @@ def apply_catcher_risk_adjustments(
     adjustment_meta: dict[str, Any] = {
         "catcher_risk_applied": False,
         "adjustments": {},
+        "base_aging_factor_by_t": {},
+        "catcher_aging_factor_by_t": {},
+        "final_aging_factor_by_t": {},
     }
 
     if not is_catcher or not player_age:
+        if base_aging_mults:
+            for t, mult in base_aging_mults.items():
+                adjustment_meta["base_aging_factor_by_t"][t] = mult
         return projected_fwar, adjustment_meta
 
     catcher_config = mlb_defaults.get("catcher", {})
 
-    availability_discount = catcher_config.get("availability_discount", 1.0)
+    playing_time_factor = catcher_config.get("playing_time_factor", 1.0)
     steeper_decline_age = catcher_config.get("steeper_decline_age", 28)
-    steeper_decline_rate = catcher_config.get("steeper_decline_rate", 0.05)
+    steeper_decline_rate = catcher_config.get("steeper_decline_rate", 0.04)
     steeper_decline_floor = catcher_config.get("steeper_decline_floor", 0.55)
-    position_change_start_age = catcher_config.get("position_change_start_age", 31)
-    position_change_rate_per_year = catcher_config.get(
-        "position_change_rate_per_year", 0.08
-    )
-    position_change_defensive_loss = catcher_config.get(
-        "position_change_defensive_loss", 0.25
-    )
+    position_change_age = catcher_config.get("position_change_age", 32)
+    position_change_rate = catcher_config.get("position_change_rate", 0.03)
 
     adjusted_fwar: dict[int, float] = {}
-    years_since_start = 0
 
     for season, base_fwar in sorted(projected_fwar.items()):
         season_age = age_by_season.get(season)
+        t = season - snapshot_year
         if season_age is None:
             adjusted_fwar[season] = base_fwar
             continue
 
-        years_since_start = season - snapshot_year
+        # Track base aging factor for transparency
+        if base_aging_mults and t in base_aging_mults:
+            adjustment_meta["base_aging_factor_by_t"][t] = base_aging_mults[t]
 
-        # Apply availability discount (catchers miss more games)
-        fwar_with_availability = base_fwar * availability_discount
+        # Apply playing-time reduction (availability)
+        fwar_after_playing_time = base_fwar * playing_time_factor
 
-        # Apply steeper aging decline for catchers
-        if season_age >= steeper_decline_age:
+        # Apply catcher-specific aging (REPLACES, doesn't compound with base aging)
+        if apply_aging and season_age >= steeper_decline_age:
             years_past_threshold = season_age - steeper_decline_age
-            steeper_mult = max(
+            catcher_aging_mult = max(
                 steeper_decline_floor,
                 1.0 - (steeper_decline_rate * years_past_threshold),
             )
         else:
-            steeper_mult = 1.0
+            catcher_aging_mult = 1.0
 
-        # Apply position change discount (probability of C → 1B/DH transition)
+        # Track catcher aging factor
+        adjustment_meta["catcher_aging_factor_by_t"][t] = catcher_aging_mult
+
+        # Calculate final aging factor (for transparency)
+        if apply_aging:
+            # For catchers, use catcher_aging_mult directly (not compounded)
+            final_aging_mult = catcher_aging_mult
+        else:
+            final_aging_mult = 1.0
+        adjustment_meta["final_aging_factor_by_t"][t] = final_aging_mult
+
+        # Apply position change risk premium (small discount for position-change risk)
+        # This is applied as a TVP risk discount, not a WAR haircut
         position_change_prob = 0.0
-        if season_age >= position_change_start_age:
-            position_change_prob = min(
-                1.0,
-                position_change_rate_per_year
-                * (season_age - position_change_start_age + 1),
-            )
+        if season_age >= position_change_age:
+            years_past_threshold = season_age - position_change_age + 1
+            position_change_prob = min(1.0, position_change_rate * years_past_threshold)
 
-        # Expected WAR accounting for position change
-        position_change_discount = position_change_prob * position_change_defensive_loss
+        # Position change reduces final value by risk probability
         fwar_adjusted = (
-            fwar_with_availability * steeper_mult * (1.0 - position_change_discount)
+            fwar_after_playing_time * catcher_aging_mult * (1.0 - position_change_prob)
         )
 
         adjusted_fwar[season] = fwar_adjusted
@@ -786,22 +802,21 @@ def apply_catcher_risk_adjustments(
         # Store adjustment details
         adjustment_meta["adjustments"][season] = {
             "base_fwar": base_fwar,
-            "availability_discount": availability_discount,
-            "steeper_mult": steeper_mult,
+            "playing_time_factor": playing_time_factor,
+            "fwar_after_playing_time": fwar_after_playing_time,
+            "catcher_aging_mult": catcher_aging_mult,
             "position_change_prob": position_change_prob,
-            "position_change_discount": position_change_discount,
             "final_fwar": fwar_adjusted,
         }
 
     adjustment_meta["catcher_risk_applied"] = True
     adjustment_meta["config"] = {
-        "availability_discount": availability_discount,
+        "playing_time_factor": playing_time_factor,
         "steeper_decline_age": steeper_decline_age,
         "steeper_decline_rate": steeper_decline_rate,
         "steeper_decline_floor": steeper_decline_floor,
-        "position_change_start_age": position_change_start_age,
-        "position_change_rate_per_year": position_change_rate_per_year,
-        "position_change_defensive_loss": position_change_defensive_loss,
+        "position_change_age": position_change_age,
+        "position_change_rate": position_change_rate,
     }
 
     return adjusted_fwar, adjustment_meta
@@ -1227,6 +1242,11 @@ def compute_player_tvp(
             is_catcher,
             mlb_defaults,
             player.get("player_name"),
+            aging_mults,
+            apply_aging,
+            prime_age,
+            decline_per_year,
+            aging_floor,
         )
     else:
         catcher_risk_meta["applied"] = False

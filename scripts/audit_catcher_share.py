@@ -55,6 +55,12 @@ def main() -> None:
         action="store_true",
         help="Exit with error code if catcher share exceeds maximum.",
     )
+    parser.add_argument(
+        "--target-count",
+        type=int,
+        default=None,
+        help="Target number of catchers in Top N (for testing/CI).",
+    )
     args = parser.parse_args()
 
     tvp_path = args.tvp or pick_first_existing(
@@ -76,6 +82,8 @@ def main() -> None:
 
     def tvp_current(player: dict) -> float:
         value = player.get("tvp_current")
+        if value is None:
+            return 0.0
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -141,6 +149,13 @@ def main() -> None:
     if not passes and args.fail_on_exceed:
         print(
             f"\n❌ ERROR: Catcher share ({catcher_share_pct:.1f}%) exceeds maximum ({args.max_share:.1f}%)"
+        )
+        sys.exit(1)
+
+    # Test assertion for CI
+    if args.target_count is not None and catcher_count != args.target_count:
+        print(
+            f"\n❌ ERROR: Expected {args.target_count} catchers, found {catcher_count}"
         )
         sys.exit(1)
 

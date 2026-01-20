@@ -23,12 +23,11 @@
   "hitter_mean_revert_weight": 0.35,
   "catcher_war_mult": 0.90,
   "catcher": {
-    "availability_discount": 0.88,
-    "position_change_start_age": 30,
-    "position_change_rate_per_year": 0.07,
-    "position_change_defensive_loss": 0.30,
+    "playing_time_factor": 0.88,
+    "position_change_age": 30,
+    "position_change_rate": 0.06,
     "steeper_decline_age": 28,
-    "steeper_decline_rate": 0.065,
+    "steeper_decline_rate": 0.045,
     "steeper_decline_floor": 0.50
   }
 }

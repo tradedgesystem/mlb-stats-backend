@@ -228,7 +228,7 @@ class TestCatcherWarHaircut(unittest.TestCase):
         )
 
     def test_catcher_war_haircut_applied(self) -> None:
-        """Test that catcher TVP is reduced by catcher_war_mult"""
+        """Test that catcher TVP is reduced by catcher risk adjustments"""
         config_path = Path(__file__).resolve().parent / "tvp_config.json"
         config = load_config(config_path)
         snapshot_year = config.snapshot_year
@@ -236,6 +236,7 @@ class TestCatcherWarHaircut(unittest.TestCase):
         name_key = normalize_name(player_name)
 
         # Create catcher player with same stats as non-catcher
+        # Use age 28 to test guardrail: no >25% TVP haircut for age <= 29
         catcher_player = {
             "mlb_id": 900,
             "player_name": player_name,
@@ -290,8 +291,7 @@ class TestCatcherWarHaircut(unittest.TestCase):
         self.assertIsNotNone(non_catcher_tvp)
 
         # With catcher risk adjustments, catcher TVP should be lower than non-catcher TVP
-        # Allow some tolerance for PV differences due to aging curves
-        expected_ratio = 0.90
+        # Allow some tolerance for PV differences
         actual_ratio = (
             catcher_tvp / non_catcher_tvp
             if non_catcher_tvp is not None and non_catcher_tvp > 0
@@ -301,10 +301,13 @@ class TestCatcherWarHaircut(unittest.TestCase):
         self.assertLess(
             actual_ratio, 1.0, "Catcher TVP should be less than non-catcher TVP"
         )
-        self.assertGreater(
-            actual_ratio,
-            expected_ratio * 0.80,
-            "Catcher TVP reduction should be in reasonable range",
+
+        # Guardrail: 28yo catcher with 5 WAR baseline must have <=25% TVP haircut
+        haircut_pct = (1.0 - actual_ratio) * 100.0 if actual_ratio < 1.0 else 0.0
+        self.assertLessEqual(
+            haircut_pct,
+            25.0,
+            f"28yo catcher with 5 WAR baseline must have <=25% TVP haircut, got {haircut_pct:.1f}%",
         )
 
         # Verify audit trail
@@ -317,6 +320,13 @@ class TestCatcherWarHaircut(unittest.TestCase):
         self.assertIsNotNone(
             projection.get("fwar_before_catcher_risk"),
             "Should have pre-catcher-risk fWAR",
+        )
+
+        # Verify aging factors are tracked per-season
+        catcher_adjustments = projection.get("catcher_risk_adjustments", {})
+        self.assertTrue(
+            len(catcher_adjustments) > 0,
+            "Should have detailed adjustment breakdown by season",
         )
 
     def test_non_catcher_unchanged(self) -> None:
