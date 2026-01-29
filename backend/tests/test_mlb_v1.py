@@ -24,6 +24,7 @@ from backend.compute_mlb_tvp import (
     resolve_projection_role,
     determine_role,
     build_player_output,
+    leaderboard_eligible,
 )
 
 
@@ -289,3 +290,16 @@ def test_pitcher_durability_used_when_role_resolves_to_pitcher():
     output = build_player_output(player, config, 2026, 1.0, set())
     assert output is not None
     assert output.flags["pitcher_tail_risk"] is True
+
+
+def test_leaderboard_eligibility_thresholds():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    service = ServiceTimeRecord(mlbam_id=1, service_time_years=0, service_time_days=0)
+    assert leaderboard_eligible("H", {2025: {"pa": 199.0}}, service, config) is False
+    assert leaderboard_eligible("H", {2025: {"pa": 200.0}}, service, config) is True
+    assert leaderboard_eligible("SP", {2025: {"ip": 49.9}}, service, config) is False
+    assert leaderboard_eligible("SP", {2025: {"ip": 50.0}}, service, config) is True
+    service_full = ServiceTimeRecord(mlbam_id=2, service_time_years=0, service_time_days=0)
+    assert leaderboard_eligible("H", {}, service_full, replace(config, leaderboard_min_service_days=172)) is False
+    service_full = ServiceTimeRecord(mlbam_id=2, service_time_years=0, service_time_days=172)
+    assert leaderboard_eligible("H", {}, service_full, config) is True

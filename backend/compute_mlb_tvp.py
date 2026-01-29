@@ -59,6 +59,9 @@ class MLBV1Config:
     ip_role_min: int
     pa_hyb_min: int
     ip_hyb_min: int
+    leaderboard_min_pa: int
+    leaderboard_min_ip: int
+    leaderboard_min_service_days: int
 
 
 def load_config(path: Path, war_source: str) -> MLBV1Config:
@@ -138,6 +141,9 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
         ip_role_min=int(cfg.get("ip_role_min", 20)),
         pa_hyb_min=int(cfg.get("pa_hyb_min", 200)),
         ip_hyb_min=int(cfg.get("ip_hyb_min", 20)),
+        leaderboard_min_pa=int(cfg.get("leaderboard_min_pa", 200)),
+        leaderboard_min_ip=int(cfg.get("leaderboard_min_ip", 50)),
+        leaderboard_min_service_days=int(cfg.get("leaderboard_min_service_days", 172)),
     )
 
 
@@ -254,6 +260,25 @@ def is_player_eligible(service_record: ServiceTimeRecord | None, usage: dict[int
     service_days = service_record.total_service_days if service_record else 0
     pa_total, ip_total = total_usage(usage)
     return service_days > 0 or (pa_total + ip_total) > 0
+
+
+def leaderboard_eligible(
+    role: str,
+    usage: dict[int, dict[str, float]],
+    service_record: ServiceTimeRecord | None,
+    config: MLBV1Config,
+) -> bool:
+    service_days = service_record.total_service_days if service_record else 0
+    if service_days >= config.leaderboard_min_service_days:
+        return True
+    pa_total, ip_total = total_usage(usage)
+    if role in {"SP", "RP"}:
+        return ip_total >= config.leaderboard_min_ip
+    if role == "H":
+        return pa_total >= config.leaderboard_min_pa
+    if role == "HYB":
+        return (pa_total >= config.leaderboard_min_pa) or (ip_total >= config.leaderboard_min_ip)
+    return False
 
 
 def sp_prob_by_age(age: int, mapping: dict[int, float]) -> float:
@@ -611,6 +636,9 @@ def build_player_output(
         "role_change_risk": role_code == "HYB"
         or (role_prob_sp is not None and 0.3 < role_prob_sp < 0.7),
     }
+    leaderboard_ok = leaderboard_eligible(role_code, usage, service_record, config)
+    flags["leaderboard_eligible"] = leaderboard_ok
+    flags["small_sample"] = flags["small_sample"] or (not leaderboard_ok)
 
     breakdown = build_breakdown(
         snapshot_year,
@@ -645,6 +673,7 @@ def main() -> None:
     parser.add_argument("--war-source", required=True, help="WAR source (e.g., bWAR)")
     parser.add_argument("--use-saved-snapshot", type=Path, default=None)
     parser.add_argument("--top", type=int, default=50)
+    parser.add_argument("--include-small-sample", action="store_true")
     parser.add_argument("--config", type=Path, default=REPO_ROOT / "backend" / "tvp_config.json")
     parser.add_argument("--db", type=Path, default=REPO_ROOT / "backend" / "stats.db")
     parser.add_argument("--data-dir", type=Path, default=REPO_ROOT / "backend" / "output")
@@ -678,7 +707,11 @@ def main() -> None:
             outputs.append(output)
 
     outputs_sorted = sorted(outputs, key=lambda x: x.tvp_p50, reverse=True)
-    top = outputs_sorted[: args.top]
+    if args.include_small_sample:
+        eligible_outputs = outputs_sorted
+    else:
+        eligible_outputs = [o for o in outputs_sorted if o.flags.get("leaderboard_eligible", True)]
+    top = eligible_outputs[: args.top]
 
     json_path, csv_path = emit_outputs(
         REPO_ROOT / "backend" / "output",
