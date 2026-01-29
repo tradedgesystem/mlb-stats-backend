@@ -220,6 +220,22 @@ def load_usage_stats(db_path: Path, seasons: list[int]) -> dict[int, dict[int, d
     return usage
 
 
+def total_usage(usage: dict[int, dict[str, float]]) -> tuple[float, float]:
+    pa_total = sum(v.get("pa", 0.0) for v in usage.values())
+    ip_total = sum(v.get("ip", 0.0) for v in usage.values())
+    return pa_total, ip_total
+
+
+def seasons_with_usage(history: list[SeasonHistory]) -> int:
+    return sum(1 for entry in history if entry.usage > 0)
+
+
+def is_player_eligible(service_record: ServiceTimeRecord | None, usage: dict[int, dict[str, float]]) -> bool:
+    service_days = service_record.total_service_days if service_record else 0
+    pa_total, ip_total = total_usage(usage)
+    return service_days > 0 or (pa_total + ip_total) > 0
+
+
 def sp_prob_by_age(age: int, mapping: dict[int, float]) -> float:
     if not mapping:
         return 0.5
@@ -247,15 +263,21 @@ def determine_role(usage: dict[int, dict[str, float]]) -> tuple[str, float | Non
     return "H", None
 
 
-def usage_prior_for_player(role: str, usage: dict[int, dict[str, float]], config: MLBV1Config) -> float:
+def usage_prior_for_player(
+    role: str,
+    usage: dict[int, dict[str, float]],
+    config: MLBV1Config,
+) -> float:
+    pa_total, ip_total = total_usage(usage)
     if role in {"SP", "RP"}:
-        if role == "SP":
-            return config.usage_prior.get("sp", 180.0)
-        return config.usage_prior.get("rp", 60.0)
-    pa = sum(v.get("pa", 0.0) for v in usage.values())
-    if pa >= 500:
+        if ip_total < config.small_sample_ip:
+            return config.usage_prior.get("rp", 60.0)
+        return config.usage_prior.get("sp", 180.0) if role == "SP" else config.usage_prior.get("rp", 60.0)
+    if pa_total < config.small_sample_pa:
+        return config.usage_prior.get("bench", 150.0)
+    if pa_total >= 500:
         return config.usage_prior.get("everyday", 600.0)
-    if pa >= 250:
+    if pa_total >= 250:
         return config.usage_prior.get("platoon", 350.0)
     return config.usage_prior.get("bench", 150.0)
 
@@ -290,6 +312,9 @@ def build_snapshot_players(
             continue
         usage = usage_stats.get(mlbam_id, {})
         role, gs_share = determine_role(usage)
+        service_record = service_time.get(mlbam_id)
+        if not is_player_eligible(service_record, usage):
+            continue
         players.append(
             {
                 "mlbam_id": mlbam_id,
@@ -301,7 +326,7 @@ def build_snapshot_players(
                 "usage": usage,
                 "role": role,
                 "gs_share": gs_share,
-                "service_time": service_time.get(mlbam_id),
+                "service_time": service_record,
                 "position": positions.get(mlbam_id),
             }
         )
@@ -336,15 +361,26 @@ def build_player_output(
             usage_val = usage.get(season, {}).get("pa", 0.0)
         history.append(SeasonHistory(season=season, war=float(war_val), usage=float(usage_val)))
 
+    pa_total, ip_total = total_usage(usage)
+    history_seasons = seasons_with_usage(history)
+    has_track_record = history_seasons >= 2
     if role_code in {"SP", "RP"}:
         denom = 180.0
-        rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("SP", 2.5))
+        base_rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("SP", 2.5))
+        if (ip_total < config.small_sample_ip) or (not has_track_record):
+            rate_prior = 0.0
+        else:
+            rate_prior = base_rate_prior
         k_rate = config.k_rate.get(role_code, config.k_rate.get("SP", 180))
         k_u = config.k_usage.get(role_code, config.k_usage.get("SP", 180))
         aging = config.aging_curve_pitch
     else:
         denom = 600.0
-        rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("H", 2.0))
+        base_rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("H", 2.0))
+        if (pa_total < config.small_sample_pa) or (not has_track_record):
+            rate_prior = 0.0
+        else:
+            rate_prior = base_rate_prior
         k_rate = config.k_rate.get(role_code, config.k_rate.get("H", 600))
         k_u = config.k_usage.get(role_code, config.k_usage.get("H", 600))
         aging = config.aging_curve_hit

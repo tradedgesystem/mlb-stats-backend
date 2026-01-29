@@ -12,6 +12,13 @@ from backend.simulate import SimulationConfig, SimulationInputs, apply_option_de
 from backend.durability import DurabilityState, DurabilityMixture
 from backend.projections import AgingCurve
 from backend.contracts import ContractYear
+from backend.compute_mlb_tvp import (
+    is_player_eligible,
+    total_usage,
+    usage_prior_for_player,
+    load_config,
+    seasons_with_usage,
+)
 
 
 def test_super_two_top22_with_ties():
@@ -166,3 +173,23 @@ def test_discounting_year_indexing():
     )
     assert breakdown[0]["discount"] == pytest.approx(1.0)
     assert breakdown[1]["discount"] == pytest.approx(1.0 / 1.1)
+
+
+def test_player_eligibility_filter():
+    assert is_player_eligible(None, {}) is False
+    record = ServiceTimeRecord(mlbam_id=1, service_time_years=1, service_time_days=0)
+    assert is_player_eligible(record, {}) is True
+    assert is_player_eligible(None, {2025: {"pa": 10.0}}) is True
+
+
+def test_prior_degrades_for_no_usage():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    usage = {2025: {"pa": 0.0}}
+    assert usage_prior_for_player("H", usage, config) == config.usage_prior.get("bench", 150.0)
+    usage = {2025: {"ip": 0.0}}
+    assert usage_prior_for_player("SP", usage, config) == config.usage_prior.get("rp", 60.0)
+
+
+def test_seasons_with_usage_counts():
+    history = [SeasonHistory(season=2025, war=1.0, usage=0.0), SeasonHistory(season=2024, war=1.0, usage=10.0)]
+    assert seasons_with_usage(history) == 1
