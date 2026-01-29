@@ -62,6 +62,8 @@ class MLBV1Config:
     leaderboard_min_pa: int
     leaderboard_min_ip: int
     leaderboard_min_service_days: int
+    risk_aversion_lambda: float
+    service_time_zero_max_pct: float
 
 
 def load_config(path: Path, war_source: str) -> MLBV1Config:
@@ -144,6 +146,8 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
         leaderboard_min_pa=int(cfg.get("leaderboard_min_pa", 200)),
         leaderboard_min_ip=int(cfg.get("leaderboard_min_ip", 50)),
         leaderboard_min_service_days=int(cfg.get("leaderboard_min_service_days", 172)),
+        risk_aversion_lambda=float(cfg.get("risk_aversion_lambda", 0.5)),
+        service_time_zero_max_pct=float(cfg.get("service_time_zero_max_pct", 0.05)),
     )
 
 
@@ -246,10 +250,40 @@ def load_usage_stats(db_path: Path, seasons: list[int]) -> dict[int, dict[int, d
     return usage
 
 
+def coverage_ok(db_path: Path, expected_seasons: list[int]) -> bool:
+    if not db_path.exists():
+        return False
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT DISTINCT season FROM batting_stats")
+        batting_seasons = {row[0] for row in cur.fetchall() if row[0] is not None}
+        cur.execute("SELECT DISTINCT season FROM pitching_stats")
+        pitching_seasons = {row[0] for row in cur.fetchall() if row[0] is not None}
+    except sqlite3.Error:
+        conn.close()
+        return False
+    conn.close()
+    expected = set(expected_seasons)
+    return expected.issubset(batting_seasons) and expected.issubset(pitching_seasons)
+
+
 def total_usage(usage: dict[int, dict[str, float]]) -> tuple[float, float]:
     pa_total = sum(v.get("pa", 0.0) for v in usage.values())
     ip_total = sum(v.get("ip", 0.0) for v in usage.values())
     return pa_total, ip_total
+
+
+def usage_window_seasons_present(usage: dict[int, dict[str, float]]) -> int:
+    return sum(
+        1
+        for season in usage.values()
+        if (season.get("pa", 0.0) > 0) or (season.get("ip", 0.0) > 0)
+    )
+
+
+def risk_adjusted_value(mean: float, std: float, risk_lambda: float) -> float:
+    return mean - (risk_lambda * std)
 
 
 def seasons_with_usage(history: list[SeasonHistory]) -> int:
@@ -522,6 +556,7 @@ def build_player_output(
         history.append(SeasonHistory(season=season, war=float(war_val), usage=float(usage_val)))
 
     pa_total, ip_total = total_usage(usage)
+    seasons_present = usage_window_seasons_present(usage)
     history_seasons = seasons_with_usage(history)
     has_track_record = history_seasons >= 2
     if projection_role in {"SP", "RP"}:
@@ -625,6 +660,7 @@ def build_player_output(
         role_prob_sp=role_prob_sp,
     )
     sim_result = simulate_tvp(sim_config, sim_inputs, expected_war)
+    risk_adj = risk_adjusted_value(sim_result.mean, sim_result.std, config.risk_aversion_lambda)
 
     flags = {
         "high_defense_uncertainty": player.get("position") is None,
@@ -660,9 +696,15 @@ def build_player_output(
         tvp_p10=sim_result.quantiles.get("p10", 0.0),
         tvp_p50=sim_result.quantiles.get("p50", 0.0),
         tvp_p90=sim_result.quantiles.get("p90", 0.0),
+        tvp_mean=sim_result.mean,
+        tvp_std=sim_result.std,
+        tvp_risk_adj=risk_adj,
         flags=flags,
         breakdown=breakdown,
         service_time=service_time_label,
+        pa_window_total=pa_total,
+        ip_window_total=ip_total,
+        usage_window_seasons_present=seasons_present,
         components=player.get("components"),
     )
 
@@ -674,6 +716,7 @@ def main() -> None:
     parser.add_argument("--use-saved-snapshot", type=Path, default=None)
     parser.add_argument("--top", type=int, default=50)
     parser.add_argument("--include-small-sample", action="store_true")
+    parser.add_argument("--require-service-time", action="store_true")
     parser.add_argument("--config", type=Path, default=REPO_ROOT / "backend" / "tvp_config.json")
     parser.add_argument("--db", type=Path, default=REPO_ROOT / "backend" / "stats.db")
     parser.add_argument("--data-dir", type=Path, default=REPO_ROOT / "backend" / "output")
@@ -713,12 +756,32 @@ def main() -> None:
         eligible_outputs = [o for o in outputs_sorted if o.flags.get("leaderboard_eligible", True)]
     top = eligible_outputs[: args.top]
 
+    zero_service = sum(
+        1
+        for o in eligible_outputs
+        if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
+    zero_service_pct = zero_service / len(eligible_outputs) if eligible_outputs else 0.0
+    service_time_ok = zero_service_pct <= config.service_time_zero_max_pct
+    data_ok = coverage_ok(args.db, [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1])
+    meta_extra = {
+        "data_coverage_ok": data_ok,
+        "service_time_zero_pct": round(zero_service_pct, 4),
+        "top50_unreliable": (not data_ok) or (not service_time_ok),
+        "risk_aversion_lambda": config.risk_aversion_lambda,
+    }
+    if args.require_service_time and not service_time_ok:
+        raise SystemExit(
+            f"Service time coverage failed: {zero_service_pct:.1%} of eligible players have zero service time."
+        )
+
     json_path, csv_path = emit_outputs(
         REPO_ROOT / "backend" / "output",
         args.snapshot_date,
         args.war_source,
         top,
         args.top,
+        meta_extra=meta_extra,
     )
 
     print(f"Wrote {len(top)} players to {json_path} and {csv_path}")

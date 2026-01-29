@@ -21,9 +21,15 @@ class PlayerOutput:
     tvp_p10: float
     tvp_p50: float
     tvp_p90: float
+    tvp_mean: float | None
+    tvp_std: float | None
+    tvp_risk_adj: float | None
     flags: dict[str, bool]
     breakdown: list[dict[str, Any]]
     service_time: str | None
+    pa_window_total: float | None = None
+    ip_window_total: float | None = None
+    usage_window_seasons_present: int | None = None
     components: dict[str, Any] | None = None
 
 
@@ -69,20 +75,24 @@ def emit_outputs(
     war_source: str,
     results: list[PlayerOutput],
     top_n: int,
+    meta_extra: dict[str, Any] | None = None,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     json_path = output_dir / f"tvp_mlb_v1_top{top_n}_{timestamp}.json"
     csv_path = output_dir / f"tvp_mlb_v1_top{top_n}_{timestamp}.csv"
 
+    meta = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "snapshot_date": snapshot_date,
+        "war_source": war_source,
+        "player_count": len(results),
+        "top_n": top_n,
+    }
+    if meta_extra:
+        meta.update(meta_extra)
     payload = {
-        "meta": {
-            "generated_at": datetime.utcnow().isoformat() + "Z",
-            "snapshot_date": snapshot_date,
-            "war_source": war_source,
-            "player_count": len(results),
-            "top_n": top_n,
-        },
+        "meta": meta,
         "players": [
             {
                 "mlbam_id": p.mlbam_id,
@@ -94,9 +104,15 @@ def emit_outputs(
                 "tvp_p10": p.tvp_p10,
                 "tvp_p50": p.tvp_p50,
                 "tvp_p90": p.tvp_p90,
+                "tvp_mean": p.tvp_mean,
+                "tvp_std": p.tvp_std,
+                "tvp_risk_adj": p.tvp_risk_adj,
                 "flags": p.flags,
                 "service_time": p.service_time,
                 "breakdown": p.breakdown,
+                "pa_window_total": p.pa_window_total,
+                "ip_window_total": p.ip_window_total,
+                "usage_window_seasons_present": p.usage_window_seasons_present,
                 **({"components": p.components} if p.components is not None else {}),
             }
             for p in results
@@ -119,7 +135,13 @@ def emit_outputs(
                 "tvp_p10",
                 "tvp_p50",
                 "tvp_p90",
+                "tvp_mean",
+                "tvp_std",
+                "tvp_risk_adj",
                 "service_time",
+                "pa_window_total",
+                "ip_window_total",
+                "usage_window_seasons_present",
                 "flags",
             ],
         )
@@ -136,7 +158,13 @@ def emit_outputs(
                     "tvp_p10": p.tvp_p10,
                     "tvp_p50": p.tvp_p50,
                     "tvp_p90": p.tvp_p90,
+                    "tvp_mean": p.tvp_mean,
+                    "tvp_std": p.tvp_std,
+                    "tvp_risk_adj": p.tvp_risk_adj,
                     "service_time": p.service_time,
+                    "pa_window_total": p.pa_window_total,
+                    "ip_window_total": p.ip_window_total,
+                    "usage_window_seasons_present": p.usage_window_seasons_present,
                     "flags": json.dumps(p.flags),
                 }
             )

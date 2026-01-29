@@ -25,6 +25,7 @@ from backend.compute_mlb_tvp import (
     determine_role,
     build_player_output,
     leaderboard_eligible,
+    risk_adjusted_value,
 )
 
 
@@ -126,6 +127,9 @@ def test_component_output_only_when_present(tmp_path: Path):
         tvp_p10=1.0,
         tvp_p50=2.0,
         tvp_p90=3.0,
+        tvp_mean=2.0,
+        tvp_std=0.5,
+        tvp_risk_adj=1.75,
         flags={},
         breakdown=[],
         service_time="01/2026",
@@ -145,6 +149,9 @@ def test_component_output_only_when_present(tmp_path: Path):
         tvp_p10=1.0,
         tvp_p50=2.0,
         tvp_p90=3.0,
+        tvp_mean=2.0,
+        tvp_std=0.5,
+        tvp_risk_adj=1.75,
         flags={},
         breakdown=[],
         service_time="01/2026",
@@ -200,6 +207,21 @@ def test_prior_degrades_for_no_usage():
 def test_seasons_with_usage_counts():
     history = [SeasonHistory(season=2025, war=1.0, usage=0.0), SeasonHistory(season=2024, war=1.0, usage=10.0)]
     assert seasons_with_usage(history) == 1
+
+
+def test_risk_adjusted_value_penalizes_variance_without_changing_p50():
+    samples_low = [0.0, 0.0, 0.0, 0.0, 0.0]
+    samples_high = [-1.0, 0.0, 0.0, 0.0, 1.0]
+    p50_low = compute_quantiles(samples_low, [0.5])["p50"]
+    p50_high = compute_quantiles(samples_high, [0.5])["p50"]
+    assert p50_low == p50_high == 0.0
+    mean_low = sum(samples_low) / len(samples_low)
+    mean_high = sum(samples_high) / len(samples_high)
+    std_low = 0.0
+    std_high = (sum((v - mean_high) ** 2 for v in samples_high) / len(samples_high)) ** 0.5
+    risk_low = risk_adjusted_value(mean_low, std_low, 0.5)
+    risk_high = risk_adjusted_value(mean_high, std_high, 0.5)
+    assert risk_high < risk_low
 
 
 def test_contract_override_uses_aav_and_basis():

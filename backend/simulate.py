@@ -38,6 +38,8 @@ class SimulationResult:
     samples: list[float]
     quantiles: dict[str, float]
     war_p50: list[float]
+    mean: float
+    std: float
 
 
 def compute_quantiles(samples: list[float], qs: Iterable[float]) -> dict[str, float]:
@@ -148,4 +150,7 @@ def simulate_tvp(
         samples.append(tvp)
 
     quantiles = compute_quantiles(samples, [0.1, 0.5, 0.9])
-    return SimulationResult(samples=samples, quantiles=quantiles, war_p50=expected_war)
+    mean = sum(samples) / len(samples) if samples else 0.0
+    variance = sum((val - mean) ** 2 for val in samples) / len(samples) if samples else 0.0
+    std = math.sqrt(variance)
+    return SimulationResult(samples=samples, quantiles=quantiles, war_p50=expected_war, mean=mean, std=std)

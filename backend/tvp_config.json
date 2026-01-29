@@ -150,6 +150,8 @@
   "ip_hyb_min": 20,
   "leaderboard_min_pa": 200,
   "leaderboard_min_ip": 50,
-  "leaderboard_min_service_days": 172
+  "leaderboard_min_service_days": 172,
+  "risk_aversion_lambda": 0.5,
+  "service_time_zero_max_pct": 0.05
 }
 }
