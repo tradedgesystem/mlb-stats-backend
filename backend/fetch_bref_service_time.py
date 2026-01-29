@@ -134,6 +134,83 @@ def save_checkpoint(path: Path, remaining_ids: list[int], index: int) -> None:
         json.dump({"remaining_ids": remaining_ids, "index": index}, f, indent=2)
 
 
+def compute_service_time_summary(
+    db_path: Path,
+    snapshot_date: str | None,
+    war_source: str,
+    top_n: int,
+    rank_by: str | None,
+    include_small_sample: bool,
+    max_requests: int | None,
+    remaining_ids: list[int],
+    checkpoint_index: int,
+) -> None:
+    from datetime import date as dt_date
+    from backend.compute_mlb_tvp import (
+        build_player_output,
+        build_snapshot_players,
+        load_config,
+    )
+    from backend.service_time import SeasonWindow, remaining_games_fraction, super_two_for_snapshot, ServiceTimeRecord
+
+    snapshot = (
+        dt_date.fromisoformat(snapshot_date)
+        if snapshot_date
+        else dt_date.today()
+    )
+    config = load_config(Path(__file__).with_name("tvp_config.json"), war_source)
+    data_dir = Path(__file__).with_name("output")
+    players = build_snapshot_players(snapshot.year, war_source, data_dir, db_path, config)
+    season_window = SeasonWindow(
+        start=dt_date(snapshot.year, config.season_window.start.month, config.season_window.start.day),
+        end=dt_date(snapshot.year, config.season_window.end.month, config.season_window.end.day),
+    )
+    frac = remaining_games_fraction(snapshot, season_window)
+    service_records = [p.get("service_time") for p in players if p.get("service_time")]
+    service_records = [rec for rec in service_records if isinstance(rec, ServiceTimeRecord)]
+    super_two = super_two_for_snapshot(service_records, snapshot, season_window)
+
+    outputs = []
+    for player in players:
+        out = build_player_output(player, config, snapshot.year, frac, super_two.super_two_ids)
+        if out:
+            outputs.append(out)
+
+    rank_metric = rank_by or config.leaderboard_rank_by
+    rank_key = (lambda o: o.tvp_risk_adj) if rank_metric == "tvp_risk_adj" else (lambda o: o.tvp_p50)
+    outputs_sorted = sorted(outputs, key=rank_key, reverse=True)
+    leaderboard_pool = [o for o in outputs_sorted if o.flags.get("leaderboard_eligible", True)]
+    if include_small_sample:
+        eligible_outputs = leaderboard_pool
+    else:
+        eligible_outputs = [o for o in leaderboard_pool if not o.flags.get("small_sample", False)]
+    top = eligible_outputs[:top_n]
+
+    zero_all = sum(
+        1 for o in outputs_sorted if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
+    zero_lb = sum(
+        1 for o in leaderboard_pool if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
+    zero_top = sum(
+        1 for o in top if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
+    pct_all = zero_all / len(outputs_sorted) if outputs_sorted else 0.0
+    pct_lb = zero_lb / len(leaderboard_pool) if leaderboard_pool else 0.0
+    pct_top = zero_top / len(top) if top else 0.0
+    batch = max_requests or 0
+    batches_needed = ((len(remaining_ids) + batch - 1) // batch) if batch else None
+
+    print("Summary:")
+    print(f"  remaining_ids: {len(remaining_ids)}")
+    print(f"  checkpoint_index: {checkpoint_index}")
+    print(f"  service_time_zero_pct_all: {pct_all:.4f}")
+    print(f"  service_time_zero_pct_leaderboard: {pct_lb:.4f}")
+    print(f"  service_time_zero_pct_top50: {pct_top:.4f}")
+    if batches_needed is not None:
+        print(f"  batches_needed: {batches_needed}")
+
+
 def map_to_bbref_ids(mlbam_ids: Iterable[int]) -> dict[int, str]:
     if not mlbam_ids:
         return {}
@@ -226,6 +303,40 @@ def main() -> None:
         help="Print resume status and remaining IDs without making requests",
     )
     parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print service time coverage summary using local data (no web calls)",
+    )
+    parser.add_argument(
+        "--snapshot-date",
+        type=str,
+        default=None,
+        help="Snapshot date (YYYY-MM-DD) used for summary ranking",
+    )
+    parser.add_argument(
+        "--war-source",
+        type=str,
+        default="bWAR",
+        help="WAR source for summary ranking",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=50,
+        help="Top-N size for summary ranking",
+    )
+    parser.add_argument(
+        "--rank-by",
+        choices=["tvp_p50", "tvp_risk_adj"],
+        default=None,
+        help="Ranking metric for summary (defaults to config)",
+    )
+    parser.add_argument(
+        "--include-small-sample",
+        action="store_true",
+        help="Include small-sample players in summary leaderboard",
+    )
+    parser.add_argument(
         "--retry-errors",
         action="store_true",
         help="Refetch entries with status=error in the cache",
@@ -262,6 +373,21 @@ def main() -> None:
     if args.status:
         remaining = len(mlbam_ids) - start_index
         print(f"Resume status: {remaining} remaining IDs (index={start_index})")
+        return
+
+    if args.summary:
+        remaining_ids = mlbam_ids[start_index:]
+        compute_service_time_summary(
+            db_path=db_path,
+            snapshot_date=args.snapshot_date,
+            war_source=args.war_source,
+            top_n=args.top,
+            rank_by=args.rank_by,
+            include_small_sample=args.include_small_sample,
+            max_requests=args.max_requests,
+            remaining_ids=remaining_ids,
+            checkpoint_index=start_index,
+        )
         return
 
     mlbam_to_bbref = map_to_bbref_ids(mlbam_ids)
