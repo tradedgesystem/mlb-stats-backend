@@ -64,6 +64,7 @@ class MLBV1Config:
     leaderboard_min_service_days: int
     risk_aversion_lambda: float
     service_time_zero_max_pct: float
+    leaderboard_rank_by: str
 
 
 def load_config(path: Path, war_source: str) -> MLBV1Config:
@@ -148,6 +149,7 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
         leaderboard_min_service_days=int(cfg.get("leaderboard_min_service_days", 172)),
         risk_aversion_lambda=float(cfg.get("risk_aversion_lambda", 0.5)),
         service_time_zero_max_pct=float(cfg.get("service_time_zero_max_pct", 0.05)),
+        leaderboard_rank_by=str(cfg.get("leaderboard_rank_by", "tvp_risk_adj")),
     )
 
 
@@ -717,6 +719,12 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=50)
     parser.add_argument("--include-small-sample", action="store_true")
     parser.add_argument("--require-service-time", action="store_true")
+    parser.add_argument(
+        "--rank-by",
+        choices=["tvp_p50", "tvp_risk_adj"],
+        default=None,
+        help="Leaderboard ranking metric (default from config).",
+    )
     parser.add_argument("--config", type=Path, default=REPO_ROOT / "backend" / "tvp_config.json")
     parser.add_argument("--db", type=Path, default=REPO_ROOT / "backend" / "stats.db")
     parser.add_argument("--data-dir", type=Path, default=REPO_ROOT / "backend" / "output")
@@ -749,30 +757,40 @@ def main() -> None:
         if output:
             outputs.append(output)
 
-    outputs_sorted = sorted(outputs, key=lambda x: x.tvp_p50, reverse=True)
+    rank_by = args.rank_by or config.leaderboard_rank_by
+    rank_key = (lambda o: o.tvp_risk_adj) if rank_by == "tvp_risk_adj" else (lambda o: o.tvp_p50)
+
+    outputs_sorted = sorted(outputs, key=rank_key, reverse=True)
+    leaderboard_pool = [o for o in outputs_sorted if o.flags.get("leaderboard_eligible", True)]
     if args.include_small_sample:
-        eligible_outputs = outputs_sorted
+        eligible_outputs = leaderboard_pool
     else:
-        eligible_outputs = [o for o in outputs_sorted if o.flags.get("leaderboard_eligible", True)]
+        eligible_outputs = [o for o in leaderboard_pool if not o.flags.get("small_sample", False)]
     top = eligible_outputs[: args.top]
 
-    zero_service = sum(
+    zero_service_all = sum(
+        1 for o in outputs_sorted if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
+    zero_service_lb = sum(
         1
-        for o in eligible_outputs
+        for o in leaderboard_pool
         if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
     )
-    zero_service_pct = zero_service / len(eligible_outputs) if eligible_outputs else 0.0
-    service_time_ok = zero_service_pct <= config.service_time_zero_max_pct
+    zero_pct_all = zero_service_all / len(outputs_sorted) if outputs_sorted else 0.0
+    zero_pct_lb = zero_service_lb / len(leaderboard_pool) if leaderboard_pool else 0.0
+    service_time_ok = zero_pct_lb <= config.service_time_zero_max_pct
     data_ok = coverage_ok(args.db, [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1])
     meta_extra = {
         "data_coverage_ok": data_ok,
-        "service_time_zero_pct": round(zero_service_pct, 4),
+        "service_time_zero_pct_all": round(zero_pct_all, 4),
+        "service_time_zero_pct_leaderboard": round(zero_pct_lb, 4),
         "top50_unreliable": (not data_ok) or (not service_time_ok),
         "risk_aversion_lambda": config.risk_aversion_lambda,
+        "rank_by": rank_by,
     }
     if args.require_service_time and not service_time_ok:
         raise SystemExit(
-            f"Service time coverage failed: {zero_service_pct:.1%} of eligible players have zero service time."
+            f"Service time coverage failed: {zero_pct_lb:.1%} of leaderboard players have zero service time."
         )
 
     json_path, csv_path = emit_outputs(

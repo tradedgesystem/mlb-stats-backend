@@ -152,6 +152,7 @@
   "leaderboard_min_ip": 50,
   "leaderboard_min_service_days": 172,
   "risk_aversion_lambda": 0.5,
-  "service_time_zero_max_pct": 0.05
+  "service_time_zero_max_pct": 0.05,
+  "leaderboard_rank_by": "tvp_risk_adj"
 }
 }

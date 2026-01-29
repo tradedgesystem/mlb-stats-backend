@@ -27,6 +27,7 @@ DB_PATH = Path(__file__).with_name("stats.db")
 OUTPUT_DIR = Path(__file__).with_name("output")
 CACHE_FILE = OUTPUT_DIR / "bref_service_time_cache.json"
 OUTPUT_FILE = OUTPUT_DIR / "service_time_bref_2026_under6.json"
+CHECKPOINT_FILE = OUTPUT_DIR / "service_time_resume_checkpoint.json"
 DEFAULT_SOURCE = "baseball_reference"
 
 SERVICE_TIME_RE = re.compile(r"Service Time \(([^)]+)\)</strong>:\s*([0-9]+)\.([0-9]{3})")
@@ -96,6 +97,41 @@ def load_mlbam_ids_from_db(db_path: Path) -> list[int]:
                 except (TypeError, ValueError):
                     continue
     return sorted(ids)
+
+
+def load_missing_service_ids(db_path: Path) -> list[int]:
+    all_ids = load_mlbam_ids_from_db(db_path)
+    missing = set(all_ids)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT mlbam_id, service_time_years, service_time_days "
+            "FROM service_time_bref"
+        ).fetchall()
+        for mlbam_id, years, days in rows:
+            if mlbam_id is None:
+                continue
+            try:
+                mlbam_id = int(mlbam_id)
+            except (TypeError, ValueError):
+                continue
+            years = int(years or 0)
+            days = int(days or 0)
+            if years > 0 or days > 0:
+                missing.discard(mlbam_id)
+    return sorted(missing)
+
+
+def load_checkpoint(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    with path.open() as f:
+        return json.load(f)
+
+
+def save_checkpoint(path: Path, remaining_ids: list[int], index: int) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        json.dump({"remaining_ids": remaining_ids, "index": index}, f, indent=2)
 
 
 def map_to_bbref_ids(mlbam_ids: Iterable[int]) -> dict[int, str]:
@@ -174,6 +210,17 @@ def main() -> None:
         help="Ignore cache and refetch all",
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint and only fetch missing/zero service time rows",
+    )
+    parser.add_argument(
+        "--max-requests",
+        type=int,
+        default=None,
+        help="Cap total fetch attempts for this run (useful for batching)",
+    )
+    parser.add_argument(
         "--retry-errors",
         action="store_true",
         help="Refetch entries with status=error in the cache",
@@ -190,11 +237,22 @@ def main() -> None:
     if not db_path.exists():
         raise FileNotFoundError(f"Database not found: {db_path}")
 
-    mlbam_ids = load_mlbam_ids_from_db(db_path)
-    if args.max_players:
-        mlbam_ids = mlbam_ids[: args.max_players]
-
-    print(f"Loaded {len(mlbam_ids)} MLBAM IDs from {db_path}")
+    if args.resume:
+        checkpoint = load_checkpoint(CHECKPOINT_FILE)
+        if checkpoint:
+            mlbam_ids = checkpoint.get("remaining_ids", [])
+            start_index = int(checkpoint.get("index", 0))
+        else:
+            mlbam_ids = load_missing_service_ids(db_path)
+            start_index = 0
+            save_checkpoint(CHECKPOINT_FILE, mlbam_ids, start_index)
+        print(f"Loaded {len(mlbam_ids)} missing MLBAM IDs for resume mode")
+    else:
+        mlbam_ids = load_mlbam_ids_from_db(db_path)
+        if args.max_players:
+            mlbam_ids = mlbam_ids[: args.max_players]
+        start_index = 0
+        print(f"Loaded {len(mlbam_ids)} MLBAM IDs from {db_path}")
 
     mlbam_to_bbref = map_to_bbref_ids(mlbam_ids)
     print(f"Mapped {len(mlbam_to_bbref)} MLBAM IDs to Baseball-Reference IDs")
@@ -202,17 +260,23 @@ def main() -> None:
     cache = load_cache()
     updated = 0
 
-    rate_limited = False
-    for idx, mlbam_id in enumerate(mlbam_ids, start=1):
+    rate_limit_hits = 0
+    processed = 0
+    idx = start_index
+    while idx < len(mlbam_ids):
+        mlbam_id = mlbam_ids[idx]
         bbref_id = mlbam_to_bbref.get(mlbam_id)
         if not bbref_id:
+            idx += 1
             continue
 
         cache_key = bbref_id
         if not args.force_refresh and cache_key in cache:
             if not args.retry_errors:
+                idx += 1
                 continue
             if cache.get(cache_key, {}).get("status") != "error":
+                idx += 1
                 continue
 
         url = build_bbref_url(bbref_id)
@@ -249,8 +313,16 @@ def main() -> None:
                 "error": f"HTTP {exc.code}: {exc.reason}",
                 "fetched_at": datetime.utcnow().isoformat() + "Z",
             }
-            if exc.code in (403, 429) and args.stop_on_rate_limit:
-                rate_limited = True
+            if exc.code in (403, 429):
+                if args.stop_on_rate_limit and not args.resume:
+                    print("Rate limited by Baseball-Reference; stopping early.")
+                    break
+                rate_limit_hits += 1
+                backoff = min(60.0, args.sleep * (2 ** rate_limit_hits))
+                print(f"Rate limited (HTTP {exc.code}); backing off for {backoff:.1f}s")
+                time.sleep(backoff)
+            else:
+                rate_limit_hits = 0
         except Exception as exc:
             cache[cache_key] = {
                 "mlbam_id": mlbam_id,
@@ -260,17 +332,23 @@ def main() -> None:
                 "error": str(exc),
                 "fetched_at": datetime.utcnow().isoformat() + "Z",
             }
+            rate_limit_hits = 0
         finally:
             if args.sleep > 0:
                 time.sleep(args.sleep)
+        processed += 1
+        idx += 1
 
-        if rate_limited:
-            print("Rate limited by Baseball-Reference; stopping early.")
-            break
+        if args.resume:
+            save_checkpoint(CHECKPOINT_FILE, mlbam_ids, idx)
 
         if idx % 50 == 0:
             print(f"Processed {idx} / {len(mlbam_ids)}")
             save_cache(cache)
+
+        if args.max_requests is not None and processed >= args.max_requests:
+            print("Reached max-requests limit; stopping early.")
+            break
 
     if updated:
         save_cache(cache)
@@ -307,6 +385,10 @@ def main() -> None:
     print(f"Wrote {len(under6)} players to {OUTPUT_FILE}")
     inserted = write_service_time_table(db_path, cache)
     print(f"Upserted {inserted} service time rows into {db_path}")
+
+    if args.resume and idx >= len(mlbam_ids):
+        if CHECKPOINT_FILE.exists():
+            CHECKPOINT_FILE.unlink()
 
 
 if __name__ == "__main__":
