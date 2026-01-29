@@ -221,6 +221,11 @@ def main() -> None:
         help="Cap total fetch attempts for this run (useful for batching)",
     )
     parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Print resume status and remaining IDs without making requests",
+    )
+    parser.add_argument(
         "--retry-errors",
         action="store_true",
         help="Refetch entries with status=error in the cache",
@@ -253,6 +258,11 @@ def main() -> None:
             mlbam_ids = mlbam_ids[: args.max_players]
         start_index = 0
         print(f"Loaded {len(mlbam_ids)} MLBAM IDs from {db_path}")
+
+    if args.status:
+        remaining = len(mlbam_ids) - start_index
+        print(f"Resume status: {remaining} remaining IDs (index={start_index})")
+        return
 
     mlbam_to_bbref = map_to_bbref_ids(mlbam_ids)
     print(f"Mapped {len(mlbam_to_bbref)} MLBAM IDs to Baseball-Reference IDs")

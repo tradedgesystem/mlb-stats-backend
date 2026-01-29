@@ -776,15 +776,23 @@ def main() -> None:
         for o in leaderboard_pool
         if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
     )
+    zero_service_top = sum(
+        1
+        for o in top
+        if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
+    )
     zero_pct_all = zero_service_all / len(outputs_sorted) if outputs_sorted else 0.0
     zero_pct_lb = zero_service_lb / len(leaderboard_pool) if leaderboard_pool else 0.0
+    zero_pct_top = zero_service_top / len(top) if top else 0.0
     service_time_ok = zero_pct_lb <= config.service_time_zero_max_pct
     data_ok = coverage_ok(args.db, [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1])
     meta_extra = {
         "data_coverage_ok": data_ok,
         "service_time_zero_pct_all": round(zero_pct_all, 4),
         "service_time_zero_pct_leaderboard": round(zero_pct_lb, 4),
-        "top50_unreliable": (not data_ok) or (not service_time_ok),
+        "service_time_zero_pct_top50": round(zero_pct_top, 4),
+        "warning_service_time_incomplete": (zero_pct_lb > config.service_time_zero_max_pct),
+        "top50_unreliable": (not data_ok) or (zero_pct_top > 0.0),
         "risk_aversion_lambda": config.risk_aversion_lambda,
         "rank_by": rank_by,
     }
