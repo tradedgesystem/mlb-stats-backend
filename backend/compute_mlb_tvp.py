@@ -220,7 +220,7 @@ def load_usage_stats(db_path: Path, seasons: list[int]) -> dict[int, dict[int, d
 
     for season in seasons:
         cur.execute(
-            "SELECT mlbid, pa FROM batting_stats WHERE season = ?",
+            "SELECT mlbid, pa FROM batting_stats WHERE season = ? AND lev LIKE 'Maj-%'",
             (season,),
         )
         for mlbid, pa in cur.fetchall():
@@ -230,7 +230,7 @@ def load_usage_stats(db_path: Path, seasons: list[int]) -> dict[int, dict[int, d
             usage.setdefault(mlbam_id, {}).setdefault(season, {})["pa"] = float(pa or 0.0)
 
         cur.execute(
-            "SELECT mlbid, ip, g, gs FROM pitching_stats WHERE season = ?",
+            "SELECT mlbid, ip, g, gs FROM pitching_stats WHERE season = ? AND lev LIKE 'Maj-%'",
             (season,),
         )
         for mlbid, ip, g, gs in cur.fetchall():

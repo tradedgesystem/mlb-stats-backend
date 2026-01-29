@@ -8,30 +8,30 @@ from pathlib import Path
 
 import pandas as pd
 from pybaseball import (
-    batting_stats,
-    batting_stats_range,
-    pitching_stats,
-    pitching_stats_range,
-    playerid_reverse_lookup,
     statcast,
+    batting_stats_bref,
+    pitching_stats_bref,
+    playerid_reverse_lookup,
+    batting_stats_range,
+    pitching_stats_range,
 )
 
-from data_utils import (
+from backend.data_utils import (
     ensure_columns,
     iter_date_ranges,
     iter_dates,
     normalize_columns,
     parse_date,
 )
-from statcast_metrics import (
+from backend.statcast_metrics import (
     STATCAST_BATTER_COLUMNS,
     build_statcast_batter_metrics_from_df,
 )
-from statcast_daily import (
+from backend.statcast_daily import (
     build_daily_batting_from_statcast,
     build_daily_pitching_from_statcast,
 )
-from mlb_gamelogs_daily import (
+from backend.mlb_gamelogs_daily import (
     fetch_gamelogs,
 )
 
@@ -277,20 +277,76 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip writing SQLite database (compute only)"
     )
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=YEAR,
+        help="First season year to ingest (inclusive)"
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=YEAR,
+        help="Last season year to ingest (inclusive)"
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    batting_df = batting_stats(YEAR, qual=0)
-    batting_df.columns = normalize_columns(batting_df.columns.tolist())
+    if args.start_year > args.end_year:
+        raise ValueError("--start-year must be <= --end-year")
+    years = list(range(args.start_year, args.end_year + 1))
+    
+    # NOTE: Fangraphs is blocked by Cloudflare (403) for all season endpoints despite User-Agent headers.
+    # Using Baseball Reference as a reliable alternative that provides:
+    # - Season batting/pitching stats with player IDs (mlbID)
+    # - Core traditional statistics needed by the Chrome extension
+    # - Advanced Fangraphs-specific metrics (WAR, wRC+, wOBA) are not available from BRef
+    
+    batting_frames = []
+    for year in years:
+        print(f"Fetching Baseball Reference batting stats for {year} season...")
+        batting_df = batting_stats_bref(year)
+        batting_df.columns = normalize_columns(batting_df.columns.tolist())
+        if "season" not in batting_df.columns:
+            batting_df["season"] = year
+        batting_frames.append(batting_df)
 
-    if "season" not in batting_df.columns:
-        batting_df["season"] = YEAR
-    if "idfg" not in batting_df.columns:
-        raise ValueError("Missing expected idfg column for player IDs.")
-    if "player_id" not in batting_df.columns:
-        batting_df["player_id"] = batting_df["idfg"]
+    batting_df = pd.concat(batting_frames, ignore_index=True) if batting_frames else pd.DataFrame()
+    
+    # Baseball Reference returns 'mlbid' (MLB ID), we need to convert to Fangraphs ID
+    # Map MLB IDs to Fangraphs IDs for compatibility with existing code
+    if "mlbid" in batting_df.columns and not batting_df.empty:
+        mlb_ids = (
+            pd.to_numeric(batting_df["mlbid"], errors="coerce")
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+        if mlb_ids:
+            print(f"Looking up Fangraphs IDs for {len(mlb_ids)} players...")
+            lookup = playerid_reverse_lookup(mlb_ids, key_type="mlbam")
+            if not lookup.empty and "key_fangraphs" in lookup.columns:
+                lookup = lookup.dropna(subset=["key_mlbam", "key_fangraphs"])
+                mapping = lookup.set_index("key_mlbam")["key_fangraphs"]
+                batting_df["player_id"] = pd.to_numeric(
+                    batting_df["mlbid"], errors="coerce"
+                ).map(mapping)
+                batting_df["idfg"] = batting_df["player_id"]
+                missing = batting_df["player_id"].isna().sum()
+                if missing:
+                    print(f"Warning: Could not map Fangraphs IDs for {missing} players")
+            else:
+                # Fallback: use mlbid as player_id if lookup fails
+                batting_df["player_id"] = pd.to_numeric(
+                    batting_df["mlbid"], errors="coerce"
+                )
+                batting_df["idfg"] = batting_df["player_id"]
+    
+    if "player_id" not in batting_df.columns or "idfg" not in batting_df.columns:
+        raise ValueError("Missing required player_id/idfg columns from Baseball Reference data.")
 
     if "barrels" in batting_df.columns and "pa" in batting_df.columns:
         batting_df["barrels_per_pa"] = batting_df["barrels"] / batting_df[
@@ -338,16 +394,49 @@ def main() -> None:
             print("No statcast metrics computed for the requested range.")
 
     log_missing_and_sparse(batting_df, REQUIRED_BATTING)
+    
+    pitching_frames = []
+    for year in years:
+        print(f"Fetching Baseball Reference pitching stats for {year} season...")
+        pitching_df = pitching_stats_bref(year)
+        pitching_df.columns = normalize_columns(pitching_df.columns.tolist())
+        if "season" not in pitching_df.columns:
+            pitching_df["season"] = year
+        pitching_frames.append(pitching_df)
 
-    pitching_df = pitching_stats(YEAR, qual=0)
-    pitching_df.columns = normalize_columns(pitching_df.columns.tolist())
-
-    if "season" not in pitching_df.columns:
-        pitching_df["season"] = YEAR
-    if "idfg" not in pitching_df.columns:
-        raise ValueError("Missing expected idfg column for player IDs.")
-    if "player_id" not in pitching_df.columns:
-        pitching_df["player_id"] = pitching_df["idfg"]
+    pitching_df = pd.concat(pitching_frames, ignore_index=True) if pitching_frames else pd.DataFrame()
+    
+    # Baseball Reference returns 'mlbid' (MLB ID), convert to Fangraphs ID
+    if "mlbid" in pitching_df.columns and not pitching_df.empty:
+        mlb_ids = (
+            pd.to_numeric(pitching_df["mlbid"], errors="coerce")
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+        if mlb_ids:
+            print(f"Looking up Fangraphs IDs for {len(mlb_ids)} pitchers...")
+            lookup = playerid_reverse_lookup(mlb_ids, key_type="mlbam")
+            if not lookup.empty and "key_fangraphs" in lookup.columns:
+                lookup = lookup.dropna(subset=["key_mlbam", "key_fangraphs"])
+                mapping = lookup.set_index("key_mlbam")["key_fangraphs"]
+                pitching_df["player_id"] = pd.to_numeric(
+                    pitching_df["mlbid"], errors="coerce"
+                ).map(mapping)
+                pitching_df["idfg"] = pitching_df["player_id"]
+                missing = pitching_df["player_id"].isna().sum()
+                if missing:
+                    print(f"Warning: Could not map Fangraphs IDs for {missing} pitchers")
+            else:
+                # Fallback: use mlbid as player_id if lookup fails
+                pitching_df["player_id"] = pd.to_numeric(
+                    pitching_df["mlbid"], errors="coerce"
+                )
+                pitching_df["idfg"] = pitching_df["player_id"]
+    
+    if "player_id" not in pitching_df.columns or "idfg" not in pitching_df.columns:
+        raise ValueError("Missing required player_id/idfg columns from Baseball Reference data.")
 
     log_missing_and_sparse(pitching_df, REQUIRED_PITCHING)
 
