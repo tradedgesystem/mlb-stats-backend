@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from backend.contracts import build_contract_schedule
+from backend.service_time import ControlTimeline
 from backend.output import PlayerOutput, emit_outputs, build_breakdown
 from backend.projections import SeasonHistory, build_rate_projection
 from backend.service_time import ServiceTimeRecord, SeasonWindow, compute_super_two, super_two_for_snapshot
@@ -26,6 +27,9 @@ from backend.compute_mlb_tvp import (
     build_player_output,
     leaderboard_eligible,
     risk_adjusted_value,
+    build_status_t,
+    late_negative_surplus_years,
+    backloaded_contract,
 )
 
 
@@ -124,6 +128,7 @@ def test_component_output_only_when_present(tmp_path: Path):
         age=25,
         role="H",
         position="SS",
+        status_t=["contract"],
         tvp_p10=1.0,
         tvp_p50=2.0,
         tvp_p90=3.0,
@@ -131,6 +136,7 @@ def test_component_output_only_when_present(tmp_path: Path):
         tvp_std=0.5,
         tvp_risk_adj=1.75,
         flags={},
+        late_negative_surplus_years=0,
         breakdown=[],
         service_time="01/2026",
         components=None,
@@ -146,6 +152,7 @@ def test_component_output_only_when_present(tmp_path: Path):
         age=25,
         role="H",
         position="SS",
+        status_t=["contract"],
         tvp_p10=1.0,
         tvp_p50=2.0,
         tvp_p90=3.0,
@@ -153,6 +160,7 @@ def test_component_output_only_when_present(tmp_path: Path):
         tvp_std=0.5,
         tvp_risk_adj=1.75,
         flags={},
+        late_negative_surplus_years=0,
         breakdown=[],
         service_time="01/2026",
         components={"bat": 1.0},
@@ -222,6 +230,57 @@ def test_risk_adjusted_value_penalizes_variance_without_changing_p50():
     risk_low = risk_adjusted_value(mean_low, std_low, 0.5)
     risk_high = risk_adjusted_value(mean_high, std_high, 0.5)
     assert risk_high < risk_low
+
+
+def test_status_t_nonempty_for_contract_schedule():
+    schedule = build_contract_schedule(
+        contract={"contract_years": [{"season": 2026, "salary_m": 10.0}]},
+        snapshot_year=2026,
+        horizon_years=1,
+        control_year_types=[],
+        expected_war=[1.0],
+        war_price_by_year=[10.0],
+        arb_share=[0.5],
+        min_salary_m=1.0,
+        min_salary_growth=0.0,
+    )
+    timeline = ControlTimeline([])
+    status = build_status_t(timeline, schedule)
+    assert status == ["contract"]
+
+
+def test_late_negative_surplus_years_counts_tail():
+    breakdown = [
+        {"surplus": 1.0},
+        {"surplus": -1.0},
+        {"surplus": -0.5},
+    ]
+    assert late_negative_surplus_years(breakdown, tail_years=2) == 2
+    assert late_negative_surplus_years(breakdown, tail_years=3) == 2
+
+
+def test_backloaded_contract_detection():
+    schedule = build_contract_schedule(
+        contract={
+            "contract_years": [
+                {"season": 2026, "salary_m": 10.0},
+                {"season": 2027, "salary_m": 10.0},
+                {"season": 2028, "salary_m": 10.0},
+                {"season": 2029, "salary_m": 30.0},
+                {"season": 2030, "salary_m": 30.0},
+                {"season": 2031, "salary_m": 30.0},
+            ]
+        },
+        snapshot_year=2026,
+        horizon_years=6,
+        control_year_types=[],
+        expected_war=[1.0] * 6,
+        war_price_by_year=[10.0] * 6,
+        arb_share=[0.5],
+        min_salary_m=1.0,
+        min_salary_growth=0.0,
+    )
+    assert backloaded_contract(schedule, threshold=1.5) is True
 
 
 def test_contract_override_uses_aav_and_basis():

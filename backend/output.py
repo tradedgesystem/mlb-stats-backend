@@ -18,6 +18,7 @@ class PlayerOutput:
     age: int | None
     role: str
     position: str | None
+    status_t: list[str]
     tvp_p10: float
     tvp_p50: float
     tvp_p90: float
@@ -27,6 +28,7 @@ class PlayerOutput:
     flags: dict[str, bool]
     breakdown: list[dict[str, Any]]
     service_time: str | None
+    late_negative_surplus_years: int | None = None
     pa_window_total: float | None = None
     ip_window_total: float | None = None
     usage_window_seasons_present: int | None = None
@@ -101,6 +103,7 @@ def emit_outputs(
                 "age": p.age,
                 "role": p.role,
                 "position": p.position,
+                "status_t": p.status_t,
                 "tvp_p10": p.tvp_p10,
                 "tvp_p50": p.tvp_p50,
                 "tvp_p90": p.tvp_p90,
@@ -108,6 +111,7 @@ def emit_outputs(
                 "tvp_std": p.tvp_std,
                 "tvp_risk_adj": p.tvp_risk_adj,
                 "flags": p.flags,
+                "late_negative_surplus_years": p.late_negative_surplus_years,
                 "service_time": p.service_time,
                 "breakdown": p.breakdown,
                 "pa_window_total": p.pa_window_total,
@@ -132,6 +136,7 @@ def emit_outputs(
                 "age",
                 "role",
                 "position",
+                "status_t",
                 "tvp_p10",
                 "tvp_p50",
                 "tvp_p90",
@@ -139,6 +144,7 @@ def emit_outputs(
                 "tvp_std",
                 "tvp_risk_adj",
                 "service_time",
+                "late_negative_surplus_years",
                 "pa_window_total",
                 "ip_window_total",
                 "usage_window_seasons_present",
@@ -155,6 +161,7 @@ def emit_outputs(
                     "age": p.age,
                     "role": p.role,
                     "position": p.position,
+                    "status_t": ",".join(p.status_t),
                     "tvp_p10": p.tvp_p10,
                     "tvp_p50": p.tvp_p50,
                     "tvp_p90": p.tvp_p90,
@@ -162,6 +169,7 @@ def emit_outputs(
                     "tvp_std": p.tvp_std,
                     "tvp_risk_adj": p.tvp_risk_adj,
                     "service_time": p.service_time,
+                    "late_negative_surplus_years": p.late_negative_surplus_years,
                     "pa_window_total": p.pa_window_total,
                     "ip_window_total": p.ip_window_total,
                     "usage_window_seasons_present": p.usage_window_seasons_present,

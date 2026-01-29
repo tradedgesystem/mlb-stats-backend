@@ -288,6 +288,55 @@ def risk_adjusted_value(mean: float, std: float, risk_lambda: float) -> float:
     return mean - (risk_lambda * std)
 
 
+def build_status_t(
+    timeline: ControlTimeline,
+    schedule: ContractSchedule,
+) -> list[str]:
+    statuses: list[str] = []
+    year_types = [year.year_type for year in timeline.years]
+    for idx, year in enumerate(schedule.years):
+        basis = year.basis
+        if basis in {"guaranteed", "aav", "cbt_aav"}:
+            statuses.append("contract")
+            continue
+        if basis == "option":
+            statuses.append("option")
+            continue
+        if basis == "model_cost_prearb":
+            statuses.append("prearb")
+            continue
+        if basis == "model_cost_arb":
+            statuses.append("arb")
+            continue
+        if idx < len(year_types):
+            statuses.append(year_types[idx])
+            continue
+        statuses.append("fa_contract" if basis == "fa" else basis)
+    return statuses
+
+
+def backloaded_contract(schedule: ContractSchedule, threshold: float = 1.25) -> bool:
+    costs = [
+        year.cost_m
+        for year in schedule.years
+        if year.basis in {"guaranteed", "aav", "cbt_aav", "option"}
+    ]
+    if len(costs) < 6:
+        return False
+    first = sum(costs[:3]) / 3.0
+    last = sum(costs[-3:]) / 3.0
+    if first <= 0:
+        return False
+    return last > (first * threshold)
+
+
+def late_negative_surplus_years(breakdown: list[dict[str, Any]], tail_years: int = 3) -> int:
+    if not breakdown:
+        return 0
+    tail = breakdown[-tail_years:]
+    return sum(1 for row in tail if row.get("surplus", 0.0) < 0.0)
+
+
 def seasons_with_usage(history: list[SeasonHistory]) -> int:
     return sum(1 for entry in history if entry.usage > 0)
 
@@ -687,6 +736,10 @@ def build_player_output(
         in_season_fraction,
     )
 
+    status_t = build_status_t(timeline, schedule)
+    late_negative_years = late_negative_surplus_years(breakdown)
+    is_backloaded = backloaded_contract(schedule, threshold=1.25)
+
     service_time_label = service_record.service_time_label if service_record else None
     return PlayerOutput(
         mlbam_id=mlbam_id,
@@ -695,13 +748,19 @@ def build_player_output(
         age=age,
         role=role_code,
         position=player.get("position"),
+        status_t=status_t,
         tvp_p10=sim_result.quantiles.get("p10", 0.0),
         tvp_p50=sim_result.quantiles.get("p50", 0.0),
         tvp_p90=sim_result.quantiles.get("p90", 0.0),
         tvp_mean=sim_result.mean,
         tvp_std=sim_result.std,
         tvp_risk_adj=risk_adj,
-        flags=flags,
+        flags={
+            **flags,
+            "backloaded_contract": is_backloaded,
+            "late_negative_surplus": late_negative_years >= 2,
+        },
+        late_negative_surplus_years=late_negative_years,
         breakdown=breakdown,
         service_time=service_time_label,
         pa_window_total=pa_total,
