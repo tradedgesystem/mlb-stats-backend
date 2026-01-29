@@ -1,0 +1,168 @@
+import json
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from backend.contracts import build_contract_schedule
+from backend.output import PlayerOutput, emit_outputs, build_breakdown
+from backend.projections import SeasonHistory, build_rate_projection
+from backend.service_time import ServiceTimeRecord, SeasonWindow, compute_super_two, super_two_for_snapshot
+from backend.simulate import SimulationConfig, SimulationInputs, apply_option_decision, compute_quantiles, simulate_tvp
+from backend.durability import DurabilityState, DurabilityMixture
+from backend.projections import AgingCurve
+from backend.contracts import ContractYear
+
+
+def test_super_two_top22_with_ties():
+    records = [
+        ServiceTimeRecord(mlbam_id=i, service_time_years=2, service_time_days=days)
+        for i, days in enumerate([120, 118, 115, 110, 110, 109, 90, 88, 87, 86], start=1)
+    ]
+    result = compute_super_two(records)
+    assert result.cutoff_days == 118
+    assert result.super_two_ids == {1, 2}
+
+
+def test_super_two_in_season_uses_last_offseason():
+    records = [ServiceTimeRecord(mlbam_id=1, service_time_years=2, service_time_days=120)]
+    window = SeasonWindow(start=date(2026, 4, 1), end=date(2026, 10, 1))
+    snapshot = date(2026, 6, 1)
+    offseason = super_two_for_snapshot(records, snapshot, window)
+    direct = compute_super_two(records)
+    assert offseason.super_two_ids == direct.super_two_ids
+
+
+def test_usage_shrinkage_and_prior_math():
+    history = [SeasonHistory(season=2025, war=3.0, usage=600.0)]
+    projection = build_rate_projection(
+        history,
+        denom=600.0,
+        rate_prior=2.0,
+        k_rate=600.0,
+        usage_prior=300.0,
+        k_u=300.0,
+    )
+    assert projection.rate_post == pytest.approx(2.5)
+    assert projection.usage_post == pytest.approx(500.0)
+
+
+def test_option_decisions_are_deterministic():
+    exercised, cost = apply_option_decision("CO", value_m=10.0, salary_m=8.0, buyout_m=2.0, market_m=9.0)
+    assert exercised is True
+    assert cost == 8.0
+
+    exercised, cost = apply_option_decision("CO", value_m=5.0, salary_m=8.0, buyout_m=2.0, market_m=9.0)
+    assert exercised is False
+    assert cost == 2.0
+
+    exercised, cost = apply_option_decision("PO", value_m=10.0, salary_m=8.0, buyout_m=1.0, market_m=9.0)
+    assert exercised is False
+    assert cost == 1.0
+
+
+def test_monte_carlo_quantiles_from_samples():
+    durability = DurabilityMixture([
+        DurabilityState("full", 1.0, 1.0),
+    ])
+    sim_cfg = SimulationConfig(sims=5, year_shock_sd=0.0, talent_sd=0.0)
+    inputs = SimulationInputs(
+        rate_post=2.0,
+        usage_post=600.0,
+        age=25,
+        denom=600.0,
+        aging=AgingCurve(peak_age=27, rate_delta_before=0.0, rate_delta_after=0.0, usage_delta_before=0.0, usage_delta_after=0.0),
+        horizon_years=1,
+        war_price_by_year=[10.0],
+        discount_rate=0.1,
+        contract_years=[ContractYear(season=2026, cost_m=5.0, basis="guaranteed")],
+        durability=durability,
+        in_season_fraction=1.0,
+        role_prob_sp=None,
+    )
+    result = simulate_tvp(sim_cfg, inputs, expected_war=[2.0])
+    expected = compute_quantiles(result.samples, [0.1, 0.5, 0.9])
+    assert result.quantiles == expected
+
+
+def test_arb_cost_uses_expected_war_not_sample():
+    schedule = build_contract_schedule(
+        contract={},
+        snapshot_year=2026,
+        horizon_years=1,
+        control_year_types=["arb1"],
+        expected_war=[2.0],
+        war_price_by_year=[10.0],
+        arb_share=[0.5],
+        min_salary_m=1.0,
+        min_salary_growth=0.0,
+    )
+    assert schedule.years[0].cost_m == pytest.approx(10.0)
+    assert schedule.years[0].basis == "model_cost_arb"
+
+
+def test_component_output_only_when_present(tmp_path: Path):
+    player = PlayerOutput(
+        mlbam_id=1,
+        name="Test",
+        team="TST",
+        age=25,
+        role="H",
+        position="SS",
+        tvp_p10=1.0,
+        tvp_p50=2.0,
+        tvp_p90=3.0,
+        flags={},
+        breakdown=[],
+        service_time="01/2026",
+        components=None,
+    )
+    json_path, _ = emit_outputs(tmp_path, "2026-01-01", "bWAR", [player], 1)
+    payload = json.loads(Path(json_path).read_text())
+    assert "components" not in payload["players"][0]
+
+    player_with_components = PlayerOutput(
+        mlbam_id=2,
+        name="Test2",
+        team="TST",
+        age=25,
+        role="H",
+        position="SS",
+        tvp_p10=1.0,
+        tvp_p50=2.0,
+        tvp_p90=3.0,
+        flags={},
+        breakdown=[],
+        service_time="01/2026",
+        components={"bat": 1.0},
+    )
+    json_path, _ = emit_outputs(tmp_path, "2026-01-01", "bWAR", [player_with_components], 1)
+    payload = json.loads(Path(json_path).read_text())
+    assert payload["players"][0]["components"] == {"bat": 1.0}
+
+
+def test_proration_applied_to_t0_breakdown():
+    breakdown = build_breakdown(
+        snapshot_year=2026,
+        war_path=[2.0, 2.0],
+        contract_years=[ContractYear(season=2026, cost_m=4.0, basis="guaranteed"), ContractYear(season=2027, cost_m=4.0, basis="guaranteed")],
+        war_price_by_year=[10.0, 10.0],
+        discount_rate=0.0,
+        in_season_fraction=0.5,
+    )
+    assert breakdown[0]["war"] == pytest.approx(1.0)
+    assert breakdown[0]["cost"] == pytest.approx(2.0)
+    assert breakdown[1]["war"] == pytest.approx(2.0)
+
+
+def test_discounting_year_indexing():
+    breakdown = build_breakdown(
+        snapshot_year=2026,
+        war_path=[1.0, 1.0],
+        contract_years=[ContractYear(season=2026, cost_m=0.0, basis="guaranteed"), ContractYear(season=2027, cost_m=0.0, basis="guaranteed")],
+        war_price_by_year=[10.0, 10.0],
+        discount_rate=0.1,
+        in_season_fraction=1.0,
+    )
+    assert breakdown[0]["discount"] == pytest.approx(1.0)
+    assert breakdown[1]["discount"] == pytest.approx(1.0 / 1.1)

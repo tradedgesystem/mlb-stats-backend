@@ -66,5 +66,72 @@
     "50": 1.6,
     "45": 1.0,
     "40": 0.5
+  },
+  "mlb_v1": {
+    "war_sources": {
+      "bWAR": { "P0": 12.0, "g": 0.0 }
+    },
+    "discount_rate": 0.15,
+    "simulations": 200,
+    "year_shock_sd": 0.35,
+    "talent_sd": 0.5,
+    "k_rate": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
+    "k_usage": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
+    "rate_prior": { "H": 2.0, "SP": 2.5, "RP": 1.5, "HYB": 2.0 },
+    "usage_prior": { "everyday": 600, "platoon": 350, "bench": 150, "sp": 180, "rp": 60 },
+    "aging_curve": {
+      "H": {
+        "peak_age": 27,
+        "rate_delta_before": 0.02,
+        "rate_delta_after": -0.03,
+        "usage_delta_before": 0.01,
+        "usage_delta_after": -0.02
+      },
+      "P": {
+        "peak_age": 28,
+        "rate_delta_before": 0.01,
+        "rate_delta_after": -0.04,
+        "usage_delta_before": 0.005,
+        "usage_delta_after": -0.03
+      }
+    },
+    "min_salary_m": 0.8,
+    "min_salary_growth": 0.03,
+    "arb_share": [0.4, 0.6, 0.8, 1.0],
+    "small_sample_pa": 200,
+    "small_sample_ip": 40,
+    "season_start": "04-01",
+    "season_end": "10-01",
+    "durability": {
+      "hitters": {
+        "full": 0.85,
+        "partial": 0.12,
+        "lost": 0.03,
+        "partial_multiplier": 0.55,
+        "lost_multiplier": 0.0,
+        "age_risk_per_year": 0.01,
+        "workload_spike_penalty": 0.03
+      },
+      "pitchers": {
+        "full": 0.7,
+        "partial": 0.2,
+        "lost": 0.1,
+        "partial_multiplier": 0.5,
+        "lost_multiplier": 0.0,
+        "age_risk_per_year": 0.015,
+        "workload_spike_penalty": 0.05
+      }
+    },
+    "role_prior": {
+      "sp_prob_by_age": {
+        "21": 0.65,
+        "23": 0.6,
+        "25": 0.55,
+        "27": 0.5,
+        "29": 0.45,
+        "31": 0.4,
+        "33": 0.35
+      }
+    }
   }
 }

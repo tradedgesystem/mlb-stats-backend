@@ -1,3 +1,6 @@
+import pytest
+pytest.skip('Deprecated: MLB TVP v1 migration', allow_module_level=True)
+
 """
 Test script for MLB prospect scraper
 Validates installation and basic functionality

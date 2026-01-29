@@ -1,3 +1,6 @@
+import pytest
+pytest.skip('Deprecated: MLB TVP v1 migration', allow_module_level=True)
+
 #!/usr/bin/env python3
 """
 Regression tests for catcher multiplier (mlb_id-first).
