@@ -55,6 +55,10 @@ class MLBV1Config:
     contract_deferral_multiplier: float
     contract_overrides: dict[int, dict[str, Any]]
     hybrid_default_role: str
+    pa_trivial_max: int
+    ip_role_min: int
+    pa_hyb_min: int
+    ip_hyb_min: int
 
 
 def load_config(path: Path, war_source: str) -> MLBV1Config:
@@ -130,6 +134,10 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
             if isinstance(k, (int, str)) and str(k).isdigit()
         },
         hybrid_default_role=str(cfg.get("hybrid_default_role", "H")),
+        pa_trivial_max=int(cfg.get("pa_trivial_max", 30)),
+        ip_role_min=int(cfg.get("ip_role_min", 20)),
+        pa_hyb_min=int(cfg.get("pa_hyb_min", 200)),
+        ip_hyb_min=int(cfg.get("ip_hyb_min", 20)),
     )
 
 
@@ -261,17 +269,33 @@ def sp_prob_by_age(age: int, mapping: dict[int, float]) -> float:
     return max(0.0, min(1.0, chosen))
 
 
-def determine_role(usage: dict[int, dict[str, float]]) -> tuple[str, float | None]:
+def determine_role(usage: dict[int, dict[str, float]], config: MLBV1Config) -> tuple[str, float | None]:
     pa = sum(v.get("pa", 0.0) for v in usage.values())
     ip = sum(v.get("ip", 0.0) for v in usage.values())
-    if ip > 0 and pa > 0:
-        return "HYB", None
-    if ip > 0:
+    if ip >= config.ip_role_min and pa <= config.pa_trivial_max:
         g = sum(v.get("g", 0.0) for v in usage.values())
         gs = sum(v.get("gs", 0.0) for v in usage.values())
         gs_share = (gs / g) if g else 0.0
         role = "SP" if gs_share >= 0.5 else "RP"
         return role, gs_share
+    if ip >= config.ip_hyb_min and pa >= config.pa_hyb_min:
+        return "HYB", None
+    if ip > 0 and pa == 0:
+        g = sum(v.get("g", 0.0) for v in usage.values())
+        gs = sum(v.get("gs", 0.0) for v in usage.values())
+        gs_share = (gs / g) if g else 0.0
+        role = "SP" if gs_share >= 0.5 else "RP"
+        return role, gs_share
+    if pa > 0 and ip == 0:
+        return "H", None
+    if ip >= config.ip_hyb_min:
+        g = sum(v.get("g", 0.0) for v in usage.values())
+        gs = sum(v.get("gs", 0.0) for v in usage.values())
+        gs_share = (gs / g) if g else 0.0
+        role = "SP" if gs_share >= 0.5 else "RP"
+        return role, gs_share
+    if pa >= config.pa_hyb_min:
+        return "H", None
     return "H", None
 
 
@@ -283,13 +307,9 @@ def resolve_projection_role(
 ) -> str:
     if role_code != "HYB":
         return role_code
-    pa_total, ip_total = total_usage(usage)
-    if ip_total <= 0 and pa_total > 0:
-        return "H"
-    if pa_total <= 0 and ip_total > 0:
-        if gs_share is None:
-            return "SP"
-        return "SP" if gs_share >= 0.5 else "RP"
+    resolved, _ = determine_role(usage, config)
+    if resolved in {"SP", "RP", "H"}:
+        return resolved
     return config.hybrid_default_role if config.hybrid_default_role in {"H", "SP", "RP"} else "H"
 
 
@@ -403,6 +423,7 @@ def build_snapshot_players(
     war_source: str,
     data_dir: Path,
     db_path: Path,
+    config: MLBV1Config,
 ) -> list[dict[str, Any]]:
     war_path = data_dir / f"war_3years_{snapshot_year - 1}.json"
     contract_path = data_dir / f"players_with_contracts_{snapshot_year - 1}.json"
@@ -423,7 +444,7 @@ def build_snapshot_players(
         if not war_entry:
             continue
         usage = usage_stats.get(mlbam_id, {})
-        role, gs_share = determine_role(usage)
+        role, gs_share = determine_role(usage, config)
         service_record = service_time.get(mlbam_id)
         if not is_player_eligible(service_record, usage):
             continue
@@ -546,7 +567,7 @@ def build_player_output(
     )
 
     durability = build_mixture(
-        DurabilityInputs(is_pitcher=role_code in {"SP", "RP"}, age=age),
+        DurabilityInputs(is_pitcher=projection_role in {"SP", "RP"}, age=age),
         config.durability_hit,
         config.durability_pitch,
     )
@@ -582,11 +603,11 @@ def build_player_output(
 
     flags = {
         "high_defense_uncertainty": player.get("position") is None,
-        "pitcher_tail_risk": role_code in {"SP", "RP"} and any(
+        "pitcher_tail_risk": projection_role in {"SP", "RP"} and any(
             state.label == "lost" and state.probability >= 0.12 for state in durability.states
         ),
         "small_sample": projection.n_usage
-        < (config.small_sample_ip if role_code in {"SP", "RP"} else config.small_sample_pa),
+        < (config.small_sample_ip if projection_role in {"SP", "RP"} else config.small_sample_pa),
         "role_change_risk": role_code == "HYB"
         or (role_prob_sp is not None and 0.3 < role_prob_sp < 0.7),
     }
@@ -644,7 +665,7 @@ def main() -> None:
             snapshot_data = json.load(handle)
         players = snapshot_data.get("players", [])
     else:
-        players = build_snapshot_players(snapshot_year, args.war_source, args.data_dir, args.db)
+        players = build_snapshot_players(snapshot_year, args.war_source, args.data_dir, args.db, config)
 
     service_records = [p.get("service_time") for p in players if p.get("service_time")]
     service_records = [rec for rec in service_records if isinstance(rec, ServiceTimeRecord)]

@@ -22,6 +22,8 @@ from backend.compute_mlb_tvp import (
     apply_contract_overrides,
     should_use_aav_for_deferrals,
     resolve_projection_role,
+    determine_role,
+    build_player_output,
 )
 
 
@@ -248,3 +250,42 @@ def test_hybrid_projection_role_defaults_to_config():
     config = replace(config, hybrid_default_role="H")
     role = resolve_projection_role("HYB", {2025: {"pa": 10.0, "ip": 10.0}}, None, config)
     assert role == "H"
+
+
+def test_role_classification_ignores_trivial_pitcher_pa():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    usage = {2025: {"ip": 55.0, "pa": 5.0, "g": 20.0, "gs": 20.0}}
+    role, _ = determine_role(usage, config)
+    assert role == "SP"
+
+
+def test_role_classification_true_two_way():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    usage = {2025: {"ip": 50.0, "pa": 300.0, "g": 20.0, "gs": 20.0}}
+    role, _ = determine_role(usage, config)
+    assert role == "HYB"
+
+
+def test_pitcher_durability_used_when_role_resolves_to_pitcher():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    config = replace(
+        config,
+        durability_hit=replace(config.durability_hit, lost=0.01),
+        durability_pitch=replace(config.durability_pitch, lost=0.2),
+    )
+    player = {
+        "mlbam_id": 123,
+        "name": "Test Pitcher",
+        "team": "TST",
+        "age": 26,
+        "contract": {},
+        "war": {"war_2023": 1.0, "war_2024": 1.0, "war_2025": 1.0},
+        "usage": {2025: {"ip": 55.0, "pa": 5.0, "g": 20.0, "gs": 20.0}},
+        "role": "HYB",
+        "gs_share": 1.0,
+        "service_time": ServiceTimeRecord(mlbam_id=123, service_time_years=3, service_time_days=0),
+        "position": "P",
+    }
+    output = build_player_output(player, config, 2026, 1.0, set())
+    assert output is not None
+    assert output.flags["pitcher_tail_risk"] is True

@@ -143,6 +143,10 @@
       "term_years": 10
     }
   },
-  "hybrid_default_role": "H"
+  "hybrid_default_role": "H",
+  "pa_trivial_max": 30,
+  "ip_role_min": 20,
+  "pa_hyb_min": 200,
+  "ip_hyb_min": 20
 }
 }
