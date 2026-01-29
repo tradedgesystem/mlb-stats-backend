@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -18,6 +19,9 @@ from backend.compute_mlb_tvp import (
     usage_prior_for_player,
     load_config,
     seasons_with_usage,
+    apply_contract_overrides,
+    should_use_aav_for_deferrals,
+    resolve_projection_role,
 )
 
 
@@ -193,3 +197,54 @@ def test_prior_degrades_for_no_usage():
 def test_seasons_with_usage_counts():
     history = [SeasonHistory(season=2025, war=1.0, usage=0.0), SeasonHistory(season=2024, war=1.0, usage=10.0)]
     assert seasons_with_usage(history) == 1
+
+
+def test_contract_override_uses_aav_and_basis():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    override = {
+        "basis": "cbt_aav",
+        "aav_m": 40.0,
+        "term_start": 2025,
+        "term_years": 3,
+    }
+    config = replace(config, contract_overrides={999: override})
+    contract = {
+        "contract_years": [{"season": 2026, "salary_m": 2.0}],
+        "years_remaining": 5,
+        "guaranteed_years_remaining": 5,
+    }
+    adjusted, basis = apply_contract_overrides(contract, 999, 2026, config)
+    assert basis == "cbt_aav"
+    assert adjusted["guaranteed_years_remaining"] == 2
+    schedule = build_contract_schedule(
+        adjusted,
+        snapshot_year=2026,
+        horizon_years=2,
+        control_year_types=[],
+        expected_war=[],
+        war_price_by_year=[],
+        arb_share=[0.5],
+        min_salary_m=1.0,
+        min_salary_growth=0.0,
+        guaranteed_basis=basis,
+    )
+    assert [year.cost_m for year in schedule.years] == [40.0, 40.0]
+    assert all(year.basis == "cbt_aav" for year in schedule.years)
+
+
+def test_deferral_aav_policy_detects_large_gap():
+    contract = {
+        "aav_m": 10.0,
+        "contract_years": [
+            {"season": 2026, "salary_m": 3.0},
+            {"season": 2027, "salary_m": 3.0},
+        ],
+    }
+    assert should_use_aav_for_deferrals(contract, 2026, 1.3) is True
+
+
+def test_hybrid_projection_role_defaults_to_config():
+    config = load_config(Path("backend/tvp_config.json"), "bWAR")
+    config = replace(config, hybrid_default_role="H")
+    role = resolve_projection_role("HYB", {2025: {"pa": 10.0, "ip": 10.0}}, None, config)
+    assert role == "H"

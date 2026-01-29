@@ -86,15 +86,17 @@ def build_contract_schedule(
     arb_share: list[float],
     min_salary_m: float,
     min_salary_growth: float,
+    guaranteed_basis: str | None = None,
 ) -> ContractSchedule:
     guaranteed = build_guaranteed_schedule(contract, snapshot_year)
     options = build_option_schedule(contract)
     years: list[ContractYear] = []
+    basis_label = guaranteed_basis or "guaranteed"
 
     for t in range(horizon_years):
         season = snapshot_year + t
         if season in guaranteed:
-            years.append(ContractYear(season, float(guaranteed[season]), "guaranteed"))
+            years.append(ContractYear(season, float(guaranteed[season]), basis_label))
             continue
         if season in options:
             option = options[season]

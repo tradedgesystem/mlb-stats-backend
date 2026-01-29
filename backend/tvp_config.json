@@ -122,16 +122,27 @@
         "workload_spike_penalty": 0.05
       }
     },
-    "role_prior": {
-      "sp_prob_by_age": {
-        "21": 0.65,
-        "23": 0.6,
-        "25": 0.55,
-        "27": 0.5,
-        "29": 0.45,
-        "31": 0.4,
-        "33": 0.35
-      }
+  "role_prior": {
+    "sp_prob_by_age": {
+      "21": 0.65,
+      "23": 0.6,
+      "25": 0.55,
+      "27": 0.5,
+      "29": 0.45,
+      "31": 0.4,
+      "33": 0.35
     }
-  }
+  },
+  "contract_cost_basis": "aav_for_deferrals",
+  "contract_deferral_multiplier": 1.3,
+  "contract_overrides": {
+    "660271": {
+      "basis": "cbt_aav",
+      "aav_m": 46.0,
+      "term_start": 2024,
+      "term_years": 10
+    }
+  },
+  "hybrid_default_role": "H"
+}
 }

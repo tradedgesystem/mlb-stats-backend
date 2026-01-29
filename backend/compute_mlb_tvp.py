@@ -51,6 +51,10 @@ class MLBV1Config:
     durability_hit: DurabilityConfig
     durability_pitch: DurabilityConfig
     sp_prob_by_age: dict[int, float]
+    contract_cost_basis: str
+    contract_deferral_multiplier: float
+    contract_overrides: dict[int, dict[str, Any]]
+    hybrid_default_role: str
 
 
 def load_config(path: Path, war_source: str) -> MLBV1Config:
@@ -118,6 +122,14 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
         durability_hit=durability_from_dict(cfg.get("durability", {}).get("hitters", {})),
         durability_pitch=durability_from_dict(cfg.get("durability", {}).get("pitchers", {})),
         sp_prob_by_age={int(k): float(v) for k, v in cfg.get("role_prior", {}).get("sp_prob_by_age", {}).items()},
+        contract_cost_basis=str(cfg.get("contract_cost_basis", "yearly")),
+        contract_deferral_multiplier=float(cfg.get("contract_deferral_multiplier", 1.3)),
+        contract_overrides={
+            int(k): v
+            for k, v in (cfg.get("contract_overrides") or {}).items()
+            if isinstance(k, (int, str)) and str(k).isdigit()
+        },
+        hybrid_default_role=str(cfg.get("hybrid_default_role", "H")),
     )
 
 
@@ -263,6 +275,106 @@ def determine_role(usage: dict[int, dict[str, float]]) -> tuple[str, float | Non
     return "H", None
 
 
+def resolve_projection_role(
+    role_code: str,
+    usage: dict[int, dict[str, float]],
+    gs_share: float | None,
+    config: MLBV1Config,
+) -> str:
+    if role_code != "HYB":
+        return role_code
+    pa_total, ip_total = total_usage(usage)
+    if ip_total <= 0 and pa_total > 0:
+        return "H"
+    if pa_total <= 0 and ip_total > 0:
+        if gs_share is None:
+            return "SP"
+        return "SP" if gs_share >= 0.5 else "RP"
+    return config.hybrid_default_role if config.hybrid_default_role in {"H", "SP", "RP"} else "H"
+
+
+def should_use_aav_for_deferrals(
+    contract: dict[str, Any],
+    snapshot_year: int,
+    multiplier: float,
+) -> bool:
+    aav = contract.get("aav_m")
+    if aav is None:
+        return False
+    years = [year for year in (contract.get("contract_years") or []) if year.get("season") and year["season"] >= snapshot_year]
+    if not years:
+        return False
+    total_cash = sum(float(year.get("salary_m") or 0.0) for year in years)
+    avg_cash = total_cash / len(years) if years else 0.0
+    if avg_cash <= 0:
+        return False
+    return (float(aav) / avg_cash) >= multiplier
+
+
+def apply_contract_overrides(
+    contract: dict[str, Any],
+    mlbam_id: int,
+    snapshot_year: int,
+    config: MLBV1Config,
+) -> tuple[dict[str, Any], str | None]:
+    contract_copy = dict(contract)
+    basis_override: str | None = None
+    override = config.contract_overrides.get(mlbam_id)
+    if override:
+        basis_override = str(override.get("basis") or "aav_override")
+        term_start = override.get("term_start")
+        term_years = override.get("term_years")
+        if term_start is not None and term_years is not None:
+            try:
+                term_start = int(term_start)
+                term_years = int(term_years)
+                remaining = max(0, term_start + term_years - snapshot_year)
+                contract_copy["years_remaining"] = remaining
+                contract_copy["guaranteed_years_remaining"] = remaining
+            except (TypeError, ValueError):
+                pass
+        if override.get("years_remaining") is not None:
+            try:
+                remaining = int(override.get("years_remaining"))
+                contract_copy["years_remaining"] = remaining
+                contract_copy["guaranteed_years_remaining"] = remaining
+            except (TypeError, ValueError):
+                pass
+        if override.get("aav_m") is not None:
+            try:
+                aav = float(override.get("aav_m"))
+                years = int(contract_copy.get("years_remaining") or 0)
+                contract_copy["contract_years"] = [
+                    {"season": snapshot_year + i, "salary_m": aav, "is_guaranteed": True}
+                    for i in range(years)
+                ]
+            except (TypeError, ValueError):
+                pass
+        contract_copy["cost_basis_override"] = basis_override
+        return contract_copy, basis_override
+
+    if config.contract_cost_basis == "aav_for_deferrals" and should_use_aav_for_deferrals(
+        contract_copy,
+        snapshot_year,
+        config.contract_deferral_multiplier,
+    ):
+        aav = contract_copy.get("aav_m")
+        years = contract_copy.get("years_remaining") or contract_copy.get("guaranteed_years_remaining")
+        if aav is not None and years:
+            try:
+                years = int(years)
+                aav = float(aav)
+                contract_copy["contract_years"] = [
+                    {"season": snapshot_year + i, "salary_m": aav, "is_guaranteed": True}
+                    for i in range(years)
+                ]
+                basis_override = "aav"
+                contract_copy["cost_basis_override"] = basis_override
+            except (TypeError, ValueError):
+                pass
+    return contract_copy, basis_override
+
+
 def usage_prior_for_player(
     role: str,
     usage: dict[int, dict[str, float]],
@@ -348,6 +460,8 @@ def build_player_output(
     role_code = player.get("role")
     usage = player.get("usage", {})
     war_entry = player.get("war", {})
+    gs_share = player.get("gs_share")
+    projection_role = resolve_projection_role(role_code, usage, gs_share, config)
 
     history: list[SeasonHistory] = []
     for season in [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1]:
@@ -355,7 +469,7 @@ def build_player_output(
         if war_val is None or isinstance(war_val, float) and math.isnan(war_val):
             war_val = 0.0
         usage_val = 0.0
-        if role_code == "P":
+        if projection_role in {"SP", "RP"}:
             usage_val = usage.get(season, {}).get("ip", 0.0)
         else:
             usage_val = usage.get(season, {}).get("pa", 0.0)
@@ -364,28 +478,28 @@ def build_player_output(
     pa_total, ip_total = total_usage(usage)
     history_seasons = seasons_with_usage(history)
     has_track_record = history_seasons >= 2
-    if role_code in {"SP", "RP"}:
+    if projection_role in {"SP", "RP"}:
         denom = 180.0
-        base_rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("SP", 2.5))
+        base_rate_prior = config.rate_prior.get(projection_role, config.rate_prior.get("SP", 2.5))
         if (ip_total < config.small_sample_ip) or (not has_track_record):
             rate_prior = 0.0
         else:
             rate_prior = base_rate_prior
-        k_rate = config.k_rate.get(role_code, config.k_rate.get("SP", 180))
-        k_u = config.k_usage.get(role_code, config.k_usage.get("SP", 180))
+        k_rate = config.k_rate.get(projection_role, config.k_rate.get("SP", 180))
+        k_u = config.k_usage.get(projection_role, config.k_usage.get("SP", 180))
         aging = config.aging_curve_pitch
     else:
         denom = 600.0
-        base_rate_prior = config.rate_prior.get(role_code, config.rate_prior.get("H", 2.0))
+        base_rate_prior = config.rate_prior.get(projection_role, config.rate_prior.get("H", 2.0))
         if (pa_total < config.small_sample_pa) or (not has_track_record):
             rate_prior = 0.0
         else:
             rate_prior = base_rate_prior
-        k_rate = config.k_rate.get(role_code, config.k_rate.get("H", 600))
-        k_u = config.k_usage.get(role_code, config.k_usage.get("H", 600))
+        k_rate = config.k_rate.get(projection_role, config.k_rate.get("H", 600))
+        k_u = config.k_usage.get(projection_role, config.k_usage.get("H", 600))
         aging = config.aging_curve_hit
 
-    usage_prior = usage_prior_for_player(role_code, usage, config)
+    usage_prior = usage_prior_for_player(projection_role, usage, config)
     projection = build_rate_projection(
         history,
         denom,
@@ -400,7 +514,9 @@ def build_player_output(
     super_two = mlbam_id in super_two_ids
     timeline = control_timeline(service_days_total, super_two)
 
-    guaranteed_years_remaining = int(player.get("contract", {}).get("guaranteed_years_remaining") or 0)
+    contract = player.get("contract", {})
+    contract, basis_override = apply_contract_overrides(contract, mlbam_id, snapshot_year, config)
+    guaranteed_years_remaining = int(contract.get("guaranteed_years_remaining") or 0)
     horizon = max(guaranteed_years_remaining, timeline.team_control_years_remaining)
     if horizon == 0:
         horizon = 1
@@ -417,7 +533,7 @@ def build_player_output(
     price_by_year = build_price_curve(config, horizon)
 
     schedule = build_contract_schedule(
-        player.get("contract", {}),
+        contract,
         snapshot_year,
         horizon,
         [year.year_type for year in timeline.years],
@@ -426,6 +542,7 @@ def build_player_output(
         config.arb_share,
         config.min_salary_m,
         config.min_salary_growth,
+        guaranteed_basis=basis_override,
     )
 
     durability = build_mixture(
@@ -435,9 +552,8 @@ def build_player_output(
     )
 
     role_prob_sp = None
-    if role_code in {"SP", "RP"}:
+    if projection_role in {"SP", "RP"}:
         prior_sp = sp_prob_by_age(age, config.sp_prob_by_age)
-        gs_share = player.get("gs_share")
         if gs_share is None:
             role_prob_sp = prior_sp
         else:
