@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -134,17 +134,14 @@ def save_checkpoint(path: Path, remaining_ids: list[int], index: int) -> None:
         json.dump({"remaining_ids": remaining_ids, "index": index}, f, indent=2)
 
 
-def compute_service_time_summary(
+def get_leaderboard_context(
     db_path: Path,
     snapshot_date: str | None,
     war_source: str,
     top_n: int,
     rank_by: str | None,
     include_small_sample: bool,
-    max_requests: int | None,
-    remaining_ids: list[int],
-    checkpoint_index: int,
-) -> None:
+) -> tuple[list[Any], list[Any], list[Any], set[int], set[int], set[int]]:
     from datetime import date as dt_date
     from backend.compute_mlb_tvp import (
         build_player_output,
@@ -186,6 +183,37 @@ def compute_service_time_summary(
         eligible_outputs = [o for o in leaderboard_pool if not o.flags.get("small_sample", False)]
     top = eligible_outputs[:top_n]
 
+    return (
+        outputs_sorted,
+        leaderboard_pool,
+        top,
+        {o.mlbam_id for o in outputs_sorted},
+        {o.mlbam_id for o in leaderboard_pool},
+        {o.mlbam_id for o in top},
+    )
+
+
+def compute_service_time_summary(
+    db_path: Path,
+    snapshot_date: str | None,
+    war_source: str,
+    top_n: int,
+    rank_by: str | None,
+    include_small_sample: bool,
+    max_requests: int | None,
+    remaining_ids: list[int],
+    checkpoint_index: int,
+) -> None:
+    outputs_sorted, leaderboard_pool, top, outputs_sorted_ids, leaderboard_ids, top_ids = get_leaderboard_context(
+        db_path=db_path,
+        snapshot_date=snapshot_date,
+        war_source=war_source,
+        top_n=top_n,
+        rank_by=rank_by,
+        include_small_sample=include_small_sample,
+    )
+
+    remaining_set = set(remaining_ids)
     zero_all = sum(
         1 for o in outputs_sorted if (o.service_time is None or o.service_time in {"0", "0/000", "00/000"})
     )
@@ -203,6 +231,7 @@ def compute_service_time_summary(
 
     print("Summary:")
     print(f"  remaining_ids: {len(remaining_ids)}")
+    print(f"  remaining_ids_in_leaderboard_pool: {len(remaining_set & leaderboard_ids)}")
     print(f"  checkpoint_index: {checkpoint_index}")
     print(f"  service_time_zero_pct_all: {pct_all:.4f}")
     print(f"  service_time_zero_pct_leaderboard: {pct_lb:.4f}")
@@ -308,6 +337,11 @@ def main() -> None:
         help="Print service time coverage summary using local data (no web calls)",
     )
     parser.add_argument(
+        "--only-leaderboard",
+        action="store_true",
+        help="When resuming, only fetch IDs that are in the leaderboard pool",
+    )
+    parser.add_argument(
         "--snapshot-date",
         type=str,
         default=None,
@@ -360,6 +394,18 @@ def main() -> None:
             start_index = int(checkpoint.get("index", 0))
         else:
             mlbam_ids = load_missing_service_ids(db_path)
+            start_index = 0
+            save_checkpoint(CHECKPOINT_FILE, mlbam_ids, start_index)
+        if args.only_leaderboard:
+            _, leaderboard_ids, _, _, _, _ = get_leaderboard_context(
+                db_path=db_path,
+                snapshot_date=args.snapshot_date,
+                war_source=args.war_source,
+                top_n=args.top,
+                rank_by=args.rank_by,
+                include_small_sample=args.include_small_sample,
+            )
+            mlbam_ids = [mlbam_id for mlbam_id in mlbam_ids if mlbam_id in leaderboard_ids]
             start_index = 0
             save_checkpoint(CHECKPOINT_FILE, mlbam_ids, start_index)
         print(f"Loaded {len(mlbam_ids)} missing MLBAM IDs for resume mode")
