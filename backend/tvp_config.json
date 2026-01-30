@@ -69,12 +69,19 @@
   },
   "mlb_v1": {
     "war_sources": {
-      "bWAR": { "P0": 12.0, "g": 0.0 }
+      "bWAR": { "P0": 12.0, "g": 0.05 }
     },
-    "discount_rate": 0.15,
+    "discount_rate": 0.09,
     "simulations": 200,
-    "year_shock_sd": 0.35,
+    "year_shock_sd": { "H": 0.35, "P": 0.5 },
     "talent_sd": 0.5,
+    "metric_enabled": true,
+    "ops_plus_coef": 0.02,
+    "fip_coef": 0.3,
+    "metric_cap_hitter": 0.25,
+    "metric_cap_pitcher": 0.25,
+    "min_ops_pa_total": 400,
+    "min_fip_ip_total": 80,
     "k_rate": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
     "k_usage": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
     "rate_prior": { "H": 2.0, "SP": 2.5, "RP": 1.5, "HYB": 2.0 },
@@ -135,14 +142,22 @@
   },
   "contract_cost_basis": "aav_for_deferrals",
   "contract_deferral_multiplier": 1.3,
-  "contract_overrides": {
-    "660271": {
-      "basis": "cbt_aav",
-      "aav_m": 46.0,
-      "term_start": 2024,
-      "term_years": 10
-    }
-  },
+    "contract_overrides": {
+      "660271": {
+        "basis": "cbt_aav",
+        "aav_m": 46.0,
+        "term_start": 2024,
+        "term_years": 10
+      }
+    },
+    "p0_calibration": {
+      "window_years": 2,
+      "aav_min": 10.0,
+      "years_min": 2,
+      "war_min": 1.0,
+      "exclude_relief": true,
+      "trim_pct": 0.1
+    },
   "hybrid_default_role": "H",
   "pa_trivial_max": 30,
   "ip_role_min": 20,
@@ -151,7 +166,7 @@
   "leaderboard_min_pa": 200,
   "leaderboard_min_ip": 50,
   "leaderboard_min_service_days": 172,
-  "risk_aversion_lambda": 0.5,
+  "risk_aversion_lambda": 0.6,
   "service_time_zero_max_pct": 0.05,
   "leaderboard_rank_by": "tvp_risk_adj"
 }

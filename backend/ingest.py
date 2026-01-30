@@ -69,6 +69,7 @@ REQUIRED_BATTING = [
 
 REQUIRED_PITCHING = [
     "era",
+    "fip",
     "ip",
     "so",
     "bb",
@@ -81,6 +82,59 @@ REQUIRED_PITCHING = [
     "r",
     "er",
 ]
+
+
+def add_ops_plus(df: pd.DataFrame) -> pd.DataFrame:
+    if "ops_plus" in df.columns and not df["ops_plus"].isna().all():
+        return df
+    needed = {"season", "lev", "pa", "ab", "obp", "slg"}
+    if not needed.issubset(set(df.columns)):
+        return df
+    df = df.copy()
+    df["ops_plus"] = df.get("ops_plus")
+    seasons = df["season"].dropna().unique().tolist()
+    for season in seasons:
+        mask = (df["season"] == season) & df["lev"].astype(str).str.startswith("Maj-")
+        season_df = df.loc[mask]
+        total_pa = season_df["pa"].fillna(0).sum()
+        total_ab = season_df["ab"].fillna(0).sum()
+        if total_pa <= 0 or total_ab <= 0:
+            continue
+        lg_obp = (season_df["obp"].fillna(0) * season_df["pa"].fillna(0)).sum() / total_pa
+        lg_slg = (season_df["slg"].fillna(0) * season_df["ab"].fillna(0)).sum() / total_ab
+        if lg_obp <= 0 or lg_slg <= 0:
+            continue
+        ops_plus = 100 * ((season_df["obp"] / lg_obp) + (season_df["slg"] / lg_slg) - 1.0)
+        df.loc[mask, "ops_plus"] = ops_plus
+    return df
+
+
+def add_fip(df: pd.DataFrame) -> pd.DataFrame:
+    if "fip" in df.columns and not df["fip"].isna().all():
+        return df
+    needed = {"season", "lev", "ip", "hr", "bb", "hbp", "so", "er"}
+    if not needed.issubset(set(df.columns)):
+        return df
+    df = df.copy()
+    df["fip"] = df.get("fip")
+    seasons = df["season"].dropna().unique().tolist()
+    for season in seasons:
+        mask = (df["season"] == season) & df["lev"].astype(str).str.startswith("Maj-")
+        season_df = df.loc[mask]
+        lg_ip = season_df["ip"].fillna(0).sum()
+        if lg_ip <= 0:
+            continue
+        lg_hr = season_df["hr"].fillna(0).sum()
+        lg_bb = season_df["bb"].fillna(0).sum()
+        lg_hbp = season_df["hbp"].fillna(0).sum()
+        lg_so = season_df["so"].fillna(0).sum()
+        lg_er = season_df["er"].fillna(0).sum()
+        lg_era = (9.0 * lg_er / lg_ip) if lg_ip > 0 else 0.0
+        fip_const = lg_era - ((13 * lg_hr + 3 * (lg_bb + lg_hbp) - 2 * lg_so) / lg_ip)
+        ip = season_df["ip"].replace(0, float("nan"))
+        fip = ((13 * season_df["hr"] + 3 * (season_df["bb"] + season_df["hbp"]) - 2 * season_df["so"]) / ip) + fip_const
+        df.loc[mask, "fip"] = fip
+    return df
 
 DAILY_BATTING_COLUMNS = [
     "pa",
@@ -393,6 +447,7 @@ def main() -> None:
         else:
             print("No statcast metrics computed for the requested range.")
 
+    batting_df = add_ops_plus(batting_df)
     log_missing_and_sparse(batting_df, REQUIRED_BATTING)
     
     pitching_frames = []
@@ -438,6 +493,7 @@ def main() -> None:
     if "player_id" not in pitching_df.columns or "idfg" not in pitching_df.columns:
         raise ValueError("Missing required player_id/idfg columns from Baseball Reference data.")
 
+    pitching_df = add_fip(pitching_df)
     log_missing_and_sparse(pitching_df, REQUIRED_PITCHING)
 
     daily_batting_df = None

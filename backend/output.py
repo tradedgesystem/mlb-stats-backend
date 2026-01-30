@@ -19,20 +19,72 @@ class PlayerOutput:
     role: str
     position: str | None
     status_t: list[str]
+    tvp: float
     tvp_p10: float
     tvp_p50: float
     tvp_p90: float
+    talent_value_p50: float | None
     tvp_mean: float | None
     tvp_std: float | None
     tvp_risk_adj: float | None
     flags: dict[str, bool]
     breakdown: list[dict[str, Any]]
     service_time: str | None
+    contract_source: str | None = None
+    contract_confidence: str | None = None
     late_negative_surplus_years: int | None = None
     pa_window_total: float | None = None
     ip_window_total: float | None = None
     usage_window_seasons_present: int | None = None
     components: dict[str, Any] | None = None
+    ops_plus_3yr: float | None = None
+    fip_3yr: float | None = None
+    lg_fip_3yr: float | None = None
+    fip_delta: float | None = None
+    war_rate_war: float | None = None
+    metric_adjustment_raw: float | None = None
+    metric_adjustment_clamped: float | None = None
+    war_rate_post_final: float | None = None
+
+
+def _player_payload(p: PlayerOutput) -> dict[str, Any]:
+    payload = {
+        "mlbam_id": p.mlbam_id,
+        "name": p.name,
+        "team": p.team,
+        "age": p.age,
+        "role": p.role,
+        "position": p.position,
+        "status_t": p.status_t,
+        "tvp": p.tvp,
+        "tvp_p10": p.tvp_p10,
+        "tvp_p50": p.tvp_p50,
+        "tvp_p90": p.tvp_p90,
+        "talent_value_p50": p.talent_value_p50,
+        "tvp_mean": p.tvp_mean,
+        "tvp_std": p.tvp_std,
+        "tvp_risk_adj": p.tvp_risk_adj,
+        "ops_plus_3yr": p.ops_plus_3yr,
+        "fip_3yr": p.fip_3yr,
+        "lg_fip_3yr": p.lg_fip_3yr,
+        "fip_delta": p.fip_delta,
+        "war_rate_war": p.war_rate_war,
+        "metric_adjustment_raw": p.metric_adjustment_raw,
+        "metric_adjustment_clamped": p.metric_adjustment_clamped,
+        "war_rate_post_final": p.war_rate_post_final,
+        "flags": p.flags,
+        "late_negative_surplus_years": p.late_negative_surplus_years,
+        "service_time": p.service_time,
+        "contract_source": p.contract_source,
+        "contract_confidence": p.contract_confidence,
+        "breakdown": p.breakdown,
+        "pa_window_total": p.pa_window_total,
+        "ip_window_total": p.ip_window_total,
+        "usage_window_seasons_present": p.usage_window_seasons_present,
+    }
+    if p.components is not None:
+        payload["components"] = p.components
+    return payload
 
 
 def build_breakdown(
@@ -77,12 +129,16 @@ def emit_outputs(
     war_source: str,
     results: list[PlayerOutput],
     top_n: int,
+    prefix: str = "top",
+    rank_by: str | None = None,
+    label: str | None = None,
     meta_extra: dict[str, Any] | None = None,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    json_path = output_dir / f"tvp_mlb_v1_top{top_n}_{timestamp}.json"
-    csv_path = output_dir / f"tvp_mlb_v1_top{top_n}_{timestamp}.csv"
+    suffix = f"_{label}" if label else ""
+    json_path = output_dir / f"tvp_mlb_v1_{prefix}{top_n}{suffix}_{timestamp}.json"
+    csv_path = output_dir / f"tvp_mlb_v1_{prefix}{top_n}{suffix}_{timestamp}.csv"
 
     meta = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
@@ -91,42 +147,20 @@ def emit_outputs(
         "player_count": len(results),
         "top_n": top_n,
     }
+    if rank_by:
+        meta["rank_by"] = rank_by
     if meta_extra:
         meta.update(meta_extra)
     payload = {
         "meta": meta,
-        "players": [
-            {
-                "mlbam_id": p.mlbam_id,
-                "name": p.name,
-                "team": p.team,
-                "age": p.age,
-                "role": p.role,
-                "position": p.position,
-                "status_t": p.status_t,
-                "tvp_p10": p.tvp_p10,
-                "tvp_p50": p.tvp_p50,
-                "tvp_p90": p.tvp_p90,
-                "tvp_mean": p.tvp_mean,
-                "tvp_std": p.tvp_std,
-                "tvp_risk_adj": p.tvp_risk_adj,
-                "flags": p.flags,
-                "late_negative_surplus_years": p.late_negative_surplus_years,
-                "service_time": p.service_time,
-                "breakdown": p.breakdown,
-                "pa_window_total": p.pa_window_total,
-                "ip_window_total": p.ip_window_total,
-                "usage_window_seasons_present": p.usage_window_seasons_present,
-                **({"components": p.components} if p.components is not None else {}),
-            }
-            for p in results
-        ],
+        "players": [_player_payload(p) for p in results],
     }
 
     with json_path.open("w") as handle:
         json.dump(payload, handle, indent=2)
 
     with csv_path.open("w", newline="") as handle:
+        handle.write(f"# meta: {json.dumps(meta, sort_keys=True)}\n")
         writer = csv.DictWriter(
             handle,
             fieldnames=[
@@ -137,12 +171,24 @@ def emit_outputs(
                 "role",
                 "position",
                 "status_t",
+                "tvp",
                 "tvp_p10",
                 "tvp_p50",
                 "tvp_p90",
+                "talent_value_p50",
                 "tvp_mean",
                 "tvp_std",
                 "tvp_risk_adj",
+                "ops_plus_3yr",
+                "fip_3yr",
+                "lg_fip_3yr",
+                "fip_delta",
+                "war_rate_war",
+                "metric_adjustment_raw",
+                "metric_adjustment_clamped",
+                "war_rate_post_final",
+                "contract_source",
+                "contract_confidence",
                 "service_time",
                 "late_negative_surplus_years",
                 "pa_window_total",
@@ -162,12 +208,130 @@ def emit_outputs(
                     "role": p.role,
                     "position": p.position,
                     "status_t": ",".join(p.status_t),
+                    "tvp": p.tvp,
                     "tvp_p10": p.tvp_p10,
                     "tvp_p50": p.tvp_p50,
                     "tvp_p90": p.tvp_p90,
+                    "talent_value_p50": p.talent_value_p50,
                     "tvp_mean": p.tvp_mean,
                     "tvp_std": p.tvp_std,
                     "tvp_risk_adj": p.tvp_risk_adj,
+                    "ops_plus_3yr": p.ops_plus_3yr,
+                    "fip_3yr": p.fip_3yr,
+                    "lg_fip_3yr": p.lg_fip_3yr,
+                    "fip_delta": p.fip_delta,
+                    "war_rate_war": p.war_rate_war,
+                    "metric_adjustment_raw": p.metric_adjustment_raw,
+                    "metric_adjustment_clamped": p.metric_adjustment_clamped,
+                    "war_rate_post_final": p.war_rate_post_final,
+                    "contract_source": p.contract_source,
+                    "contract_confidence": p.contract_confidence,
+                    "service_time": p.service_time,
+                    "late_negative_surplus_years": p.late_negative_surplus_years,
+                    "pa_window_total": p.pa_window_total,
+                    "ip_window_total": p.ip_window_total,
+                    "usage_window_seasons_present": p.usage_window_seasons_present,
+                    "flags": json.dumps(p.flags),
+                }
+            )
+
+    return json_path, csv_path
+
+
+def emit_ranked_outputs(
+    output_dir: Path,
+    snapshot_date: str,
+    war_source: str,
+    results: list[PlayerOutput],
+    ranks: dict[str, dict[int, int]],
+    top_n: int,
+    prefix: str = "top",
+    label: str | None = None,
+    meta_extra: dict[str, Any] | None = None,
+) -> tuple[Path, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    suffix = f"_{label}" if label else ""
+    json_path = output_dir / f"tvp_mlb_v1_{prefix}{top_n}{suffix}_{timestamp}.json"
+    csv_path = output_dir / f"tvp_mlb_v1_{prefix}{top_n}{suffix}_{timestamp}.csv"
+
+    meta = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "snapshot_date": snapshot_date,
+        "war_source": war_source,
+        "player_count": len(results),
+        "top_n": top_n,
+        "rank_by": "combined",
+    }
+    if meta_extra:
+        meta.update(meta_extra)
+
+    players_payload: list[dict[str, Any]] = []
+    for p in results:
+        payload = _player_payload(p)
+        payload["rank_trade_value"] = ranks.get("tvp_risk_adj", {}).get(p.mlbam_id)
+        payload["rank_best_players"] = ranks.get("talent_value_p50", {}).get(p.mlbam_id)
+        players_payload.append(payload)
+
+    payload = {"meta": meta, "players": players_payload}
+    with json_path.open("w") as handle:
+        json.dump(payload, handle, indent=2)
+
+    with csv_path.open("w", newline="") as handle:
+        handle.write(f"# meta: {json.dumps(meta, sort_keys=True)}\n")
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "mlbam_id",
+                "name",
+                "team",
+                "age",
+                "role",
+                "position",
+                "status_t",
+                "tvp",
+                "tvp_p10",
+                "tvp_p50",
+                "tvp_p90",
+                "talent_value_p50",
+                "tvp_mean",
+                "tvp_std",
+                "tvp_risk_adj",
+                "rank_trade_value",
+                "rank_best_players",
+                "contract_source",
+                "contract_confidence",
+                "service_time",
+                "late_negative_surplus_years",
+                "pa_window_total",
+                "ip_window_total",
+                "usage_window_seasons_present",
+                "flags",
+            ],
+        )
+        writer.writeheader()
+        for p in results:
+            writer.writerow(
+                {
+                    "mlbam_id": p.mlbam_id,
+                    "name": p.name,
+                    "team": p.team,
+                    "age": p.age,
+                    "role": p.role,
+                    "position": p.position,
+                    "status_t": ",".join(p.status_t),
+                    "tvp": p.tvp,
+                    "tvp_p10": p.tvp_p10,
+                    "tvp_p50": p.tvp_p50,
+                    "tvp_p90": p.tvp_p90,
+                    "talent_value_p50": p.talent_value_p50,
+                    "tvp_mean": p.tvp_mean,
+                    "tvp_std": p.tvp_std,
+                    "tvp_risk_adj": p.tvp_risk_adj,
+                    "rank_trade_value": ranks.get("tvp_risk_adj", {}).get(p.mlbam_id),
+                    "rank_best_players": ranks.get("talent_value_p50", {}).get(p.mlbam_id),
+                    "contract_source": p.contract_source,
+                    "contract_confidence": p.contract_confidence,
                     "service_time": p.service_time,
                     "late_negative_surplus_years": p.late_negative_surplus_years,
                     "pa_window_total": p.pa_window_total,
