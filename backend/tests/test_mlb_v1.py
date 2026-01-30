@@ -688,6 +688,11 @@ def test_metric_cap_enforced_for_hitter():
         "gs_share": None,
         "service_time": ServiceTimeRecord(mlbam_id=9003, service_time_years=1, service_time_days=0),
         "position": "SS",
+        "metric_history": {
+            "ops_plus_weighted": 200.0,
+            "ops_plus_pa_total": 1800.0,
+            "ops_plus_pa_weighted": 1800.0,
+        },
     }
     output = build_player_output(player, config, 2026, 1.0, set())
     assert output is not None
@@ -722,6 +727,12 @@ def test_metric_cap_enforced_for_pitcher():
         "gs_share": 1.0,
         "service_time": ServiceTimeRecord(mlbam_id=9004, service_time_years=1, service_time_days=0),
         "position": "SP",
+        "metric_history": {
+            "fip_weighted": 2.0,
+            "lg_fip_weighted": 4.5,
+            "fip_ip_total": 540.0,
+            "fip_ip_weighted": 540.0,
+        },
     }
     output = build_player_output(player, config, 2026, 1.0, set())
     assert output is not None
@@ -730,7 +741,7 @@ def test_metric_cap_enforced_for_pitcher():
     assert abs(output.metric_adjustment_clamped) <= abs(output.war_rate_war) * 0.30
 
 
-def test_metrics_use_last_three_seasons_only():
+def test_metrics_use_career_with_recent_weight():
     config = load_config(Path("backend/tvp_config.json"), "bWAR")
     config = replace(
         config,
@@ -738,6 +749,7 @@ def test_metrics_use_last_three_seasons_only():
         ops_plus_coef=0.1,
         metric_cap_hitter=0.25,
         min_ops_pa_total=400.0,
+        metric_recent_season_weight=2.0,
     )
     usage = {
         2022: {"pa": 600.0, "ops_plus": 200.0},
@@ -747,7 +759,7 @@ def test_metrics_use_last_three_seasons_only():
     }
     player = {
         "mlbam_id": 9005,
-        "name": "WindowOnly",
+        "name": "CareerWeighted",
         "team": "TST",
         "age": 25,
         "contract": {},
@@ -757,7 +769,12 @@ def test_metrics_use_last_three_seasons_only():
         "gs_share": None,
         "service_time": ServiceTimeRecord(mlbam_id=9005, service_time_years=1, service_time_days=0),
         "position": "SS",
+        "metric_history": {
+            "ops_plus_weighted": (200 * 600 + 100 * 600 + 100 * 600 + 100 * 600 * 2) / (600 + 600 + 600 + 600 * 2),
+            "ops_plus_pa_total": 2400.0,
+        },
     }
     output = build_player_output(player, config, 2026, 1.0, set())
     assert output is not None
-    assert output.ops_plus_3yr == pytest.approx(100.0)
+    expected = (200 * 600 + 100 * 600 + 100 * 600 + 100 * 600 * 2) / (600 + 600 + 600 + 600 * 2)
+    assert output.ops_plus_career_weighted == pytest.approx(expected)

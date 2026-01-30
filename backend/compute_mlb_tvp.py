@@ -65,6 +65,7 @@ class MLBV1Config:
     metric_cap_pitcher: float
     min_ops_pa_total: float
     min_fip_ip_total: float
+    metric_recent_season_weight: float
     pa_trivial_max: int
     ip_role_min: int
     pa_hyb_min: int
@@ -190,6 +191,7 @@ def load_config(path: Path, war_source: str) -> MLBV1Config:
         metric_cap_pitcher=float(cfg.get("metric_cap_pitcher", 0.25)),
         min_ops_pa_total=float(cfg.get("min_ops_pa_total", 400.0)),
         min_fip_ip_total=float(cfg.get("min_fip_ip_total", 80.0)),
+        metric_recent_season_weight=float(cfg.get("metric_recent_season_weight", 1.5)),
         pa_trivial_max=int(cfg.get("pa_trivial_max", 30)),
         ip_role_min=int(cfg.get("ip_role_min", 20)),
         pa_hyb_min=int(cfg.get("pa_hyb_min", 200)),
@@ -490,6 +492,173 @@ def clamp_metric_adjustment(raw: float, baseline: float, cap_fraction: float) ->
     if cap <= 0:
         return 0.0
     return max(-cap, min(cap, raw))
+
+
+def season_metric_weight(season: int, highlight_season: int, boost: float) -> float:
+    return boost if season == highlight_season else 1.0
+
+
+def load_metric_history(
+    db_path: Path,
+    highlight_season: int,
+    config: MLBV1Config,
+) -> dict[int, dict[str, float]]:
+    metrics: dict[int, dict[str, float]] = {}
+    if not db_path.exists():
+        return metrics
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    cur.execute("PRAGMA table_info(batting_stats)")
+    bat_cols = {row[1] for row in cur.fetchall()}
+    cur.execute("PRAGMA table_info(pitching_stats)")
+    pit_cols = {row[1] for row in cur.fetchall()}
+
+    has_ops_plus = "ops_plus" in bat_cols
+    has_obp = "obp" in bat_cols
+    has_slg = "slg" in bat_cols
+
+    lg_ops: dict[int, tuple[float, float]] = {}
+    if has_obp and has_slg:
+        cur.execute(
+            "SELECT season, SUM(COALESCE(pa,0)), SUM(COALESCE(ab,0)), "
+            "SUM(COALESCE(obp,0) * COALESCE(pa,0)), SUM(COALESCE(slg,0) * COALESCE(ab,0)) "
+            "FROM batting_stats WHERE lev LIKE 'Maj-%' GROUP BY season"
+        )
+        for season, total_pa, total_ab, obp_sum, slg_sum in cur.fetchall():
+            if not season or not total_pa or not total_ab:
+                continue
+            lg_obp = obp_sum / total_pa if total_pa else None
+            lg_slg = slg_sum / total_ab if total_ab else None
+            if lg_obp and lg_slg:
+                lg_ops[int(season)] = (lg_obp, lg_slg)
+
+    bat_fields = ["mlbid", "season", "pa"]
+    if has_ops_plus:
+        bat_fields.append("ops_plus")
+    if has_obp:
+        bat_fields.append("obp")
+    if has_slg:
+        bat_fields.append("slg")
+    cur.execute(
+        f"SELECT {', '.join(bat_fields)} FROM batting_stats WHERE lev LIKE 'Maj-%'"
+    )
+    bat_rows = cur.fetchall()
+    bat_idx = {field: idx for idx, field in enumerate(bat_fields)}
+    for row in bat_rows:
+        mlbid = row[bat_idx["mlbid"]]
+        if mlbid is None:
+            continue
+        mlbam_id = int(mlbid)
+        season = row[bat_idx["season"]]
+        if season is None:
+            continue
+        season = int(season)
+        pa = float(row[bat_idx["pa"]] or 0.0)
+        if pa <= 0:
+            continue
+        ops_plus = row[bat_idx["ops_plus"]] if has_ops_plus else None
+        if ops_plus is None and has_obp and has_slg and season in lg_ops:
+            obp = row[bat_idx["obp"]]
+            slg = row[bat_idx["slg"]]
+            if obp is not None and slg is not None:
+                lg_obp, lg_slg = lg_ops.get(int(season), (None, None))
+                if lg_obp and lg_slg:
+                    ops_plus = 100 * ((obp / lg_obp) + (slg / lg_slg) - 1.0)
+        if ops_plus is None:
+            continue
+        weight = pa * season_metric_weight(season, highlight_season, config.metric_recent_season_weight)
+        entry = metrics.setdefault(mlbam_id, {})
+        entry["ops_plus_weighted_sum"] = entry.get("ops_plus_weighted_sum", 0.0) + float(ops_plus) * weight
+        entry["ops_plus_pa_weighted"] = entry.get("ops_plus_pa_weighted", 0.0) + weight
+        entry["ops_plus_pa_total"] = entry.get("ops_plus_pa_total", 0.0) + pa
+
+    has_fip = "fip" in pit_cols
+    has_hr = "hr" in pit_cols
+    has_bb = "bb" in pit_cols
+    has_hbp = "hbp" in pit_cols
+    has_so = "so" in pit_cols
+    has_er = "er" in pit_cols
+
+    league_fip: dict[int, float] = {}
+    fip_const: dict[int, float] = {}
+    if has_hr and has_bb and has_hbp and has_so and has_er:
+        cur.execute(
+            "SELECT season, SUM(COALESCE(ip,0)), SUM(COALESCE(hr,0)), SUM(COALESCE(bb,0)), "
+            "SUM(COALESCE(hbp,0)), SUM(COALESCE(so,0)), SUM(COALESCE(er,0)) "
+            "FROM pitching_stats WHERE lev LIKE 'Maj-%' GROUP BY season"
+        )
+        for season, ip, hr, bb, hbp, so, er in cur.fetchall():
+            if not season or not ip:
+                continue
+            lg_era = (9.0 * er / ip) if ip else None
+            if lg_era is None:
+                continue
+            const = lg_era - ((13 * hr + 3 * (bb + hbp) - 2 * so) / ip)
+            league_fip[int(season)] = lg_era
+            fip_const[int(season)] = const
+
+    pit_fields = ["mlbid", "season", "ip"]
+    if has_fip:
+        pit_fields.append("fip")
+    if has_hr:
+        pit_fields.append("hr")
+    if has_bb:
+        pit_fields.append("bb")
+    if has_hbp:
+        pit_fields.append("hbp")
+    if has_so:
+        pit_fields.append("so")
+    cur.execute(
+        f"SELECT {', '.join(pit_fields)} FROM pitching_stats WHERE lev LIKE 'Maj-%'"
+    )
+    pit_rows = cur.fetchall()
+    pit_idx = {field: idx for idx, field in enumerate(pit_fields)}
+    for row in pit_rows:
+        mlbid = row[pit_idx["mlbid"]]
+        if mlbid is None:
+            continue
+        mlbam_id = int(mlbid)
+        season = row[pit_idx["season"]]
+        if season is None:
+            continue
+        season = int(season)
+        ip = float(row[pit_idx["ip"]] or 0.0)
+        if ip <= 0:
+            continue
+        fip_val = row[pit_idx["fip"]] if has_fip else None
+        if fip_val is None and season in fip_const:
+            hr = row[pit_idx["hr"]] if has_hr else None
+            bb = row[pit_idx["bb"]] if has_bb else None
+            hbp = row[pit_idx["hbp"]] if has_hbp else None
+            so = row[pit_idx["so"]] if has_so else None
+            if hr is None or bb is None or hbp is None or so is None:
+                fip_val = None
+            else:
+                fip_val = ((13 * hr + 3 * (bb + hbp) - 2 * so) / ip) + fip_const[int(season)]
+        if fip_val is None:
+            continue
+        lg_fip = league_fip.get(int(season))
+        weight = ip * season_metric_weight(season, highlight_season, config.metric_recent_season_weight)
+        entry = metrics.setdefault(mlbam_id, {})
+        entry["fip_weighted_sum"] = entry.get("fip_weighted_sum", 0.0) + float(fip_val) * weight
+        entry["fip_ip_weighted"] = entry.get("fip_ip_weighted", 0.0) + weight
+        entry["fip_ip_total"] = entry.get("fip_ip_total", 0.0) + ip
+        if lg_fip is not None:
+            entry["lg_fip_weighted_sum"] = entry.get("lg_fip_weighted_sum", 0.0) + float(lg_fip) * weight
+
+    for entry in metrics.values():
+        ops_weight = entry.get("ops_plus_pa_weighted", 0.0)
+        if ops_weight:
+            entry["ops_plus_weighted"] = entry.get("ops_plus_weighted_sum", 0.0) / ops_weight
+        fip_weight = entry.get("fip_ip_weighted", 0.0)
+        if fip_weight:
+            entry["fip_weighted"] = entry.get("fip_weighted_sum", 0.0) / fip_weight
+            if entry.get("lg_fip_weighted_sum") is not None:
+                entry["lg_fip_weighted"] = entry.get("lg_fip_weighted_sum", 0.0) / fip_weight
+
+    conn.close()
+    return metrics
 
 
 def build_status_t(
@@ -1015,6 +1184,7 @@ def build_snapshot_players(
     contracts = load_contracts(contract_path)
     service_time = load_service_time(db_path)
     usage_stats = load_usage_stats(db_path, [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1])
+    metric_history = load_metric_history(db_path, snapshot_year - 1, config)
     positions = load_positions_map(REPO_ROOT / "backend" / "player_positions_fixture.json")
 
     players: list[dict[str, Any]] = []
@@ -1044,6 +1214,7 @@ def build_snapshot_players(
                 "gs_share": gs_share,
                 "service_time": service_record,
                 "position": positions.get(mlbam_id),
+                "metric_history": metric_history.get(mlbam_id, {}),
             }
         )
     return players
@@ -1154,26 +1325,26 @@ def build_player_output(
         usage_prior,
         k_u,
     )
-    window_seasons = [snapshot_year - 3, snapshot_year - 2, snapshot_year - 1]
-    window_usage = {season: usage.get(season, {}) for season in window_seasons}
+    metric_history = player.get("metric_history", {}) or {}
     war_rate_war = projection.rate_post
     war_rate_post_final = war_rate_war
     metric_adjustment_raw = 0.0
     metric_adjustment_clamped = 0.0
-    ops_plus_3yr = None
-    fip_3yr = None
-    lg_fip_3yr = None
+    ops_plus_weighted = None
+    fip_weighted = None
+    lg_fip_weighted = None
     fip_delta = None
 
     if config.metric_enabled:
         if projection_role in {"SP", "RP"}:
-            fip_3yr, ip_total_metric = weighted_metric_avg(window_usage, "fip", "ip")
-            lg_fip_3yr, _ = weighted_metric_avg(window_usage, "lg_fip", "ip")
+            fip_weighted = metric_history.get("fip_weighted")
+            lg_fip_weighted = metric_history.get("lg_fip_weighted")
+            ip_total_metric = metric_history.get("fip_ip_total", 0.0)
             if ip_total_metric < config.min_fip_ip_total:
-                fip_3yr = None
-                lg_fip_3yr = None
-            if fip_3yr is not None and lg_fip_3yr is not None:
-                fip_delta = lg_fip_3yr - fip_3yr
+                fip_weighted = None
+                lg_fip_weighted = None
+            if fip_weighted is not None and lg_fip_weighted is not None:
+                fip_delta = lg_fip_weighted - fip_weighted
                 metric_adjustment_raw = config.fip_coef * fip_delta
                 metric_adjustment_clamped = clamp_metric_adjustment(
                     metric_adjustment_raw,
@@ -1181,11 +1352,12 @@ def build_player_output(
                     config.metric_cap_pitcher,
                 )
         else:
-            ops_plus_3yr, pa_total_metric = weighted_metric_avg(window_usage, "ops_plus", "pa")
+            ops_plus_weighted = metric_history.get("ops_plus_weighted")
+            pa_total_metric = metric_history.get("ops_plus_pa_total", 0.0)
             if pa_total_metric < config.min_ops_pa_total:
-                ops_plus_3yr = None
-            if ops_plus_3yr is not None:
-                ops_z = ops_plus_3yr - 100.0
+                ops_plus_weighted = None
+            if ops_plus_weighted is not None:
+                ops_z = ops_plus_weighted - 100.0
                 metric_adjustment_raw = config.ops_plus_coef * ops_z
                 metric_adjustment_clamped = clamp_metric_adjustment(
                     metric_adjustment_raw,
@@ -1291,9 +1463,13 @@ def build_player_output(
     components = None
     if config.metric_enabled:
         components = {
-            "ops_plus_3yr": ops_plus_3yr,
-            "fip_3yr": fip_3yr,
-            "lg_fip_3yr": lg_fip_3yr,
+            "ops_plus_career_weighted": ops_plus_weighted,
+            "ops_plus_pa_total": metric_history.get("ops_plus_pa_total"),
+            "ops_plus_pa_weighted": metric_history.get("ops_plus_pa_weighted"),
+            "fip_career_weighted": fip_weighted,
+            "lg_fip_career_weighted": lg_fip_weighted,
+            "fip_ip_total": metric_history.get("fip_ip_total"),
+            "fip_ip_weighted": metric_history.get("fip_ip_weighted"),
             "fip_delta": fip_delta,
             "war_rate_war": war_rate_war,
             "metric_adjustment_raw": metric_adjustment_raw,
@@ -1340,9 +1516,9 @@ def build_player_output(
         tvp_mean=sim_result.mean,
         tvp_std=sim_result.std,
         tvp_risk_adj=risk_adj,
-        ops_plus_3yr=ops_plus_3yr,
-        fip_3yr=fip_3yr,
-        lg_fip_3yr=lg_fip_3yr,
+        ops_plus_career_weighted=ops_plus_weighted,
+        fip_career_weighted=fip_weighted,
+        lg_fip_career_weighted=lg_fip_weighted,
         fip_delta=fip_delta,
         war_rate_war=war_rate_war,
         metric_adjustment_raw=metric_adjustment_raw,
@@ -1508,6 +1684,7 @@ def main() -> None:
         "metric_cap_pitcher": config.metric_cap_pitcher,
         "min_ops_pa_total": config.min_ops_pa_total,
         "min_fip_ip_total": config.min_fip_ip_total,
+        "metric_recent_season_weight": config.metric_recent_season_weight,
     }
     if args.require_service_time and not service_time_ok:
         raise SystemExit(

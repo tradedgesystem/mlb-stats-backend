@@ -82,6 +82,7 @@
     "metric_cap_pitcher": 0.25,
     "min_ops_pa_total": 400,
     "min_fip_ip_total": 80,
+    "metric_recent_season_weight": 1.5,
     "k_rate": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
     "k_usage": { "H": 600, "SP": 180, "RP": 70, "HYB": 120 },
     "rate_prior": { "H": 2.0, "SP": 2.5, "RP": 1.5, "HYB": 2.0 },

@@ -37,9 +37,9 @@ class PlayerOutput:
     ip_window_total: float | None = None
     usage_window_seasons_present: int | None = None
     components: dict[str, Any] | None = None
-    ops_plus_3yr: float | None = None
-    fip_3yr: float | None = None
-    lg_fip_3yr: float | None = None
+    ops_plus_career_weighted: float | None = None
+    fip_career_weighted: float | None = None
+    lg_fip_career_weighted: float | None = None
     fip_delta: float | None = None
     war_rate_war: float | None = None
     metric_adjustment_raw: float | None = None
@@ -64,9 +64,9 @@ def _player_payload(p: PlayerOutput) -> dict[str, Any]:
         "tvp_mean": p.tvp_mean,
         "tvp_std": p.tvp_std,
         "tvp_risk_adj": p.tvp_risk_adj,
-        "ops_plus_3yr": p.ops_plus_3yr,
-        "fip_3yr": p.fip_3yr,
-        "lg_fip_3yr": p.lg_fip_3yr,
+        "ops_plus_career_weighted": p.ops_plus_career_weighted,
+        "fip_career_weighted": p.fip_career_weighted,
+        "lg_fip_career_weighted": p.lg_fip_career_weighted,
         "fip_delta": p.fip_delta,
         "war_rate_war": p.war_rate_war,
         "metric_adjustment_raw": p.metric_adjustment_raw,
@@ -179,9 +179,9 @@ def emit_outputs(
                 "tvp_mean",
                 "tvp_std",
                 "tvp_risk_adj",
-                "ops_plus_3yr",
-                "fip_3yr",
-                "lg_fip_3yr",
+                "ops_plus_career_weighted",
+                "fip_career_weighted",
+                "lg_fip_career_weighted",
                 "fip_delta",
                 "war_rate_war",
                 "metric_adjustment_raw",
@@ -216,9 +216,9 @@ def emit_outputs(
                     "tvp_mean": p.tvp_mean,
                     "tvp_std": p.tvp_std,
                     "tvp_risk_adj": p.tvp_risk_adj,
-                    "ops_plus_3yr": p.ops_plus_3yr,
-                    "fip_3yr": p.fip_3yr,
-                    "lg_fip_3yr": p.lg_fip_3yr,
+                    "ops_plus_career_weighted": p.ops_plus_career_weighted,
+                    "fip_career_weighted": p.fip_career_weighted,
+                    "lg_fip_career_weighted": p.lg_fip_career_weighted,
                     "fip_delta": p.fip_delta,
                     "war_rate_war": p.war_rate_war,
                     "metric_adjustment_raw": p.metric_adjustment_raw,
