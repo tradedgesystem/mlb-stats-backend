@@ -24,16 +24,27 @@ jobs:
         run: python -m pip install -r backend/requirements.txt
 
       - name: Ingest data
-        run: python backend/ingest.py
+        run: python -m backend.ingest
 
       - name: Export snapshots
         run: |
-          python backend/export_snapshot.py --year 2024
-          python backend/export_snapshot.py --year 2025
-          python backend/export_snapshot.py --year 2026
-          python backend/export_snapshot.py --year 2024 --dataset pitching
-          python backend/export_snapshot.py --year 2025 --dataset pitching
-          python backend/export_snapshot.py --year 2026 --dataset pitching
+          python -m backend.export_snapshot --year 2024
+          python -m backend.export_snapshot --year 2025
+          python -m backend.export_snapshot --year 2026
+          python -m backend.export_snapshot --year 2024 --dataset pitching
+          python -m backend.export_snapshot --year 2025 --dataset pitching
+          python -m backend.export_snapshot --year 2026 --dataset pitching
+
+      - name: Backfill missing Statcast hitter metrics
+        run: |
+          python -m backend.enrich_snapshot_statcast --year 2024
+          python -m backend.enrich_snapshot_statcast --year 2025
+          python -m backend.enrich_snapshot_statcast --year 2026
+
+      - name: Export local hitter range snapshots
+        run: |
+          python -m backend.export_range_snapshot --year 2025
+          python -m backend.export_range_snapshot --year 2026
 
       - name: Commit and push if changed
         run: |
