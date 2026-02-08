@@ -84,6 +84,100 @@ REQUIRED_PITCHING = [
 ]
 
 
+def load_existing_season_rows(table_name: str, year: int) -> pd.DataFrame:
+    db_path = Path(__file__).with_name("stats.db")
+    if not db_path.exists():
+        return pd.DataFrame()
+
+    try:
+        with sqlite3.connect(db_path) as conn:
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                (table_name,),
+            ).fetchone()
+            if not exists:
+                return pd.DataFrame()
+            return pd.read_sql_query(
+                f'SELECT * FROM "{table_name}" WHERE season = ?',
+                conn,
+                params=(year,),
+            )
+    except Exception as exc:
+        print(
+            f"Warning: unable to load fallback rows from {table_name} "
+            f"for {year}: {exc}"
+        )
+        return pd.DataFrame()
+
+
+def fetch_bref_with_retries(
+    year: int,
+    *,
+    fetch_fn,
+    label: str,
+    max_attempts: int = 3,
+) -> pd.DataFrame:
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            frame = fetch_fn(year)
+            if isinstance(frame, pd.DataFrame) and not frame.empty:
+                return frame
+            raise ValueError(f"{label} returned no rows")
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            if attempt < max_attempts:
+                wait_seconds = attempt * 2
+                print(
+                    f"{label} fetch failed for {year} "
+                    f"(attempt {attempt}/{max_attempts}): {exc}. "
+                    f"Retrying in {wait_seconds}s..."
+                )
+                time.sleep(wait_seconds)
+            else:
+                print(
+                    f"{label} fetch failed for {year} after {max_attempts} attempts: {exc}"
+                )
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"{label} fetch failed for {year} without an error.")
+
+
+def fetch_season_frame_with_fallback(year: int, kind: str) -> pd.DataFrame:
+    if kind == "batting":
+        label = "Baseball Reference batting stats"
+        fetch_fn = batting_stats_bref
+        table_name = BAT_TABLE_NAME
+    elif kind == "pitching":
+        label = "Baseball Reference pitching stats"
+        fetch_fn = pitching_stats_bref
+        table_name = PITCH_TABLE_NAME
+    else:
+        raise ValueError(f"Unsupported season stats kind: {kind}")
+
+    try:
+        frame = fetch_bref_with_retries(year, fetch_fn=fetch_fn, label=label)
+        source = "baseball_reference"
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"{label} unavailable for {year}: {exc}. "
+            f"Falling back to existing {table_name} rows from stats.db."
+        )
+        frame = load_existing_season_rows(table_name, year)
+        if frame.empty:
+            raise RuntimeError(
+                f"{label} unavailable for {year} and no fallback rows in {table_name}."
+            ) from exc
+        source = "stats_db_fallback"
+
+    frame = frame.copy()
+    frame.columns = normalize_columns(frame.columns.tolist())
+    if "season" not in frame.columns:
+        frame["season"] = year
+    print(f"Loaded {len(frame)} {kind} rows for {year} from {source}.")
+    return frame
+
+
 def add_ops_plus(df: pd.DataFrame) -> pd.DataFrame:
     if "ops_plus" in df.columns and not df["ops_plus"].isna().all():
         return df
@@ -361,17 +455,18 @@ def main() -> None:
     batting_frames = []
     for year in years:
         print(f"Fetching Baseball Reference batting stats for {year} season...")
-        batting_df = batting_stats_bref(year)
-        batting_df.columns = normalize_columns(batting_df.columns.tolist())
-        if "season" not in batting_df.columns:
-            batting_df["season"] = year
+        batting_df = fetch_season_frame_with_fallback(year, "batting")
         batting_frames.append(batting_df)
 
     batting_df = pd.concat(batting_frames, ignore_index=True) if batting_frames else pd.DataFrame()
     
     # Baseball Reference returns 'mlbid' (MLB ID), we need to convert to Fangraphs ID
     # Map MLB IDs to Fangraphs IDs for compatibility with existing code
-    if "mlbid" in batting_df.columns and not batting_df.empty:
+    needs_batting_id_map = (
+        "player_id" not in batting_df.columns
+        or pd.to_numeric(batting_df["player_id"], errors="coerce").isna().all()
+    )
+    if "mlbid" in batting_df.columns and not batting_df.empty and needs_batting_id_map:
         mlb_ids = (
             pd.to_numeric(batting_df["mlbid"], errors="coerce")
             .dropna()
@@ -398,6 +493,10 @@ def main() -> None:
                     batting_df["mlbid"], errors="coerce"
                 )
                 batting_df["idfg"] = batting_df["player_id"]
+    if "player_id" in batting_df.columns:
+        batting_df["player_id"] = pd.to_numeric(batting_df["player_id"], errors="coerce")
+        if "idfg" not in batting_df.columns:
+            batting_df["idfg"] = batting_df["player_id"]
     
     if "player_id" not in batting_df.columns or "idfg" not in batting_df.columns:
         raise ValueError("Missing required player_id/idfg columns from Baseball Reference data.")
@@ -453,16 +552,17 @@ def main() -> None:
     pitching_frames = []
     for year in years:
         print(f"Fetching Baseball Reference pitching stats for {year} season...")
-        pitching_df = pitching_stats_bref(year)
-        pitching_df.columns = normalize_columns(pitching_df.columns.tolist())
-        if "season" not in pitching_df.columns:
-            pitching_df["season"] = year
+        pitching_df = fetch_season_frame_with_fallback(year, "pitching")
         pitching_frames.append(pitching_df)
 
     pitching_df = pd.concat(pitching_frames, ignore_index=True) if pitching_frames else pd.DataFrame()
     
     # Baseball Reference returns 'mlbid' (MLB ID), convert to Fangraphs ID
-    if "mlbid" in pitching_df.columns and not pitching_df.empty:
+    needs_pitching_id_map = (
+        "player_id" not in pitching_df.columns
+        or pd.to_numeric(pitching_df["player_id"], errors="coerce").isna().all()
+    )
+    if "mlbid" in pitching_df.columns and not pitching_df.empty and needs_pitching_id_map:
         mlb_ids = (
             pd.to_numeric(pitching_df["mlbid"], errors="coerce")
             .dropna()
@@ -489,6 +589,12 @@ def main() -> None:
                     pitching_df["mlbid"], errors="coerce"
                 )
                 pitching_df["idfg"] = pitching_df["player_id"]
+    if "player_id" in pitching_df.columns:
+        pitching_df["player_id"] = pd.to_numeric(
+            pitching_df["player_id"], errors="coerce"
+        )
+        if "idfg" not in pitching_df.columns:
+            pitching_df["idfg"] = pitching_df["player_id"]
     
     if "player_id" not in pitching_df.columns or "idfg" not in pitching_df.columns:
         raise ValueError("Missing required player_id/idfg columns from Baseball Reference data.")
