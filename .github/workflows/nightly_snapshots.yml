@@ -35,16 +35,26 @@ jobs:
           python -m backend.export_snapshot --year 2025 --dataset pitching
           python -m backend.export_snapshot --year 2026 --dataset pitching
 
-      - name: Backfill missing Statcast hitter metrics
+      - name: Backfill missing Statcast hitter metrics (best effort)
+        continue-on-error: true
         run: |
-          python -m backend.enrich_snapshot_statcast --year 2024
-          python -m backend.enrich_snapshot_statcast --year 2025
-          python -m backend.enrich_snapshot_statcast --year 2026
+          if [ -f backend/enrich_snapshot_statcast.py ]; then
+            python -m backend.enrich_snapshot_statcast --year 2024
+            python -m backend.enrich_snapshot_statcast --year 2025
+            python -m backend.enrich_snapshot_statcast --year 2026
+          else
+            echo "backend/enrich_snapshot_statcast.py not found; skipping backfill."
+          fi
 
-      - name: Export local hitter range snapshots
+      - name: Export local hitter range snapshots (best effort)
+        continue-on-error: true
         run: |
-          python -m backend.export_range_snapshot --year 2025
-          python -m backend.export_range_snapshot --year 2026
+          if [ -f backend/export_range_snapshot.py ]; then
+            python -m backend.export_range_snapshot --year 2025
+            python -m backend.export_range_snapshot --year 2026
+          else
+            echo "backend/export_range_snapshot.py not found; skipping range snapshots."
+          fi
 
       - name: Commit and push if changed
         run: |
