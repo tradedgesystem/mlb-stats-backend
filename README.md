@@ -31,6 +31,11 @@ curl "http://127.0.0.1:8000/players?year=2025"
 - API (reload): `python3 -m uvicorn backend.api:app --reload --host 127.0.0.1 --port 8000`
 - Extension: `chrome://extensions` → Developer mode → Load unpacked → select `extension/`
 
-If the extension cannot fetch, confirm the API is running and check the browser
-console for CORS errors. The API includes local-dev CORS allowances for
-`http://127.0.0.1:8000`, `http://localhost:8000`, and `chrome-extension://*`.
+The extension fetches CDN snapshots first (with periodic cache-busting) and
+falls back to bundled snapshots if CDN fetches fail. A local API is not
+required for normal extension usage.
+
+Nightly automation is configured to refresh 2026 snapshots only
+(`players_2026.json`, `pitchers_2026.json`, and `range_hitters_2026.json`).
+`trade_values_latest.json` is intentionally manual; rebuild it only when needed:
+`python3 scripts/build_extension_trade_values.py` and then commit/push.
